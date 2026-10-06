@@ -17,12 +17,12 @@ import {
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { MAX_DAYS_PER_WEEK, type Muscle, type ScheduleMode } from '@mesocycle/shared';
+import { MAX_CYCLE_DAYS, MIN_CYCLE_DAYS, WEEK_DAYS } from '@mesocycle/shared';
 import { useState } from 'react';
 import { dayIdFromDropId, describeMove, isDayDropId, resolveDrop } from '../../lib/builder/drop';
 import { keyboardTarget, type ArrowKey } from '../../lib/builder/keyboard-targets';
 import { findSlot } from '../../lib/builder/reducer';
-import type { BuilderDay, BuilderSlot, BuilderState } from '../../lib/builder/types';
+import type { BuilderDay, BuilderState } from '../../lib/builder/types';
 import { Button } from '../ui/Button';
 import { CardPreview } from './CardPreview';
 import { DroppableDayColumn } from './DroppableDayColumn';
@@ -31,7 +31,6 @@ import type { BoardHandlers } from './types';
 
 type Props = {
   state: BuilderState;
-  mode: ScheduleMode;
   weightUnit: string;
   handlers: BoardHandlers;
   focusDayId: string | null;
@@ -63,13 +62,13 @@ const collisionDetection: CollisionDetection = (args) => {
 // The horizontal board: day columns side by side in an overflow-x container with scroll-snap.
 // Only this container scrolls sideways; the page body never does. dnd-kit auto-scrolls it when a
 // dragged card nears the left or right edge.
-export function Board({ state, mode, weightUnit, handlers, focusDayId, onFocusHandled }: Props) {
+export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overDayId, setOverDayId] = useState<string | null>(null);
-  const takenWeekdays = new Set(state.days.flatMap((d) => (d.weekday === null ? [] : [d.weekday])));
+  const numbered = state.mode === 'relative';
 
   // Arrow keys move the dragged card through the targets chosen by keyboardTarget(): up/down within
-  // its section, left/right to the neighbouring day.
+  // the day, left/right to the neighbouring day.
   const keyboardCoordinates: KeyboardCoordinateGetter = (event, { context: { active, over, droppableRects } }) => {
     if (!ARROWS.includes(event.code)) return undefined;
     event.preventDefault();
@@ -126,23 +125,21 @@ export function Board({ state, mode, weightUnit, handlers, focusDayId, onFocusHa
     setOverDayId(null);
     if (!over) return;
     const action = resolveDrop(state, String(active.id), String(over.id));
-    if (action) handlers.onMoveSlot(action.slotId, action.toDayId, action.toMuscle, action.beforeSlotId);
+    if (action) handlers.onMoveSlot(action.slotId, action.toDayId, action.beforeSlotId);
   }
 
-  function renderCards(day: BuilderDay, _muscle: Muscle, slots: BuilderSlot[]) {
+  function renderCards(day: BuilderDay) {
     return (
-      <SortableContext items={slots.map((slot) => slot.id)} strategy={verticalListSortingStrategy}>
-        {slots.map((slot, index) => (
+      <SortableContext items={day.slots.map((slot) => slot.id)} strategy={verticalListSortingStrategy}>
+        {day.slots.map((slot, index) => (
           <SortableExerciseCard
             key={slot.id}
             slot={slot}
             isFirst={index === 0}
-            isLast={index === slots.length - 1}
-            otherDays={state.days.filter((d) => d.id !== day.id).map((d) => ({ id: d.id, name: d.name }))}
+            isLast={index === day.slots.length - 1}
             weightUnit={weightUnit}
             onUpdate={(patch) => handlers.onUpdateSlot(slot.id, patch)}
             onStep={(direction) => handlers.onStepSlot(slot.id, direction)}
-            onMoveToDay={(dayId) => handlers.onMoveSlotToDay(slot.id, dayId)}
             onRemove={() => handlers.onRemoveSlot(slot.id)}
           />
         ))}
@@ -151,51 +148,73 @@ export function Board({ state, mode, weightUnit, handlers, focusDayId, onFocusHa
   }
 
   return (
-    <DndContext
-      id="board-dnd"
-      sensors={sensors}
-      collisionDetection={collisionDetection}
-      accessibility={{ announcements }}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      onDragCancel={() => {
-        setActiveId(null);
-        setOverDayId(null);
-      }}
-    >
-      <div
-        role="region"
-        aria-label="Training days board"
-        tabIndex={0}
-        data-testid="board"
-        // Scroll snapping is switched off while dragging: it would snap every small auto-scroll step back.
-        className={`flex items-start gap-4 overflow-x-auto px-4 pb-6 pt-4 ${activeId ? 'snap-none' : 'snap-x snap-proximity'}`}
-      >
-        {state.days.map((day) => (
-          <DroppableDayColumn
-            key={day.id}
-            day={day}
-            dayCount={state.days.length}
-            mode={mode}
-            takenWeekdays={takenWeekdays}
-            priorities={state.priorities}
-            handlers={handlers}
-            renderCards={renderCards}
-            focusName={focusDayId === day.id}
-            onFocusNameHandled={onFocusHandled}
-            highlighted={overDayId === day.id}
+    <div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-3 text-sm">
+        <label className="flex items-center gap-2 text-graphite-200">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-aqua-500"
+            checked={numbered}
+            // Weekday names need exactly 7 days, so going back to them is only possible then.
+            disabled={numbered && state.days.length !== WEEK_DAYS}
+            onChange={(e) => handlers.onSetNumbered(e.target.checked)}
           />
-        ))}
-        {state.days.length < MAX_DAYS_PER_WEEK && (
-          <div className="w-[85vw] max-w-sm shrink-0 snap-start sm:w-80">
-            <Button className="w-full border-dashed py-6" onClick={handlers.onAddDay}>
-              + Add day
-            </Button>
-          </div>
-        )}
+          Number the days (Day 1, Day 2, …)
+        </label>
+        <span className="text-xs text-graphite-400">
+          {numbered && state.days.length !== WEEK_DAYS
+            ? `Weekday names need exactly ${WEEK_DAYS} days.`
+            : 'Days without exercises are rest days.'}
+        </span>
       </div>
-      <DragOverlay>{activeSlot ? <CardPreview slot={activeSlot} /> : null}</DragOverlay>
-    </DndContext>
+
+      <DndContext
+        id="board-dnd"
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        accessibility={{ announcements }}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => {
+          setActiveId(null);
+          setOverDayId(null);
+        }}
+      >
+        <div
+          role="region"
+          aria-label="Training days board"
+          tabIndex={0}
+          data-testid="board"
+          // Scroll snapping is switched off while dragging: it would snap every small auto-scroll step back.
+          className={`flex items-start gap-4 overflow-x-auto px-4 pb-6 pt-3 ${activeId ? 'snap-none' : 'snap-x snap-proximity'}`}
+        >
+          {state.days.map((day) => (
+            <DroppableDayColumn
+              key={day.id}
+              day={day}
+              copyTargets={state.days.filter((d) => d.id !== day.id).map((d) => ({ id: d.id, name: d.name }))}
+              canDuplicate={numbered && state.days.length < MAX_CYCLE_DAYS}
+              canRemove={numbered && state.days.length > MIN_CYCLE_DAYS}
+              handlers={handlers}
+              focusName={focusDayId === day.id}
+              onFocusNameHandled={onFocusHandled}
+              highlighted={overDayId === day.id}
+            >
+              {renderCards(day)}
+            </DroppableDayColumn>
+          ))}
+          {state.days.length < MAX_CYCLE_DAYS && (
+            <div className="w-[85vw] max-w-sm shrink-0 snap-start sm:w-80">
+              <Button className="w-full border-dashed py-6" onClick={handlers.onAddDay}>
+                + Add day
+              </Button>
+              {!numbered && <p className="mt-2 px-1 text-xs text-graphite-400">Adding an 8th day switches to numbered days.</p>}
+            </div>
+          )}
+        </div>
+        <DragOverlay>{activeSlot ? <CardPreview slot={activeSlot} /> : null}</DragOverlay>
+      </DndContext>
+    </div>
   );
 }

@@ -35,19 +35,19 @@ export function Dialog({ open, title, onClose, children, side = false }: Props) 
       onClick={(event) => {
         if (event.target === ref.current) onClose();
       }}
-      className={`${placement} bg-white p-0 text-slate-900 shadow-xl`}
+      className={`${placement} border border-graphite-700 bg-graphite-900 p-0 text-graphite-50 shadow-2xl`}
     >
       {open && (
         <div className="flex max-h-dvh flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-graphite-800 px-4 py-3">
             <h2 id={titleId} className="text-lg font-semibold">
               {title}
             </h2>
-            <button type="button" aria-label="Close dialog" onClick={onClose} className="rounded p-1 text-slate-600 hover:bg-slate-100">
+            <button type="button" aria-label="Close dialog" onClick={onClose} className="rounded p-1 text-graphite-300 hover:bg-graphite-800">
               ✕
             </button>
           </div>
-          <div className="overflow-y-auto p-4">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
         </div>
       )}
     </dialog>

@@ -3,35 +3,35 @@ import {
   DEFAULT_REP_RANGE_MIN,
   DEFAULT_RIR,
   DEFAULT_SLOT_SETS,
-  MAX_DAYS_PER_WEEK,
+  MAX_CYCLE_DAYS,
+  MIN_CYCLE_DAYS,
+  WEEK_DAYS,
   type Exercise,
-  type Muscle,
-  type Priority,
 } from '@mesocycle/shared';
-import { newId } from './ids';
+import { autoDayName, defaultCopyName, isAutoDayName } from '../days';
 import type { BuilderDay, BuilderSlot, BuilderState, SlotMetrics } from './types';
 
 export type BuilderAction =
   | { type: 'hydrate'; state: BuilderState }
   | { type: 'addDay'; dayId: string }
   | { type: 'removeDay'; dayId: string }
+  | { type: 'clearDay'; dayId: string }
   | { type: 'renameDay'; dayId: string; name: string }
-  | { type: 'setWeekday'; dayId: string; weekday: number | null }
-  | { type: 'addMuscle'; dayId: string; muscle: Muscle }
-  | { type: 'removeMuscle'; dayId: string; muscle: Muscle }
-  | { type: 'addSlot'; dayId: string; muscle: Muscle; exercise: Exercise; slotId: string }
+  | { type: 'setNumbered'; numbered: boolean }
+  | { type: 'addSlots'; dayId: string; items: { slotId: string; exercise: Exercise }[] }
   | { type: 'removeSlot'; slotId: string }
   | { type: 'updateSlot'; slotId: string; patch: Partial<SlotMetrics> }
   | { type: 'stepSlot'; slotId: string; direction: 'up' | 'down' }
-  | { type: 'moveSlot'; slotId: string; toDayId: string; toMuscle: Muscle; beforeSlotId: string | null }
-  | { type: 'setPriority'; muscle: Muscle; priority: Priority };
+  | { type: 'moveSlot'; slotId: string; toDayId: string; beforeSlotId: string | null }
+  // Copies a day's exercises into another day, or (targetDayId null) into a new day right after it.
+  | { type: 'copyDay'; sourceDayId: string; targetDayId: string | null; newDayId: string; slotIds: string[] };
 
-export const EMPTY_STATE: BuilderState = { days: [], priorities: {} };
+export const EMPTY_STATE: BuilderState = { mode: 'calendar', days: [], priorities: {} };
 
-export function createSlot(exercise: Exercise, muscle: Muscle, id: string = newId()): BuilderSlot {
+export function createSlot(exercise: Exercise, id: string): BuilderSlot {
   return {
     id,
-    muscle,
+    muscle: exercise.primary_muscle,
     exercise,
     sets: DEFAULT_SLOT_SETS,
     repMin: DEFAULT_REP_RANGE_MIN,
@@ -39,10 +39,6 @@ export function createSlot(exercise: Exercise, muscle: Muscle, id: string = newI
     rir: DEFAULT_RIR,
     weight: null,
   };
-}
-
-export function createDay(id: string, name: string): BuilderDay {
-  return { id, name, weekday: null, muscles: [], slots: [] };
 }
 
 export function findSlot(state: BuilderState, slotId: string): { day: BuilderDay; slot: BuilderSlot } | null {
@@ -53,61 +49,68 @@ export function findSlot(state: BuilderState, slotId: string): { day: BuilderDay
   return null;
 }
 
-// Slots of one section, in the day's global order.
-export function sectionSlots(day: BuilderDay, muscle: Muscle): BuilderSlot[] {
-  return day.slots.filter((slot) => slot.muscle === muscle);
+// Keeps generated names and weekdays in step with mode and position. Names the user typed stay.
+export function relabel(state: BuilderState): BuilderState {
+  return {
+    ...state,
+    days: state.days.map((day, index) => ({
+      ...day,
+      weekday: state.mode === 'calendar' ? index : null,
+      name: isAutoDayName(day.name) ? autoDayName(state.mode, index) : day.name,
+    })),
+  };
 }
 
 function mapDay(state: BuilderState, dayId: string, update: (day: BuilderDay) => BuilderDay): BuilderState {
   return { ...state, days: state.days.map((day) => (day.id === dayId ? update(day) : day)) };
 }
 
-function withMuscle(day: BuilderDay, muscle: Muscle): BuilderDay {
-  return day.muscles.includes(muscle) ? day : { ...day, muscles: [...day.muscles, muscle] };
+function mapSlots(state: BuilderState, update: (slots: BuilderSlot[]) => BuilderSlot[]): BuilderState {
+  return { ...state, days: state.days.map((day) => ({ ...day, slots: update(day.slots) })) };
 }
 
-function moveSlot(
-  state: BuilderState,
-  slotId: string,
-  toDayId: string,
-  toMuscle: Muscle,
-  beforeSlotId: string | null,
-): BuilderState {
+function moveSlot(state: BuilderState, slotId: string, toDayId: string, beforeSlotId: string | null): BuilderState {
   const found = findSlot(state, slotId);
-  const target = state.days.find((day) => day.id === toDayId);
-  if (!found || !target || beforeSlotId === slotId) return state;
-
-  const moved: BuilderSlot = { ...found.slot, muscle: toMuscle };
-  const withoutSlot = state.days.map((day) =>
-    day.id === found.day.id ? { ...day, slots: day.slots.filter((s) => s.id !== slotId) } : day,
-  );
-
-  return {
-    ...state,
-    days: withoutSlot.map((day) => {
-      if (day.id !== toDayId) return day;
-      const slots = [...day.slots];
-      const index = beforeSlotId === null ? -1 : slots.findIndex((s) => s.id === beforeSlotId);
-      slots.splice(index === -1 ? slots.length : index, 0, moved);
-      return withMuscle({ ...day, slots }, toMuscle);
-    }),
-  };
+  if (!found || beforeSlotId === slotId || !state.days.some((d) => d.id === toDayId)) return state;
+  const withoutSlot = mapSlots(state, (slots) => slots.filter((s) => s.id !== slotId));
+  return mapDay(withoutSlot, toDayId, (day) => {
+    const slots = [...day.slots];
+    const index = beforeSlotId === null ? -1 : slots.findIndex((s) => s.id === beforeSlotId);
+    slots.splice(index === -1 ? slots.length : index, 0, found.slot);
+    return { ...day, slots };
+  });
 }
 
-// Swaps a slot with its previous/next sibling in the same section. Positions held by other
-// sections stay put, so the day's global order only changes between the two swapped slots.
 function stepSlot(state: BuilderState, slotId: string, direction: 'up' | 'down'): BuilderState {
   const found = findSlot(state, slotId);
   if (!found) return state;
-  const siblings = sectionSlots(found.day, found.slot.muscle);
-  const at = siblings.findIndex((s) => s.id === slotId);
-  const other = siblings[direction === 'up' ? at - 1 : at + 1];
-  if (!other) return state;
+  const from = found.day.slots.findIndex((s) => s.id === slotId);
+  const to = direction === 'up' ? from - 1 : from + 1;
+  if (to < 0 || to >= found.day.slots.length) return state;
+  return mapDay(state, found.day.id, (day) => {
+    const slots = [...day.slots];
+    [slots[from], slots[to]] = [slots[to] as BuilderSlot, slots[from] as BuilderSlot];
+    return { ...day, slots };
+  });
+}
 
-  return mapDay(state, found.day.id, (day) => ({
-    ...day,
-    slots: day.slots.map((slot) => (slot.id === slotId ? other : slot.id === other.id ? found.slot : slot)),
-  }));
+function copyDay(state: BuilderState, action: Extract<BuilderAction, { type: 'copyDay' }>): BuilderState {
+  const sourceIndex = state.days.findIndex((d) => d.id === action.sourceDayId);
+  const source = state.days[sourceIndex];
+  if (!source || action.slotIds.length !== source.slots.length) return state;
+  const copies = source.slots.map((slot, i) => ({ ...slot, id: action.slotIds[i] as string }));
+
+  if (action.targetDayId !== null) {
+    if (action.targetDayId === source.id) return state;
+    return mapDay(state, action.targetDayId, (day) => ({ ...day, slots: [...day.slots, ...copies] }));
+  }
+
+  // A new day only fits numbered cycles below the 10-day limit.
+  if (state.mode === 'calendar' || state.days.length >= MAX_CYCLE_DAYS) return state;
+  const name = isAutoDayName(source.name) ? `Day ${sourceIndex + 2}` : defaultCopyName(source.name);
+  const days = [...state.days];
+  days.splice(sourceIndex + 1, 0, { id: action.newDayId, name, weekday: null, slots: copies });
+  return relabel({ ...state, days });
 }
 
 export function builderReducer(state: BuilderState, action: BuilderAction): BuilderState {
@@ -116,59 +119,48 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       return action.state;
 
     case 'addDay': {
-      if (state.days.length >= MAX_DAYS_PER_WEEK) return state;
-      return { ...state, days: [...state.days, createDay(action.dayId, `Day ${state.days.length + 1}`)] };
+      if (state.days.length >= MAX_CYCLE_DAYS) return state;
+      // A Mon-Sun week is always full, so adding a day switches the cycle to numbered days.
+      const days = [...state.days, { id: action.dayId, name: `Day ${state.days.length + 1}`, weekday: null, slots: [] }];
+      return relabel({ ...state, mode: 'relative', days });
     }
 
     case 'removeDay': {
-      if (state.days.length <= 1) return state;
-      return { ...state, days: state.days.filter((day) => day.id !== action.dayId) };
+      // A Mon-Sun week always has 7 days; clear a day instead to make it a rest day.
+      if (state.mode === 'calendar' || state.days.length <= MIN_CYCLE_DAYS) return state;
+      return relabel({ ...state, days: state.days.filter((day) => day.id !== action.dayId) });
     }
+
+    case 'clearDay':
+      return mapDay(state, action.dayId, (day) => ({ ...day, slots: [] }));
 
     case 'renameDay':
       return mapDay(state, action.dayId, (day) => ({ ...day, name: action.name }));
 
-    case 'setWeekday':
-      return mapDay(state, action.dayId, (day) => ({ ...day, weekday: action.weekday }));
+    case 'setNumbered': {
+      if (!action.numbered && state.days.length !== WEEK_DAYS) return state;
+      return relabel({ ...state, mode: action.numbered ? 'relative' : 'calendar' });
+    }
 
-    case 'addMuscle':
-      return mapDay(state, action.dayId, (day) => withMuscle(day, action.muscle));
-
-    case 'removeMuscle':
+    case 'addSlots':
       return mapDay(state, action.dayId, (day) => ({
         ...day,
-        muscles: day.muscles.filter((m) => m !== action.muscle),
-        slots: day.slots.filter((s) => s.muscle !== action.muscle),
-      }));
-
-    case 'addSlot':
-      return mapDay(state, action.dayId, (day) => ({
-        ...withMuscle(day, action.muscle),
-        slots: [...day.slots, createSlot(action.exercise, action.muscle, action.slotId)],
+        slots: [...day.slots, ...action.items.map((item) => createSlot(item.exercise, item.slotId))],
       }));
 
     case 'removeSlot':
-      return {
-        ...state,
-        days: state.days.map((day) => ({ ...day, slots: day.slots.filter((s) => s.id !== action.slotId) })),
-      };
+      return mapSlots(state, (slots) => slots.filter((s) => s.id !== action.slotId));
 
     case 'updateSlot':
-      return {
-        ...state,
-        days: state.days.map((day) => ({
-          ...day,
-          slots: day.slots.map((s) => (s.id === action.slotId ? { ...s, ...action.patch } : s)),
-        })),
-      };
+      return mapSlots(state, (slots) => slots.map((s) => (s.id === action.slotId ? { ...s, ...action.patch } : s)));
 
     case 'stepSlot':
       return stepSlot(state, action.slotId, action.direction);
 
     case 'moveSlot':
-      return moveSlot(state, action.slotId, action.toDayId, action.toMuscle, action.beforeSlotId);
+      return moveSlot(state, action.slotId, action.toDayId, action.beforeSlotId);
 
-    case 'setPriority':
-      return { ...state, priorities: { ...state.priorities, [action.muscle]: action.priority } };
+    case 'copyDay':
+      return copyDay(state, action);
   }
 }

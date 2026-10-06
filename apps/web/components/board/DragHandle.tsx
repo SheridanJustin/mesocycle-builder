@@ -10,7 +10,7 @@ export function DragHandle({ exerciseName, handleRef, className = '', ...rest }:
       ref={handleRef}
       type="button"
       aria-label={`Drag ${exerciseName}`}
-      className={`mt-0.5 cursor-grab touch-none rounded px-1 text-lg leading-none text-slate-600 hover:bg-slate-100 active:cursor-grabbing ${className}`}
+      className={`mt-0.5 cursor-grab touch-none rounded px-1 text-lg leading-none text-graphite-300 hover:bg-graphite-700 active:cursor-grabbing ${className}`}
       {...rest}
     >
       <span aria-hidden="true">⠿</span>

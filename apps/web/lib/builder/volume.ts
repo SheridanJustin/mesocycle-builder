@@ -25,9 +25,7 @@ export function computeBuilderVolume(state: BuilderState, landmarks: Landmarks):
       return { exerciseId: slot.exercise.id, sets: slot.sets, dayId: day.id };
     }),
   );
-  return computeVolume(slots, exercises, landmarks, state.priorities, {
-    assignedMuscles: state.days.flatMap((day) => day.muscles),
-  });
+  return computeVolume(slots, exercises, landmarks, state.priorities);
 }
 
 export type Contribution = { dayName: string; exerciseName: string; sets: number; role: 'primary' | 'secondary' };

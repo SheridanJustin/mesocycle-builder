@@ -1,4 +1,4 @@
-import type { Equipment, Muscle, Priority, VolumeStatus } from '@mesocycle/shared';
+import type { Equipment, Muscle, VolumeStatus } from '@mesocycle/shared';
 
 function humanize(value: string): string {
   const text = value.replace(/_/g, ' ');
@@ -7,7 +7,6 @@ function humanize(value: string): string {
 
 export const muscleLabel = (muscle: Muscle): string => humanize(muscle);
 export const equipmentLabel = (equipment: Equipment): string => humanize(equipment);
-export const priorityLabel = (priority: Priority): string => humanize(priority);
 
 // Text for every color state, so color is never the only signal (SPEC 10.5).
 export const STATUS_LABEL: Record<VolumeStatus, string> = {

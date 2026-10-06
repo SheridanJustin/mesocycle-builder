@@ -2,10 +2,9 @@ import type { MuscleVolume } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
 import { formatSets, rangeGeometry } from './range-geometry';
 
-const chest: Pick<MuscleVolume, 'exact_total_sets' | 'landmarks' | 'target_band'> = {
+const chest: Pick<MuscleVolume, 'exact_total_sets' | 'landmarks'> = {
   exact_total_sets: 12,
   landmarks: { mv: 8, mev: 10, mav_low: 12, mav_high: 20, mrv: 22 },
-  target_band: { low: 16, high: 20 },
 };
 
 describe('rangeGeometry', () => {
@@ -22,11 +21,10 @@ describe('rangeGeometry', () => {
     expect(rangeGeometry(chest).marks.map((m) => m.label)).toEqual(['MV', 'MEV', 'MAV low', 'MAV high', 'MRV']);
   });
 
-  it('positions the value and the target band on the same scale', () => {
+  it('positions the value on the same scale as the marks', () => {
     const g = rangeGeometry(chest);
     expect(g.valuePct).toBeCloseTo((12 / g.scaleMax) * 100);
-    expect(g.bandLeftPct).toBeCloseTo((16 / g.scaleMax) * 100);
-    expect(g.bandWidthPct).toBeCloseTo(((20 - 16) / g.scaleMax) * 100);
+    expect(g.valuePct).toBe(g.marks.find((m) => m.key === 'mav_low')?.pct);
   });
 
   it('extends the scale when the total exceeds MRV', () => {
@@ -37,10 +35,9 @@ describe('rangeGeometry', () => {
   });
 
   it('handles a zero total and all-zero landmarks without NaN', () => {
-    const zero = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 0, mav_low: 0, mav_high: 0, mrv: 0 }, target_band: { low: 0, high: 0 } });
+    const zero = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 0, mav_low: 0, mav_high: 0, mrv: 0 } });
     expect(zero.valuePct).toBe(0);
     expect(Number.isNaN(zero.scaleMax)).toBe(false);
-    expect(zero.bandWidthPct).toBe(0);
   });
 });
 

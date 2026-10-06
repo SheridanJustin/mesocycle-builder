@@ -1,15 +1,18 @@
 'use client';
 
 import type { MesocycleSummary } from '@mesocycle/shared';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../lib/api-client';
+import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { MesocycleList } from './MesocycleList';
 
 export function MesocycleListContainer() {
+  const router = useRouter();
   const [items, setItems] = useState<MesocycleSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<MesocycleSummary | null>(null);
 
   const load = useCallback(async () => {
@@ -24,6 +27,19 @@ export function MesocycleListContainer() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // No form: a new block starts as an untitled 4-week Mon-Sun draft; name and duration live on Review.
+  async function createNew() {
+    setCreating(true);
+    setError(null);
+    try {
+      const created = await api.createMesocycle({});
+      router.push(`/mesocycles/${created.id}/build`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create the mesocycle');
+      setCreating(false);
+    }
+  }
 
   async function confirmDelete() {
     if (!pendingDelete) return;
@@ -41,16 +57,16 @@ export function MesocycleListContainer() {
     <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Mesocycles</h1>
-        <Link href="/mesocycles/new" className="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-800">
-          New mesocycle
-        </Link>
+        <Button variant="primary" onClick={() => void createNew()} disabled={creating}>
+          {creating ? 'Creating…' : 'New mesocycle'}
+        </Button>
       </div>
       {error && (
-        <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-900">
+        <p role="alert" className="mb-4 rounded-md border border-snow-700 bg-snow-900 p-3 text-sm text-snow-100">
           {error}
         </p>
       )}
-      {items === null && !error && <p className="text-slate-600">Loading…</p>}
+      {items === null && !error && <p className="text-graphite-300">Loading…</p>}
       {items && <MesocycleList items={items} onDelete={setPendingDelete} />}
       <ConfirmDialog
         open={pendingDelete !== null}

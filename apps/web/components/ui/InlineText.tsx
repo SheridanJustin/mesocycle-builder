@@ -37,7 +37,7 @@ export function InlineText({ value, onCommit, ariaLabel, maxLength = 50, classNa
           e.currentTarget.blur();
         }
       }}
-      className={`rounded-md border border-transparent bg-transparent px-2 py-1 hover:border-slate-300 focus:border-slate-400 focus:bg-white ${className}`}
+      className={`rounded-md border border-transparent bg-transparent px-2 py-1 text-graphite-50 hover:border-graphite-700 focus:border-aqua-500 focus:bg-graphite-950 ${className}`}
     />
   );
 }

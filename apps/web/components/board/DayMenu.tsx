@@ -5,16 +5,21 @@ import { Button } from '../ui/Button';
 
 type Props = {
   dayName: string;
-  canDelete: boolean;
+  hasExercises: boolean;
+  // Other days the exercises can be copied into.
+  copyTargets: { id: string; name: string }[];
   canDuplicate: boolean;
+  canRemove: boolean;
+  onCopyTo: (dayId: string) => void;
   onDuplicate: () => void;
   onRename: () => void;
-  onDelete: () => void;
+  onClear: () => void;
+  onRemove: () => void;
 };
 
-const item = 'block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-100 disabled:text-slate-400';
+const item = 'block w-full px-3 py-1.5 text-left text-sm text-graphite-100 hover:bg-graphite-700 disabled:text-graphite-600';
 
-export function DayMenu({ dayName, canDelete, canDuplicate, onDuplicate, onRename, onDelete }: Props) {
+export function DayMenu({ dayName, hasExercises, copyTargets, canDuplicate, canRemove, onCopyTo, onDuplicate, onRename, onClear, onRemove }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -43,16 +48,43 @@ export function DayMenu({ dayName, canDelete, canDuplicate, onDuplicate, onRenam
         ⋯
       </Button>
       {open && (
-        <div role="menu" aria-label={`${dayName} actions`} className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-          <button role="menuitem" type="button" className={item} disabled={!canDuplicate} onClick={() => choose(onDuplicate)}>
-            Duplicate
-          </button>
+        <div
+          role="menu"
+          aria-label={`${dayName} actions`}
+          className="absolute right-0 z-20 mt-1 max-h-96 w-52 overflow-y-auto rounded-md border border-graphite-700 bg-graphite-800 py-1 shadow-xl"
+        >
           <button role="menuitem" type="button" className={item} onClick={() => choose(onRename)}>
             Rename
           </button>
-          <button role="menuitem" type="button" className={`${item} text-red-800`} disabled={!canDelete} onClick={() => choose(onDelete)}>
-            Delete
-          </button>
+          {hasExercises && canDuplicate && (
+            <button role="menuitem" type="button" className={item} onClick={() => choose(onDuplicate)}>
+              Duplicate as new day
+            </button>
+          )}
+          {hasExercises && copyTargets.length > 0 && (
+            <div role="group" aria-label="Copy exercises to" className="border-t border-graphite-700 pt-1">
+              <p className="px-3 py-1 text-xs uppercase tracking-wide text-graphite-400">Copy exercises to</p>
+              {copyTargets.map((target) => (
+                <button key={target.id} role="menuitem" type="button" className={item} onClick={() => choose(() => onCopyTo(target.id))}>
+                  {target.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {(hasExercises || canRemove) && (
+            <div className="border-t border-graphite-700 pt-1">
+              {hasExercises && (
+                <button role="menuitem" type="button" className={`${item} text-snow-300`} onClick={() => choose(onClear)}>
+                  Clear (make rest day)
+                </button>
+              )}
+              {canRemove && (
+                <button role="menuitem" type="button" className={`${item} text-snow-300`} onClick={() => choose(onRemove)}>
+                  Remove day
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

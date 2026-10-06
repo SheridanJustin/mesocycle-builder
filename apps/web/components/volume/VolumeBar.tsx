@@ -23,7 +23,7 @@ export function VolumeBar({ volume, contributionsFor }: Props) {
   return (
     <div role="region" aria-label="Weekly volume by muscle" data-testid="volume-bar">
       {entries.length === 0 ? (
-        <p className="py-1 text-xs text-slate-600">Weekly volume per muscle appears here once you add muscle groups.</p>
+        <p className="py-1 text-xs text-graphite-400">Weekly sets per muscle appear here as you add exercises.</p>
       ) : (
         <ul className="flex gap-2 overflow-x-auto py-1">
           {entries.map(([muscle, entry]) => (

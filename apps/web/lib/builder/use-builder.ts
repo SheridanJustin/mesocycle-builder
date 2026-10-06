@@ -1,6 +1,6 @@
 'use client';
 
-import { PutScheduleSchema, type Exercise, type MesocycleDetail, type Muscle, type Priority, type ScheduleMode } from '@mesocycle/shared';
+import { PutScheduleSchema, type Exercise, type MesocycleDetail } from '@mesocycle/shared';
 import type { Landmarks } from '@mesocycle/volume-engine';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { api, ApiClientError } from '../api-client';
@@ -15,7 +15,6 @@ export type BuilderMeta = {
   name: string;
   durationWeeks: number;
   deloadFinalWeek: boolean;
-  scheduleMode: ScheduleMode;
   status: MesocycleDetail['status'];
 };
 
@@ -26,7 +25,6 @@ function metaFrom(detail: MesocycleDetail): BuilderMeta {
     name: detail.name,
     durationWeeks: detail.duration_weeks,
     deloadFinalWeek: detail.deload_final_week,
-    scheduleMode: detail.schedule_mode,
     status: detail.status,
   };
 }
@@ -110,22 +108,32 @@ export function useBuilder(mesocycleId: string) {
 
   const actions = useMemo(
     () => ({
+      setNumbered: (numbered: boolean) => dispatch({ type: 'setNumbered', numbered }),
       addDay: () => dispatch({ type: 'addDay', dayId: newId() }),
       removeDay: (dayId: string) => dispatch({ type: 'removeDay', dayId }),
+      clearDay: (dayId: string) => dispatch({ type: 'clearDay', dayId }),
       renameDay: (dayId: string, name: string) => dispatch({ type: 'renameDay', dayId, name }),
-      setWeekday: (dayId: string, weekday: number | null) => dispatch({ type: 'setWeekday', dayId, weekday }),
-      addMuscle: (dayId: string, muscle: Muscle) => dispatch({ type: 'addMuscle', dayId, muscle }),
-      removeMuscle: (dayId: string, muscle: Muscle) => dispatch({ type: 'removeMuscle', dayId, muscle }),
-      addSlot: (dayId: string, muscle: Muscle, exercise: Exercise) =>
-        dispatch({ type: 'addSlot', dayId, muscle, exercise, slotId: newId() }),
+      addExercises: (dayId: string, exercises: Exercise[]) =>
+        dispatch({ type: 'addSlots', dayId, items: exercises.map((exercise) => ({ slotId: newId(), exercise })) }),
       removeSlot: (slotId: string) => dispatch({ type: 'removeSlot', slotId }),
       updateSlot: (slotId: string, patch: Partial<SlotMetrics>) => dispatch({ type: 'updateSlot', slotId, patch }),
       stepSlot: (slotId: string, direction: 'up' | 'down') => dispatch({ type: 'stepSlot', slotId, direction }),
-      moveSlot: (slotId: string, toDayId: string, toMuscle: Muscle, beforeSlotId: string | null) =>
-        dispatch({ type: 'moveSlot', slotId, toDayId, toMuscle, beforeSlotId }),
-      setPriority: (muscle: Muscle, priority: Priority) => dispatch({ type: 'setPriority', muscle, priority }),
+      moveSlot: (slotId: string, toDayId: string, beforeSlotId: string | null) =>
+        dispatch({ type: 'moveSlot', slotId, toDayId, beforeSlotId }),
     }),
     [dispatch],
+  );
+
+  // Copies a day's exercises into another day, or into a new day right after it (targetDayId null).
+  // Returns the id of the day that received the copy.
+  const copyDay = useCallback(
+    (sourceDayId: string, targetDayId: string | null): string => {
+      const source = state.days.find((d) => d.id === sourceDayId);
+      const newDayId = newId();
+      dispatch({ type: 'copyDay', sourceDayId, targetDayId, newDayId, slotIds: (source?.slots ?? []).map(() => newId()) });
+      return targetDayId ?? newDayId;
+    },
+    [dispatch, state.days],
   );
 
   const updateSettings = useCallback(
@@ -147,33 +155,6 @@ export function useBuilder(mesocycleId: string) {
     [mesocycleId],
   );
 
-  // Duplicate-day works on server ids, so unsaved edits are flushed first and the board is
-  // rebuilt from the server's answer afterwards (the copy appears right of its source).
-  const duplicateDay = useCallback(
-    async (dayId: string): Promise<string | null> => {
-      setNotice(null);
-      const sourceIndex = state.days.findIndex((d) => d.id === dayId);
-      const saved = await controller.current?.flush();
-      const serverDay = lastDetail.current?.days[sourceIndex];
-      if (!saved || sourceIndex === -1 || !serverDay) {
-        setNotice('Could not duplicate the day because the latest changes are not saved yet.');
-        return null;
-      }
-      try {
-        const detail = await api.duplicateDay(mesocycleId, { source_day_id: serverDay.id, target_position: sourceIndex + 2 });
-        lastDetail.current = detail;
-        const next = detailToState(detail);
-        saveRequested.current = false;
-        rawDispatch({ type: 'hydrate', state: next });
-        return next.days[sourceIndex + 1]?.id ?? null;
-      } catch (error) {
-        setNotice(error instanceof Error ? `Could not duplicate the day: ${error.message}` : 'Could not duplicate the day.');
-        return null;
-      }
-    },
-    [mesocycleId, state.days],
-  );
-
   return {
     load,
     meta,
@@ -183,7 +164,7 @@ export function useBuilder(mesocycleId: string) {
     notice,
     actions,
     updateSettings,
-    duplicateDay,
+    copyDay,
     retrySave: () => controller.current?.retry(),
   };
 }

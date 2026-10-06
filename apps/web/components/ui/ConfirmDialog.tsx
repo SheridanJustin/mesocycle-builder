@@ -13,7 +13,7 @@ type Props = {
 export function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, onCancel }: Props) {
   return (
     <Dialog open={open} title={title} onClose={onCancel}>
-      <p className="text-sm text-slate-700">{message}</p>
+      <p className="text-sm text-graphite-200">{message}</p>
       <div className="mt-4 flex justify-end gap-2">
         <Button onClick={onCancel}>Cancel</Button>
         <Button variant="danger" onClick={onConfirm}>

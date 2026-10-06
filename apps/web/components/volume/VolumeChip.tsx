@@ -1,6 +1,6 @@
 import type { Muscle, MuscleVolume } from '@mesocycle/shared';
 import { formatSets } from '../../lib/builder/range-geometry';
-import { muscleLabel, priorityLabel, STATUS_DESCRIPTION, STATUS_LABEL } from '../../lib/labels';
+import { muscleLabel, STATUS_DESCRIPTION, STATUS_LABEL } from '../../lib/labels';
 import { RangeBar } from './RangeBar';
 
 type Props = {
@@ -23,7 +23,7 @@ const STYLE = {
 
 export function chipAriaLabel(muscle: Muscle, entry: MuscleVolume): string {
   const days = entry.weekly_frequency === 1 ? '1 day' : `${entry.weekly_frequency} days`;
-  return `${muscleLabel(muscle)}: ${formatSets(entry.total_sets)} sets per week. Status ${STATUS_LABEL[entry.status]}, ${STATUS_DESCRIPTION[entry.status]}. Trained directly on ${days} per week. ${priorityLabel(entry.priority)} priority.`;
+  return `${muscleLabel(muscle)}: ${formatSets(entry.total_sets)} sets per week. Status ${STATUS_LABEL[entry.status]}, ${STATUS_DESCRIPTION[entry.status]}. Trained directly on ${days} per week.`;
 }
 
 export function VolumeChip({ muscle, entry, expanded, controlsId, onToggle }: Props) {
@@ -37,7 +37,7 @@ export function VolumeChip({ muscle, entry, expanded, controlsId, onToggle }: Pr
       data-testid={`volume-chip-${muscle}`}
       data-status={entry.status}
       data-color={entry.color}
-      className={`w-36 shrink-0 rounded-md border-2 px-2 py-1 text-left ${STYLE[entry.color]} ${expanded ? 'ring-2 ring-slate-800' : ''}`}
+      className={`w-36 shrink-0 rounded-md border-2 px-2 py-1 text-left ${STYLE[entry.color]} ${expanded ? 'ring-2 ring-aqua-400' : ''}`}
     >
       <span className="flex items-baseline justify-between gap-1">
         <span className="truncate text-xs font-semibold">{muscleLabel(muscle)}</span>

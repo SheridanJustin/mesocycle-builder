@@ -1,80 +1,60 @@
 import type { Exercise } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
 import { dayDropId, describeMove, resolveDrop } from './drop';
-import { builderReducer, createDay, createSlot, sectionSlots } from './reducer';
+import { builderReducer, createSlot } from './reducer';
 import type { BuilderState } from './types';
 
-function exercise(id: string, primary: Exercise['primary_muscle'] = 'chest'): Exercise {
-  return { id, name: `Ex ${id}`, primary_muscle: primary, secondary_muscles: [], equipment_type: 'cable', movement_type: 'isolation', is_custom: false };
+function exercise(id: string): Exercise {
+  return { id, name: `Ex ${id}`, primary_muscle: 'chest', secondary_muscles: [], equipment_type: 'cable', movement_type: 'isolation', is_custom: false };
 }
 
-// Day 1: chest [a, c, d] + triceps [b] (global order a, b, c, d). Day 2: chest [e], quads [f]. Day 3: empty.
+// Day 1: a, b, c. Day 2: e. Day 3: rest.
 const state: BuilderState = {
+  mode: 'relative',
   days: [
-    { ...createDay('d1', 'Day 1'), muscles: ['chest', 'triceps'], slots: [createSlot(exercise('a'), 'chest', 'a'), createSlot(exercise('b', 'triceps'), 'triceps', 'b'), createSlot(exercise('c'), 'chest', 'c'), createSlot(exercise('d'), 'chest', 'd')] },
-    { ...createDay('d2', 'Day 2'), muscles: ['chest', 'quads'], slots: [createSlot(exercise('e'), 'chest', 'e'), createSlot(exercise('f', 'quads'), 'quads', 'f')] },
-    createDay('d3', 'Day 3'),
+    { id: 'd1', name: 'Day 1', weekday: null, slots: ['a', 'b', 'c'].map((s) => createSlot(exercise(s), s)) },
+    { id: 'd2', name: 'Day 2', weekday: null, slots: [createSlot(exercise('e'), 'e')] },
+    { id: 'd3', name: 'Day 3', weekday: null, slots: [] },
   ],
   priorities: {},
 };
 
 const order = (s: BuilderState, dayId: string) => s.days.find((d) => d.id === dayId)?.slots.map((x) => x.id);
-const chest = (s: BuilderState) => sectionSlots(s.days[0]!, 'chest').map((x) => x.id);
 const apply = (activeId: string, overId: string) => {
   const action = resolveDrop(state, activeId, overId);
   return action ? builderReducer(state, action) : state;
 };
 
-describe('resolveDrop within a section', () => {
+describe('resolveDrop within a day', () => {
   it('dropping on a card above puts the dragged card before it', () => {
-    expect(chest(apply('d', 'a'))).toEqual(['d', 'a', 'c']);
-    expect(chest(apply('c', 'a'))).toEqual(['c', 'a', 'd']);
-    expect(order(apply('d', 'a'), 'd1')).toEqual(['d', 'a', 'b', 'c']);
+    expect(order(apply('c', 'a'), 'd1')).toEqual(['c', 'a', 'b']);
+    expect(order(apply('c', 'b'), 'd1')).toEqual(['a', 'c', 'b']);
   });
 
   it('dropping on a card below puts the dragged card after it', () => {
-    // The chest section is a, c, d. Dragging a onto c gives c, a, d; onto d gives c, d, a.
-    expect(chest(apply('a', 'c'))).toEqual(['c', 'a', 'd']);
-    expect(chest(apply('a', 'd'))).toEqual(['c', 'd', 'a']);
-    // Slots of other sections keep their place in the day's global order.
-    expect(order(apply('a', 'c'), 'd1')).toEqual(['b', 'c', 'a', 'd']);
+    expect(order(apply('a', 'b'), 'd1')).toEqual(['b', 'a', 'c']);
+    expect(order(apply('a', 'c'), 'd1')).toEqual(['b', 'c', 'a']);
   });
 
-  it('does nothing when dropped on itself or an unknown target', () => {
+  it('does nothing when dropped on itself, its own column, or an unknown target', () => {
     expect(resolveDrop(state, 'a', 'a')).toBeNull();
+    expect(resolveDrop(state, 'a', dayDropId('d1'))).toBeNull();
     expect(resolveDrop(state, 'a', 'nope')).toBeNull();
     expect(resolveDrop(state, 'nope', 'a')).toBeNull();
-  });
-});
-
-describe('resolveDrop across sections of one day', () => {
-  it('joins the section of the card it was dropped on', () => {
-    const next = apply('a', 'b');
-    const moved = next.days[0]?.slots.find((s) => s.id === 'a');
-    expect(moved?.muscle).toBe('triceps');
-    expect(sectionSlots(next.days[0]!, 'triceps').map((s) => s.id)).toEqual(['a', 'b']);
-    expect(chest(next)).toEqual(['c', 'd']);
+    expect(resolveDrop(state, 'a', dayDropId('nope'))).toBeNull();
   });
 });
 
 describe('resolveDrop across days', () => {
-  it('lands in the existing primary-muscle section, before the card it was dropped on', () => {
+  it('lands before the card it was dropped on', () => {
     const next = apply('a', 'e');
-    expect(order(next, 'd2')).toEqual(['a', 'e', 'f']);
-    expect(order(next, 'd1')).toEqual(['b', 'c', 'd']);
-    expect(next.days[1]?.slots[0]?.muscle).toBe('chest');
+    expect(order(next, 'd2')).toEqual(['a', 'e']);
+    expect(order(next, 'd1')).toEqual(['b', 'c']);
   });
 
-  it('dropping on a card of another section appends and uses the primary-muscle section', () => {
-    const next = apply('a', 'f');
-    expect(next.days[1]?.slots.find((s) => s.id === 'a')?.muscle).toBe('chest');
-    expect(order(next, 'd2')).toEqual(['e', 'f', 'a']);
-  });
-
-  it('creates the primary-muscle section when the destination lacks it', () => {
-    const next = apply('b', dayDropId('d3'));
-    expect(next.days[2]?.muscles).toEqual(['triceps']);
-    expect(order(next, 'd3')).toEqual(['b']);
+  it('appends when dropped on a column, including a rest day', () => {
+    expect(order(apply('b', dayDropId('d3')), 'd3')).toEqual(['b']);
+    expect(order(apply('b', dayDropId('d2')), 'd2')).toEqual(['e', 'b']);
   });
 
   it('keeps every metric on the moved slot', () => {
@@ -83,25 +63,20 @@ describe('resolveDrop across days', () => {
     const next = action ? builderReducer(edited, action) : edited;
     expect(next.days[2]?.slots[0]).toMatchObject({ id: 'a', sets: 7, repMin: 6, repMax: 9, rir: 0, weight: 55 });
   });
-
-  it('ignores a drop on the source day column or an unknown column', () => {
-    expect(resolveDrop(state, 'a', dayDropId('d1'))).toBeNull();
-    expect(resolveDrop(state, 'a', dayDropId('nope'))).toBeNull();
-  });
 });
 
 describe('describeMove', () => {
-  it('describes a cross-day move with the new position', () => {
+  it('describes a move to another day with the new position', () => {
     const action = resolveDrop(state, 'a', 'e');
-    expect(action && describeMove(state, action)).toBe('Moved Ex a to Day 2, Chest section, position 1 of 2.');
+    expect(action && describeMove(state, action)).toBe('Moved Ex a to Day 2, position 1 of 2.');
   });
 
-  it('describes a reorder within a section', () => {
-    const action = resolveDrop(state, 'd', 'a');
-    expect(action && describeMove(state, action)).toBe('Moved Ex d within Day 1, Chest section, position 1 of 3.');
+  it('describes a reorder within a day', () => {
+    const action = resolveDrop(state, 'c', 'a');
+    expect(action && describeMove(state, action)).toBe('Moved Ex c within Day 1, position 1 of 3.');
   });
 
   it('handles an unknown slot', () => {
-    expect(describeMove(state, { type: 'moveSlot', slotId: 'zzz', toDayId: 'd1', toMuscle: 'chest', beforeSlotId: null })).toBe('Nothing was moved.');
+    expect(describeMove(state, { type: 'moveSlot', slotId: 'zzz', toDayId: 'd1', beforeSlotId: null })).toBe('Nothing was moved.');
   });
 });

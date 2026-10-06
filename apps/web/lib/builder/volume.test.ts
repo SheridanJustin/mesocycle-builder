@@ -1,6 +1,6 @@
 import { MUSCLES, type Exercise, type MuscleLandmarkList } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { createDay, createSlot } from './reducer';
+import { createSlot } from './reducer';
 import type { BuilderState } from './types';
 import { computeBuilderVolume, contributionsFor, toEngineLandmarks } from './volume';
 
@@ -21,9 +21,11 @@ const bench: Exercise = {
 
 function state(): BuilderState {
   return {
+    mode: 'relative',
     days: [
-      { ...createDay('d1', 'Push A'), muscles: ['chest', 'quads'], slots: [{ ...createSlot(bench, 'chest', 's1'), sets: 4 }] },
-      { ...createDay('d2', 'Push B'), muscles: ['chest'], slots: [{ ...createSlot(bench, 'chest', 's2'), sets: 2 }] },
+      { id: 'd1', name: 'Push A', weekday: null, slots: [{ ...createSlot(bench, 's1'), sets: 4 }] },
+      { id: 'd2', name: 'Push B', weekday: null, slots: [{ ...createSlot(bench, 's2'), sets: 2 }] },
+      { id: 'd3', name: 'Day 3', weekday: null, slots: [] },
     ],
     priorities: { chest: 'focus' },
   };
@@ -40,15 +42,16 @@ describe('toEngineLandmarks', () => {
 });
 
 describe('computeBuilderVolume', () => {
-  it('feeds slots, days, priorities and assigned muscles into the engine', () => {
+  it('feeds slots, days and priorities into the engine', () => {
     const { summary } = computeBuilderVolume(state(), landmarks);
     expect(summary.chest).toMatchObject({ total_sets: 6, weekly_frequency: 2, priority: 'focus' });
     expect(summary.triceps?.total_sets).toBe(3);
-    expect(summary.quads).toMatchObject({ total_sets: 0, status: 'BELOW_MV' });
+    // Rest days contribute nothing; untrained muscles are omitted.
+    expect(summary.quads).toBeUndefined();
   });
 
   it('is empty for an empty board', () => {
-    expect(computeBuilderVolume({ days: [], priorities: {} }, landmarks)).toEqual({ summary: {} });
+    expect(computeBuilderVolume({ mode: 'calendar', days: [], priorities: {} }, landmarks)).toEqual({ summary: {} });
   });
 
   it('reacts to edits', () => {

@@ -5,7 +5,7 @@ import { matchingPreset, presetLabel, repRangeError, REP_PRESETS } from '../../l
 
 type Props = { idPrefix: string; min: number; max: number; onChange: (min: number, max: number) => void };
 
-const input = 'w-14 rounded border border-slate-300 bg-white px-1.5 py-1 text-sm';
+const input = 'w-14 rounded border border-graphite-700 bg-graphite-950 px-1.5 py-1 text-sm text-graphite-50';
 
 // Preset dropdown with a "Custom" option that reveals min/max inputs. Invalid custom values stay
 // in the local draft (with an inline error) and are never committed to the schedule.
@@ -36,12 +36,12 @@ export function RepRangeField({ idPrefix, min, max, onChange }: Props) {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraft({});
       }}
     >
-      <label htmlFor={`${idPrefix}-reps`} className="text-xs font-medium text-slate-700">
+      <label htmlFor={`${idPrefix}-reps`} className="text-xs font-medium text-graphite-300">
         Reps
       </label>
       <select
         id={`${idPrefix}-reps`}
-        className="rounded border border-slate-300 bg-white px-1.5 py-1 text-sm"
+        className="rounded border border-graphite-700 bg-graphite-950 px-1.5 py-1 text-sm text-graphite-50"
         value={custom ? 'custom' : presetLabel({ min, max })}
         onChange={(e) => {
           if (e.target.value === 'custom') return setForceCustom(true);
@@ -81,7 +81,7 @@ export function RepRangeField({ idPrefix, min, max, onChange }: Props) {
         </div>
       )}
       {custom && error && (
-        <p role="alert" className="text-xs text-red-800">
+        <p role="alert" className="text-xs text-snow-300">
           {error}
         </p>
       )}

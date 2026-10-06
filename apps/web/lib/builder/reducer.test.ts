@@ -1,146 +1,163 @@
 import type { Exercise } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { builderReducer, createDay, createSlot, sectionSlots, type BuilderAction } from './reducer';
-import type { BuilderState } from './types';
+import { builderReducer, createSlot, relabel, type BuilderAction } from './reducer';
+import type { BuilderDay, BuilderState } from './types';
 
 function exercise(id: string, primary: Exercise['primary_muscle'] = 'chest'): Exercise {
-  return {
-    id,
-    name: `Ex ${id}`,
-    primary_muscle: primary,
-    secondary_muscles: [],
-    equipment_type: 'cable',
-    movement_type: 'isolation',
-    is_custom: false,
-  };
+  return { id, name: `Ex ${id}`, primary_muscle: primary, secondary_muscles: [], equipment_type: 'cable', movement_type: 'isolation', is_custom: false };
 }
+
+const NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const day = (id: string, name: string, slotIds: string[] = [], weekday: number | null = null): BuilderDay => ({
+  id,
+  name,
+  weekday,
+  slots: slotIds.map((s) => createSlot(exercise(s), s)),
+});
+
+// A Mon-Sun week: Mon has a, b, c; Wed has d; the rest are rest days.
+const week: BuilderState = {
+  mode: 'calendar',
+  days: NAMES.map((name, i) => day(`d${i}`, name, i === 0 ? ['a', 'b', 'c'] : i === 2 ? ['d'] : [], i)),
+  priorities: {},
+};
+const numbered = (count: number): BuilderState =>
+  relabel({ mode: 'relative', days: Array.from({ length: count }, (_, i) => day(`n${i}`, `Day ${i + 1}`, i === 0 ? ['x'] : [])), priorities: {} });
 
 function run(state: BuilderState, ...actions: BuilderAction[]): BuilderState {
   return actions.reduce(builderReducer, state);
 }
+const ids = (s: BuilderState, dayId: string) => s.days.find((d) => d.id === dayId)?.slots.map((x) => x.id);
+const names = (s: BuilderState) => s.days.map((d) => d.name);
 
-const base: BuilderState = {
-  days: [
-    { ...createDay('d1', 'Day 1'), muscles: ['chest', 'triceps'], slots: [createSlot(exercise('a'), 'chest', 's-a'), createSlot(exercise('b', 'triceps'), 'triceps', 's-b'), createSlot(exercise('c'), 'chest', 's-c'), createSlot(exercise('d'), 'chest', 's-d')] },
-    { ...createDay('d2', 'Day 2'), muscles: ['quads'], slots: [createSlot(exercise('e', 'quads'), 'quads', 's-e')] },
-    createDay('d3', 'Day 3'),
-  ],
-  priorities: {},
-};
-
-const ids = (state: BuilderState, dayId: string) => state.days.find((d) => d.id === dayId)?.slots.map((s) => s.id);
-
-describe('days', () => {
-  it('adds days up to 6 and names them', () => {
-    let state: BuilderState = { days: [], priorities: {} };
-    for (let i = 1; i <= 8; i++) state = run(state, { type: 'addDay', dayId: `n${i}` });
-    expect(state.days.map((d) => d.name)).toEqual(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6']);
+describe('numbered days toggle', () => {
+  it('renames generated names to Day 1..7 and drops weekdays', () => {
+    const next = run(week, { type: 'setNumbered', numbered: true });
+    expect(next.mode).toBe('relative');
+    expect(names(next)).toEqual(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']);
+    expect(next.days.every((d) => d.weekday === null)).toBe(true);
   });
 
-  it('removes a day but never the last one', () => {
-    const state = run(base, { type: 'removeDay', dayId: 'd2' }, { type: 'removeDay', dayId: 'd3' }, { type: 'removeDay', dayId: 'd1' });
-    expect(state.days.map((d) => d.id)).toEqual(['d1']);
+  it('switches back to Mon-Sun with weekdays 0-6', () => {
+    const next = run(week, { type: 'setNumbered', numbered: true }, { type: 'setNumbered', numbered: false });
+    expect(names(next)).toEqual(NAMES);
+    expect(next.days.map((d) => d.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
-  it('renames and sets weekdays', () => {
-    const state = run(base, { type: 'renameDay', dayId: 'd1', name: 'Push A' }, { type: 'setWeekday', dayId: 'd1', weekday: 2 });
-    expect(state.days[0]).toMatchObject({ name: 'Push A', weekday: 2 });
-    expect(state.days[1]).toMatchObject({ name: 'Day 2', weekday: null });
+  it('keeps names the user typed', () => {
+    const next = run(week, { type: 'renameDay', dayId: 'd0', name: 'Push A' }, { type: 'setNumbered', numbered: true });
+    expect(names(next)[0]).toBe('Push A');
+    expect(names(next)[1]).toBe('Day 2');
+  });
+
+  it('refuses weekday names unless there are exactly 7 days', () => {
+    const eight = numbered(8);
+    expect(run(eight, { type: 'setNumbered', numbered: false })).toBe(eight);
   });
 });
 
-describe('muscle groups', () => {
-  it('adds a muscle once', () => {
-    const state = run(base, { type: 'addMuscle', dayId: 'd3', muscle: 'lats' }, { type: 'addMuscle', dayId: 'd3', muscle: 'lats' });
-    expect(state.days[2]?.muscles).toEqual(['lats']);
+describe('adding and removing days', () => {
+  it('adding an 8th day switches a week to numbered days', () => {
+    const next = run(week, { type: 'addDay', dayId: 'new' });
+    expect(next.mode).toBe('relative');
+    expect(names(next)).toEqual(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7', 'Day 8']);
   });
 
-  it('removing a muscle removes its slots only', () => {
-    const state = run(base, { type: 'removeMuscle', dayId: 'd1', muscle: 'chest' });
-    expect(state.days[0]?.muscles).toEqual(['triceps']);
-    expect(ids(state, 'd1')).toEqual(['s-b']);
+  it('stops at 10 days', () => {
+    let state = numbered(9);
+    state = run(state, { type: 'addDay', dayId: 'ten' }, { type: 'addDay', dayId: 'eleven' });
+    expect(state.days).toHaveLength(10);
   });
 
-  it('sets priorities per muscle', () => {
-    const state = run(base, { type: 'setPriority', muscle: 'chest', priority: 'focus' });
-    expect(state.priorities).toEqual({ chest: 'focus' });
+  it('removes numbered days and renumbers the rest, but never below 1', () => {
+    let state = run(numbered(3), { type: 'removeDay', dayId: 'n1' });
+    expect(names(state)).toEqual(['Day 1', 'Day 2']);
+    state = run(state, { type: 'removeDay', dayId: 'n0' }, { type: 'removeDay', dayId: 'n2' });
+    expect(state.days).toHaveLength(1);
+  });
+
+  it('never removes a day from a Mon-Sun week', () => {
+    expect(run(week, { type: 'removeDay', dayId: 'd1' })).toBe(week);
+  });
+
+  it('clearing a day turns it into a rest day', () => {
+    expect(ids(run(week, { type: 'clearDay', dayId: 'd0' }), 'd0')).toEqual([]);
   });
 });
 
 describe('slots', () => {
-  it('adds a slot with defaults and creates its section if missing', () => {
-    const state = run(base, { type: 'addSlot', dayId: 'd3', muscle: 'lats', exercise: exercise('x', 'lats'), slotId: 'new' });
-    expect(state.days[2]?.muscles).toEqual(['lats']);
-    expect(state.days[2]?.slots[0]).toMatchObject({ id: 'new', muscle: 'lats', sets: 3, repMin: 8, repMax: 12, rir: 3, weight: null });
+  it('adds several exercises at once with defaults and their primary muscle', () => {
+    const next = run(week, {
+      type: 'addSlots',
+      dayId: 'd1',
+      items: [
+        { slotId: 's1', exercise: exercise('p', 'quads') },
+        { slotId: 's2', exercise: exercise('q', 'hamstrings') },
+      ],
+    });
+    expect(next.days[1]?.slots.map((s) => [s.id, s.muscle, s.sets, s.repMin, s.repMax, s.rir, s.weight])).toEqual([
+      ['s1', 'quads', 3, 8, 12, 3, null],
+      ['s2', 'hamstrings', 3, 8, 12, 3, null],
+    ]);
   });
 
-  it('updates metrics for one slot only', () => {
-    const state = run(base, { type: 'updateSlot', slotId: 's-a', patch: { sets: 5, weight: 100 } });
-    expect(state.days[0]?.slots[0]).toMatchObject({ sets: 5, weight: 100 });
-    expect(state.days[0]?.slots[2]?.sets).toBe(3);
+  it('updates and removes one slot', () => {
+    let next = run(week, { type: 'updateSlot', slotId: 'b', patch: { sets: 5, weight: 60 } });
+    expect(next.days[0]?.slots[1]).toMatchObject({ sets: 5, weight: 60 });
+    next = run(next, { type: 'removeSlot', slotId: 'b' });
+    expect(ids(next, 'd0')).toEqual(['a', 'c']);
   });
 
-  it('removes a slot', () => {
-    expect(ids(run(base, { type: 'removeSlot', slotId: 's-c' }), 'd1')).toEqual(['s-a', 's-b', 's-d']);
+  it('moves up and down within the day and stops at the ends', () => {
+    expect(ids(run(week, { type: 'stepSlot', slotId: 'b', direction: 'up' }), 'd0')).toEqual(['b', 'a', 'c']);
+    expect(ids(run(week, { type: 'stepSlot', slotId: 'b', direction: 'down' }), 'd0')).toEqual(['a', 'c', 'b']);
+    expect(run(week, { type: 'stepSlot', slotId: 'a', direction: 'up' })).toBe(week);
+    expect(run(week, { type: 'stepSlot', slotId: 'c', direction: 'down' })).toBe(week);
+    expect(run(week, { type: 'stepSlot', slotId: 'zz', direction: 'up' })).toBe(week);
+  });
+
+  it('moves a slot to another day keeping its metrics, before a slot or at the end', () => {
+    const edited = run(week, { type: 'updateSlot', slotId: 'a', patch: { sets: 7, repMin: 6, repMax: 9, rir: 1, weight: 55 } });
+    let next = run(edited, { type: 'moveSlot', slotId: 'a', toDayId: 'd2', beforeSlotId: 'd' });
+    expect(ids(next, 'd2')).toEqual(['a', 'd']);
+    expect(next.days[2]?.slots[0]).toMatchObject({ sets: 7, repMin: 6, repMax: 9, rir: 1, weight: 55 });
+    next = run(next, { type: 'moveSlot', slotId: 'b', toDayId: 'd2', beforeSlotId: null });
+    expect(ids(next, 'd2')).toEqual(['a', 'd', 'b']);
+    expect(ids(next, 'd0')).toEqual(['c']);
+  });
+
+  it('ignores moves to unknown days or onto itself', () => {
+    expect(run(week, { type: 'moveSlot', slotId: 'a', toDayId: 'nope', beforeSlotId: null })).toBe(week);
+    expect(run(week, { type: 'moveSlot', slotId: 'a', toDayId: 'd0', beforeSlotId: 'a' })).toBe(week);
   });
 });
 
-describe('stepSlot (move up / down within a section)', () => {
-  it('swaps with the previous sibling, skipping slots of other sections', () => {
-    // chest slots are a, c, d (b is triceps at index 1): moving c up swaps with a.
-    expect(ids(run(base, { type: 'stepSlot', slotId: 's-c', direction: 'up' }), 'd1')).toEqual(['s-c', 's-b', 's-a', 's-d']);
+describe('copyDay', () => {
+  it('copies all exercises with their metrics into another day, as new slots', () => {
+    const edited = run(week, { type: 'updateSlot', slotId: 'a', patch: { sets: 6 } });
+    const next = run(edited, { type: 'copyDay', sourceDayId: 'd0', targetDayId: 'd3', newDayId: 'unused', slotIds: ['x1', 'x2', 'x3'] });
+    expect(ids(next, 'd3')).toEqual(['x1', 'x2', 'x3']);
+    expect(next.days[3]?.slots[0]).toMatchObject({ sets: 6, exercise: { id: 'a' } });
+    expect(ids(next, 'd0')).toEqual(['a', 'b', 'c']);
   });
 
-  it('swaps with the next sibling', () => {
-    expect(ids(run(base, { type: 'stepSlot', slotId: 's-a', direction: 'down' }), 'd1')).toEqual(['s-c', 's-b', 's-a', 's-d']);
+  it('inserts a new day right after the source in numbered cycles', () => {
+    let state = run(numbered(3), { type: 'renameDay', dayId: 'n0', name: 'Push A' });
+    state = run(state, { type: 'copyDay', sourceDayId: 'n0', targetDayId: null, newDayId: 'copy', slotIds: ['c1'] });
+    expect(names(state)).toEqual(['Push A', 'Push A (copy)', 'Day 3', 'Day 4']);
+    expect(ids(state, 'copy')).toEqual(['c1']);
   });
 
-  it('does nothing at the section edges or for an unknown slot', () => {
-    expect(run(base, { type: 'stepSlot', slotId: 's-a', direction: 'up' })).toBe(base);
-    expect(run(base, { type: 'stepSlot', slotId: 's-d', direction: 'down' })).toBe(base);
-    expect(run(base, { type: 'stepSlot', slotId: 's-b', direction: 'up' })).toBe(base);
-    expect(run(base, { type: 'stepSlot', slotId: 'nope', direction: 'up' })).toBe(base);
+  it('does not add days to a Mon-Sun week or past 10, nor copy onto itself', () => {
+    expect(run(week, { type: 'copyDay', sourceDayId: 'd0', targetDayId: null, newDayId: 'c', slotIds: ['1', '2', '3'] })).toBe(week);
+    const ten = numbered(10);
+    expect(run(ten, { type: 'copyDay', sourceDayId: 'n0', targetDayId: null, newDayId: 'c', slotIds: ['1'] })).toBe(ten);
+    expect(run(week, { type: 'copyDay', sourceDayId: 'd0', targetDayId: 'd0', newDayId: 'c', slotIds: ['1', '2', '3'] })).toBe(week);
   });
 });
 
-describe('moveSlot', () => {
-  it('reorders within a day before a given slot', () => {
-    const state = run(base, { type: 'moveSlot', slotId: 's-d', toDayId: 'd1', toMuscle: 'chest', beforeSlotId: 's-a' });
-    expect(ids(state, 'd1')).toEqual(['s-d', 's-a', 's-b', 's-c']);
-  });
-
-  it('appends when there is no before slot', () => {
-    const state = run(base, { type: 'moveSlot', slotId: 's-a', toDayId: 'd1', toMuscle: 'chest', beforeSlotId: null });
-    expect(ids(state, 'd1')).toEqual(['s-b', 's-c', 's-d', 's-a']);
-  });
-
-  it('moves across days keeping every metric and creating the section', () => {
-    let state = run(base, { type: 'updateSlot', slotId: 's-a', patch: { sets: 5, repMin: 6, repMax: 10, rir: 1, weight: 102.5 } });
-    state = run(state, { type: 'moveSlot', slotId: 's-a', toDayId: 'd3', toMuscle: 'chest', beforeSlotId: null });
-    expect(ids(state, 'd1')).toEqual(['s-b', 's-c', 's-d']);
-    expect(state.days[2]?.muscles).toEqual(['chest']);
-    expect(state.days[2]?.slots[0]).toMatchObject({ id: 's-a', muscle: 'chest', sets: 5, repMin: 6, repMax: 10, rir: 1, weight: 102.5 });
-  });
-
-  it('reuses an existing destination section and inserts before the given slot', () => {
-    const state = run(base, { type: 'moveSlot', slotId: 's-a', toDayId: 'd2', toMuscle: 'quads', beforeSlotId: 's-e' });
-    expect(state.days[1]?.muscles).toEqual(['quads']);
-    expect(ids(state, 'd2')).toEqual(['s-a', 's-e']);
-    expect(state.days[1]?.slots[0]?.muscle).toBe('quads');
-  });
-
-  it('keeps other sections in place when a slot changes section within a day', () => {
-    const state = run(base, { type: 'moveSlot', slotId: 's-a', toDayId: 'd1', toMuscle: 'triceps', beforeSlotId: null });
-    expect(sectionSlots(state.days[0] as BuilderState['days'][number], 'triceps').map((s) => s.id)).toEqual(['s-b', 's-a']);
-  });
-
-  it('ignores unknown ids and self-targeting', () => {
-    expect(run(base, { type: 'moveSlot', slotId: 'nope', toDayId: 'd1', toMuscle: 'chest', beforeSlotId: null })).toBe(base);
-    expect(run(base, { type: 'moveSlot', slotId: 's-a', toDayId: 'nope', toMuscle: 'chest', beforeSlotId: null })).toBe(base);
-    expect(run(base, { type: 'moveSlot', slotId: 's-a', toDayId: 'd1', toMuscle: 'chest', beforeSlotId: 's-a' })).toBe(base);
-  });
-
-  it('hydrate replaces the whole state', () => {
-    expect(run(base, { type: 'hydrate', state: { days: [], priorities: {} } })).toEqual({ days: [], priorities: {} });
+describe('hydrate', () => {
+  it('replaces the whole state', () => {
+    expect(run(week, { type: 'hydrate', state: numbered(2) })).toEqual(numbered(2));
   });
 });
