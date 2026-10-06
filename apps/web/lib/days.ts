@@ -1,22 +1,27 @@
-import { MAX_DAY_NAME_LENGTH } from '@mesocycle/shared';
+import { MAX_DAY_NAME_LENGTH, type ScheduleMode } from '@mesocycle/shared';
 
 export const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
-// "Day 1..N", or weekday names (Mon/Wed/Fri) when calendar weekdays were provided.
+// Default column names: Mon-Sun in calendar mode (exactly 7 days), "Day 1..N" when numbered.
+export function autoDayName(mode: ScheduleMode, index: number): string {
+  return mode === 'calendar' ? (WEEKDAY_NAMES[index] ?? `Day ${index + 1}`) : `Day ${index + 1}`;
+}
+
+// True for names the app generated (so they may be relabelled); false for names the user typed.
+export function isAutoDayName(name: string): boolean {
+  return (WEEKDAY_NAMES as readonly string[]).includes(name) || /^Day \d{1,2}$/.test(name);
+}
+
 export function initialDays(
-  daysPerWeek: number,
-  weekdays: readonly number[] | undefined,
+  mode: ScheduleMode,
+  count: number,
 ): { dayNumber: number; sortOrder: number; weekday: number | null; dayName: string }[] {
-  const ordered = weekdays ? [...weekdays].sort((a, b) => a - b) : undefined;
-  return Array.from({ length: daysPerWeek }, (_, index) => {
-    const weekday = ordered?.[index] ?? null;
-    return {
-      dayNumber: index + 1,
-      sortOrder: index + 1,
-      weekday,
-      dayName: weekday === null ? `Day ${index + 1}` : (WEEKDAY_NAMES[weekday] ?? `Day ${index + 1}`),
-    };
-  });
+  return Array.from({ length: count }, (_, index) => ({
+    dayNumber: index + 1,
+    sortOrder: index + 1,
+    weekday: mode === 'calendar' ? index : null,
+    dayName: autoDayName(mode, index),
+  }));
 }
 
 export function defaultCopyName(sourceName: string): string {

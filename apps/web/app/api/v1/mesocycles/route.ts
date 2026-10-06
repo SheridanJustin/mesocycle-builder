@@ -20,7 +20,7 @@ export function GET() {
   });
 }
 
-// POST /api/v1/mesocycles: create a draft with `days_per_week` empty days.
+// POST /api/v1/mesocycles: create a draft with `days_per_week` empty days (Mon-Sun by default).
 export function POST(request: Request) {
   return handle(async () => {
     const user = await getCurrentUser();
@@ -34,7 +34,7 @@ export function POST(request: Request) {
         daysPerWeek: body.days_per_week,
         scheduleMode: body.schedule_mode,
         days: {
-          create: initialDays(body.days_per_week, body.weekdays).map((day) => ({
+          create: initialDays(body.schedule_mode, body.days_per_week).map((day) => ({
             dayNumber: day.dayNumber,
             weekday: day.weekday,
             dayName: day.dayName,

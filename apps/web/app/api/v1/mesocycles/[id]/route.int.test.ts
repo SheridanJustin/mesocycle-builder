@@ -13,7 +13,7 @@ afterAll(async () => {
 
 async function createDraft(): Promise<string> {
   const body = MesocycleDetailSchema.parse(
-    await (await POST(postJson('/api/v1/mesocycles', { name: 'Block', days_per_week: 3 }))).json(),
+    await (await POST(postJson('/api/v1/mesocycles', { name: 'Block', days_per_week: 3, schedule_mode: 'relative' }))).json(),
   );
   return body.id;
 }

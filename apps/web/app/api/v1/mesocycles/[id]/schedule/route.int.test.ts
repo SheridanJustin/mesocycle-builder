@@ -24,7 +24,7 @@ afterAll(async () => {
 });
 
 async function createDraft(overrides: Record<string, unknown> = {}): Promise<string> {
-  const body = { name: 'Block', days_per_week: 3, ...overrides };
+  const body = { name: 'Block', days_per_week: 3, schedule_mode: 'relative', ...overrides };
   return MesocycleDetailSchema.parse(await (await createMesocycle(postJson('/api/v1/mesocycles', body))).json()).id;
 }
 
@@ -135,10 +135,22 @@ describe('PUT /api/v1/mesocycles/{id}/schedule', () => {
     expect(await prisma.mesocycleMusclePriority.count({ where: { mesocycleId: id } })).toBe(0);
   });
 
-  it('accepts an empty schedule', async () => {
+  it('rejects a schedule with no days', async () => {
     const id = await createDraft();
-    const saved = await save(id, { days: [] });
-    expect(saved.days).toEqual([]);
+    const response = await put(id, { days: [] });
+    expect(response.status).toBe(400);
+    expect(ApiErrorSchema.parse(await response.json()).error.details?.map((d) => d.path)).toContain('days');
+  });
+
+  it('keeps empty days as rest days and tracks the cycle length in days_per_week', async () => {
+    const id = await createDraft();
+    const bench = await exerciseId('Barbell Bench Press');
+    const saved = await save(id, {
+      days: [dayBody(1, ['chest'], [slotBody('a', 'chest', bench, 1)]), dayBody(2, [], []), dayBody(3, [], []), dayBody(4, [], []), dayBody(5, [], [])],
+    });
+    expect(saved.days).toHaveLength(5);
+    expect(saved.days.filter((d) => d.slots.length === 0)).toHaveLength(4);
+    expect(saved.days_per_week).toBe(5);
   });
 
   it('keeps cross-muscle slot order global per day and allows a mismatched primary muscle', async () => {
@@ -212,15 +224,29 @@ describe('PUT /api/v1/mesocycles/{id}/schedule', () => {
       await expect400(id, { days: [dayBody(1, ['chest'], [], { weekday: 2 })] }, 'days[0].weekday');
     });
 
-    it('rejects duplicate weekdays in calendar mode but accepts unique ones', async () => {
-      const id = await createDraft({ schedule_mode: 'calendar' });
-      await expect400(
-        id,
-        { days: [dayBody(1, ['chest'], [], { weekday: 1 }), dayBody(2, ['chest'], [], { weekday: 1 })] },
-        'days[1].weekday',
-      );
-      const saved = await save(id, { days: [dayBody(1, ['chest'], [], { weekday: 1 }), dayBody(2, ['chest'], [], { weekday: 4 })] });
-      expect(saved.days.map((d) => d.weekday)).toEqual([1, 4]);
+    it('needs a full Mon-Sun week with unique weekdays in calendar mode', async () => {
+      const id = await createDraft({ schedule_mode: 'calendar', days_per_week: 7 });
+      const week = (weekdays: (number | null)[]) => ({
+        days: weekdays.map((weekday, i) => dayBody(i + 1, [], [], { weekday, day_name: `D${i + 1}` })),
+      });
+      await expect400(id, week([0, 1, 2]), 'days');
+      await expect400(id, week([0, 1, 2, 3, 4, 5, 5]), 'days[6].weekday');
+      await expect400(id, week([0, 1, 2, 3, 4, 5, null]), 'days[6].weekday');
+      const saved = await save(id, week([0, 1, 2, 3, 4, 5, 6]));
+      expect(saved.days.map((d) => d.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    });
+
+    it('switches between weekday names and numbered days through schedule_mode', async () => {
+      const id = await createDraft({ schedule_mode: 'calendar', days_per_week: 7 });
+      const numbered = { schedule_mode: 'relative', days: Array.from({ length: 8 }, (_, i) => dayBody(i + 1, [], [])) };
+      const saved = await save(id, numbered);
+      expect(saved).toMatchObject({ schedule_mode: 'relative', days_per_week: 8 });
+      expect(saved.days.every((d) => d.weekday === null)).toBe(true);
+
+      // Weekday names again: needs 7 days with weekdays, sent together with the mode.
+      await expect400(id, { schedule_mode: 'calendar', days: numbered.days }, 'days');
+      const week = { schedule_mode: 'calendar', days: Array.from({ length: 7 }, (_, i) => dayBody(i + 1, [], [], { weekday: i })) };
+      expect(await save(id, week)).toMatchObject({ schedule_mode: 'calendar', days_per_week: 7 });
     });
 
     it('rejects a malformed body and keeps the existing schedule', async () => {

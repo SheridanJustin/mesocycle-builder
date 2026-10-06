@@ -1,21 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { defaultCopyName, initialDays, positionsAfterInsert } from './days';
+import { autoDayName, defaultCopyName, initialDays, isAutoDayName, positionsAfterInsert } from './days';
 
 describe('initialDays', () => {
-  it('names days "Day 1..N" in relative mode', () => {
-    const days = initialDays(3, undefined);
-    expect(days.map((d) => d.dayName)).toEqual(['Day 1', 'Day 2', 'Day 3']);
-    expect(days.map((d) => d.sortOrder)).toEqual([1, 2, 3]);
-    expect(days.every((d) => d.weekday === null)).toBe(true);
+  it('creates Mon-Sun with weekdays 0-6 in calendar mode', () => {
+    const days = initialDays('calendar', 7);
+    expect(days.map((d) => d.dayName)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+    expect(days.map((d) => d.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(days.map((d) => d.sortOrder)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
-  it('uses sorted weekday names in calendar mode', () => {
-    const days = initialDays(3, [4, 0, 2]);
-    expect(days.map((d) => [d.dayName, d.weekday])).toEqual([
-      ['Mon', 0],
-      ['Wed', 2],
-      ['Fri', 4],
-    ]);
+  it('numbers days without weekdays in relative mode', () => {
+    const days = initialDays('relative', 3);
+    expect(days.map((d) => d.dayName)).toEqual(['Day 1', 'Day 2', 'Day 3']);
+    expect(days.every((d) => d.weekday === null)).toBe(true);
+  });
+});
+
+describe('autoDayName / isAutoDayName', () => {
+  it('names by mode and position', () => {
+    expect(autoDayName('calendar', 0)).toBe('Mon');
+    expect(autoDayName('calendar', 6)).toBe('Sun');
+    expect(autoDayName('relative', 0)).toBe('Day 1');
+    expect(autoDayName('relative', 9)).toBe('Day 10');
+  });
+
+  it('recognises generated names only', () => {
+    for (const name of ['Mon', 'Sun', 'Day 1', 'Day 10']) expect(isAutoDayName(name)).toBe(true);
+    for (const name of ['Push A', 'Monday', 'Day', 'Day 100', 'day 1']) expect(isAutoDayName(name)).toBe(false);
   });
 });
 

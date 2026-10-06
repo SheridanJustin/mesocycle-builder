@@ -42,9 +42,14 @@ export const SECONDARY_MUSCLE_WEIGHT = 0.5;
 // Validation bounds (SPEC 5.2 and 10.9).
 export const MIN_DURATION_WEEKS = 4;
 export const MAX_DURATION_WEEKS = 6;
-export const MIN_DAYS_PER_WEEK = 2;
-export const MAX_DAYS_PER_WEEK = 6;
-export const MAX_DAYS_WITH_DUPLICATE = 7;
+// A mesocycle's repeating cycle is 1-10 days long (7 by default: a Mon-Sun week).
+// Days without exercises are rest days.
+export const MIN_CYCLE_DAYS = 1;
+export const MAX_CYCLE_DAYS = 10;
+export const DEFAULT_CYCLE_DAYS = 7;
+// Weekday names (Mon-Sun) need exactly this many days; otherwise days are numbered.
+export const WEEK_DAYS = 7;
+export const DEFAULT_MESOCYCLE_NAME = 'Untitled block';
 export const MAX_DAY_NAME_LENGTH = 50;
 export const MIN_SETS = 1;
 export const MAX_SETS = 10;
