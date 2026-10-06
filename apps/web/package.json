@@ -4,18 +4,20 @@
   "version": "0.0.0",
   "scripts": {
     "postinstall": "prisma generate",
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "dotenv --no-override -e ../../.env -- next dev",
+    "build": "dotenv --no-override -e ../../.env -- next build",
+    "start": "dotenv --no-override -e ../../.env -- next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
     "prisma:migrate": "dotenv --no-override -e ../../.env -- prisma migrate deploy",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "dotenv --no-override -e ../../.env -- prisma db seed"
+    "prisma:seed": "dotenv --no-override -e ../../.env -- prisma db seed",
+    "test:integration": "dotenv --no-override -e ../../.env -- vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@mesocycle/shared": "workspace:*",
     "@prisma/client": "6.3.1",
     "next": "15.1.6",
     "react": "19.0.0",

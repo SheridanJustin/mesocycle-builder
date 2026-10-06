@@ -20,14 +20,26 @@ pnpm db:seed
 pnpm dev
 ```
 
-The health endpoint is available at `GET /api/health`.
+`pnpm db:seed` is idempotent. It seeds the dev user (`DEV_USER_EMAIL`), the muscle landmarks and the exercise catalog (100+ exercises), and can be re-run safely.
+
+API endpoints (see `docs/SPEC.md` section 6):
+
+- `GET /api/health`
+- `GET /api/v1/exercises` (filters: `primary_muscle`, `equipment`, `movement_type`, `search`; paging: `limit`, `cursor`)
+- `POST /api/v1/exercises` (custom exercise; `409` on a duplicate name)
+- `GET /api/v1/muscle-landmarks`
 
 ```powershell
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:integration
 pnpm e2e
 ```
+
+`pnpm test` runs unit tests only and needs no database. `pnpm test:integration` runs the
+database-backed API tests against `TEST_DATABASE_URL`: it applies migrations and seeds that
+database, and it refuses to run if `TEST_DATABASE_URL` equals `DATABASE_URL`.
 
 ## Packages
 

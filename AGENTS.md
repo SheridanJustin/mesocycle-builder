@@ -5,7 +5,7 @@ Hypertrophy Mesocycle & Schedule Builder. Full spec: `docs/SPEC.md` (source of t
 If code and spec disagree, ask or update the spec in the same change. Never silently diverge.
 
 ## Current milestone
-**M1 — Shared schemas and volume engine.**
+**M2 — Seed data and catalog API.**
 (The human updates this line when a milestone is merged. Milestones are listed in SPEC.md section 12.)
 
 ## Environment (read this first)
