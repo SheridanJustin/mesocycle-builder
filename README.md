@@ -3,7 +3,7 @@
 Hypertrophy mesocycle and schedule builder. Full spec: [`docs/SPEC.md`](docs/SPEC.md).
 
 Build a 4–6 week training block on a horizontal board of day columns (dark theme), with a sticky weekly-volume bar
-that updates live against MV / MEV / MAV / MRV landmarks. Review and lock-in (milestone M8) are not built yet.
+that updates live against MV / MEV / MAV / MRV landmarks, plus a Review screen. Lock-in (milestone M8) is not built yet.
 
 ## Prerequisites
 
