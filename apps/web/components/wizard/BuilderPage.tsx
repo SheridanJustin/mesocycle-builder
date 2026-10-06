@@ -1,10 +1,17 @@
 'use client';
 
+import type { Exercise, Muscle } from '@mesocycle/shared';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { findSlot } from '../../lib/builder/reducer';
+import { contributionsFor } from '../../lib/builder/volume';
 import { stepCompletion, type StepNumber } from '../../lib/builder/completion';
 import { useBuilder } from '../../lib/builder/use-builder';
+import { Board } from '../board/Board';
+import { CatalogPanel } from '../board/CatalogPanel';
+import type { BoardHandlers } from '../board/types';
 import { SaveIndicator } from '../ui/SaveIndicator';
+import { VolumeBar } from '../volume/VolumeBar';
 import { ReviewPlaceholder } from './ReviewPlaceholder';
 import { Stepper } from './Stepper';
 import { StepMuscles } from './StepMuscles';
@@ -14,7 +21,35 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const builder = useBuilder(mesocycleId);
   const [step, setStep] = useState<StepNumber>(1);
   const [reviewOpened, setReviewOpened] = useState(false);
+  const [catalogTarget, setCatalogTarget] = useState<{ dayId: string; muscle: Muscle } | null>(null);
+  const [focusDayId, setFocusDayId] = useState<string | null>(null);
   const { load, meta, state, volume, actions } = builder;
+  const clearFocus = useCallback(() => setFocusDayId(null), []);
+
+  const handlers: BoardHandlers = {
+    onRenameDay: actions.renameDay,
+    onSetWeekday: actions.setWeekday,
+    onAddDay: actions.addDay,
+    onDuplicateDay: (dayId) => void builder.duplicateDay(dayId).then((newDayId) => newDayId && setFocusDayId(newDayId)),
+    onRemoveDay: actions.removeDay,
+    onAddMuscle: actions.addMuscle,
+    onRemoveMuscle: actions.removeMuscle,
+    onAddExercise: (dayId, muscle) => setCatalogTarget({ dayId, muscle }),
+    onUpdateSlot: actions.updateSlot,
+    onStepSlot: actions.stepSlot,
+    // Cross-day moves land in the destination's section for the exercise's primary muscle (SPEC 10.4).
+    onMoveSlotToDay: (slotId, dayId) => {
+      const found = findSlot(state, slotId);
+      if (found) actions.moveSlot(slotId, dayId, found.slot.exercise.primary_muscle, null);
+    },
+    onRemoveSlot: actions.removeSlot,
+  };
+
+  function pickExercise(exercise: Exercise) {
+    if (catalogTarget) actions.addSlot(catalogTarget.dayId, catalogTarget.muscle, exercise);
+    setCatalogTarget(null);
+  }
+  const catalogDay = catalogTarget ? state.days.find((d) => d.id === catalogTarget.dayId) : undefined;
 
   const completion = useMemo(
     () => stepCompletion(state, meta?.scheduleMode ?? 'relative', volume, reviewOpened),
@@ -51,6 +86,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
             <SaveIndicator status={builder.saveStatus} onRetry={builder.retrySave} />
           </div>
           <Stepper current={step} completion={completion} onSelect={select} />
+          <VolumeBar volume={volume} contributionsFor={(muscle) => contributionsFor(state, muscle)} />
         </div>
       </div>
 
@@ -82,9 +118,22 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
         />
       )}
       {(step === 3 || step === 4 || step === 5) && (
-        <p className="p-6 text-slate-600">The board arrives in the next milestone.</p>
+        <Board
+          state={state}
+          mode={meta.scheduleMode}
+          weightUnit="lb"
+          handlers={handlers}
+          focusDayId={focusDayId}
+          onFocusHandled={clearFocus}
+        />
       )}
       {step === 6 && <ReviewPlaceholder />}
+
+      <CatalogPanel
+        target={catalogTarget && catalogDay ? { dayName: catalogDay.name, muscle: catalogTarget.muscle } : null}
+        onPick={pickExercise}
+        onClose={() => setCatalogTarget(null)}
+      />
     </div>
   );
 }

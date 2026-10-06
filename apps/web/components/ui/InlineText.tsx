@@ -8,11 +8,12 @@ type Props = {
   ariaLabel: string;
   maxLength?: number;
   className?: string;
+  id?: string;
 };
 
 // Edits a draft locally and commits on blur/Enter. Blank values are rejected (the draft reverts),
 // so an invalid name never reaches autosave.
-export function InlineText({ value, onCommit, ariaLabel, maxLength = 50, className = '' }: Props) {
+export function InlineText({ value, onCommit, ariaLabel, maxLength = 50, className = '', id }: Props) {
   const [draft, setDraft] = useState<string | null>(null);
 
   function commit() {
@@ -23,6 +24,7 @@ export function InlineText({ value, onCommit, ariaLabel, maxLength = 50, classNa
 
   return (
     <input
+      id={id}
       aria-label={ariaLabel}
       value={draft ?? value}
       maxLength={maxLength}
