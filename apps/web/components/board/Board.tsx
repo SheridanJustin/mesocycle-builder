@@ -42,10 +42,12 @@ const ARROWS: readonly string[] = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRi
 
 const collisionDetection: CollisionDetection = (args) => {
   if (!args.pointerCoordinates) {
-    const { left, top } = args.collisionRect;
+    // Probe a little inside the corner so sub-pixel offsets of the preview cannot miss the target.
+    const x = args.collisionRect.left + 8;
+    const y = args.collisionRect.top + 8;
     const containing = args.droppableContainers.filter((container) => {
       const rect = args.droppableRects.get(container.id);
-      return rect !== undefined && left + 1 >= rect.left && left + 1 <= rect.right && top + 1 >= rect.top && top + 1 <= rect.bottom;
+      return rect !== undefined && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
     });
     const card = containing.find((container) => !isDayDropId(String(container.id)));
     const target = card ?? containing[0];

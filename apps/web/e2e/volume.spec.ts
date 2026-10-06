@@ -74,14 +74,15 @@ test('back and shoulders are each one group, counted once per exercise', async (
     ],
   });
   await page.goto(`/mesocycles/${id}/build`);
-  // Pull-ups (lats + upper back) count once: 4 + 4 + 3 = 11 back sets.
-  await expect(page.getByTestId('volume-total-back')).toHaveText('11');
+  // Pull-ups (lats + upper back) count once: 4 + rows 4 + shrugs 3 = 11 direct back sets, plus face pulls'
+  // upper-back secondary 3 x 0.5 = 12.5.
+  await expect(page.getByTestId('volume-total-back')).toHaveText('12.5');
   // Lateral raises 4 + face pulls 3 + barbell row's rear-delt secondary 2 = 9 shoulder sets.
   await expect(page.getByTestId('volume-total-shoulders')).toHaveText('9');
   for (const muscle of ['lats', 'upper_back', 'traps', 'side_delts', 'rear_delts', 'forearms']) {
     await expect(page.getByTestId(`volume-chip-${muscle}`)).toHaveCount(0);
   }
-  await expect(page.getByTestId('volume-chip-back')).toHaveAccessibleName(/^Back: 11 sets per week/);
+  await expect(page.getByTestId('volume-chip-back')).toHaveAccessibleName(/^Back: 12.5 sets per week/);
 });
 
 test('chips explain themselves in text, and priorities and target bands are hidden', async ({ page, request }) => {

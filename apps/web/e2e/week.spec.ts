@@ -1,9 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createPopulatedDraft } from './api-helpers';
 import { addExercises, card, column, columnNames, createMesocycleViaUi, gotoTab, openDayMenu, waitForSaved } from './helpers';
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const numberedToggle = (page: import('@playwright/test').Page) => page.getByRole('switch', { name: 'Number the days (Day 1, Day 2, …)' });
+const numberedToggle = (page: Page) => page.getByRole('switch', { name: 'Number the days (Day 1, Day 2, …)' });
+// The switch's checkbox is visually hidden; users click the visible switch and its label.
+async function setNumbered(page: Page, on: boolean) {
+  await page.locator('label').filter({ hasText: 'Number the days' }).click();
+  if (on) await expect(numberedToggle(page)).toBeChecked();
+  else await expect(numberedToggle(page)).not.toBeChecked();
+}
 
 test('New mesocycle opens straight onto an empty Mon-Sun board of rest days', async ({ page }) => {
   await createMesocycleViaUi(page);
@@ -24,14 +30,14 @@ test('"Number the days" switches names between weekdays and numbers, keeping cus
   await monName.press('Enter');
   await expect(column(page, 'Push A')).toBeVisible();
 
-  await numberedToggle(page).check();
+  await setNumbered(page, true);
   expect(await columnNames(page)).toEqual(['Push A', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']);
   await waitForSaved(page);
   await page.reload();
   await expect(numberedToggle(page)).toBeChecked();
   expect(await columnNames(page)).toEqual(['Push A', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7']);
 
-  await numberedToggle(page).uncheck();
+  await setNumbered(page, false);
   expect(await columnNames(page)).toEqual(['Push A', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
   await waitForSaved(page);
   await page.reload();
@@ -68,7 +74,7 @@ test('adding an 8th day switches to numbered days; cycles go up to 10 days and b
   // Back at 7 days, weekday names are allowed again.
   await (await openDayMenu(page, 'Day 8')).getByRole('menuitem', { name: 'Remove day' }).click();
   await expect(numberedToggle(page)).toBeEnabled();
-  await numberedToggle(page).uncheck();
+  await setNumbered(page, false);
   expect(await columnNames(page)).toEqual(WEEK);
 
   await waitForSaved(page);

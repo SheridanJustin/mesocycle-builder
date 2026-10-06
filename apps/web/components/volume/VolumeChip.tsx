@@ -14,11 +14,11 @@ type Props = {
 // Fixed status styling (SPEC 7.4): tint + border + light text, never color alone (the status
 // name is printed on every chip and repeated in the aria-label).
 export const STATUS_STYLE = {
-  amber: 'border-status-amber-border/70 bg-status-amber-bg text-status-amber-text',
-  lightgreen: 'border-status-lightgreen-border/70 bg-status-lightgreen-bg text-status-lightgreen-text',
-  green: 'border-status-green-border/70 bg-status-green-bg text-status-green-text',
-  orange: 'border-status-orange-border/70 bg-status-orange-bg text-status-orange-text',
-  red: 'border-status-red-border/70 bg-status-red-bg text-status-red-text',
+  amber: 'border-status-amber-border bg-status-amber-bg text-status-amber-text',
+  lightgreen: 'border-status-lightgreen-border bg-status-lightgreen-bg text-status-lightgreen-text',
+  green: 'border-status-green-border bg-status-green-bg text-status-green-text',
+  orange: 'border-status-orange-border bg-status-orange-bg text-status-orange-text',
+  red: 'border-status-red-border bg-status-red-bg text-status-red-text',
 } as const;
 
 export function chipAriaLabel(group: MuscleGroup, entry: GroupVolume): string {
