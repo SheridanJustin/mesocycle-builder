@@ -149,3 +149,5 @@ test-results/
 # OS files
 .DS_Store
 Thumbs.db
+# Playwright e2e dev server build dir
+.next-e2e
