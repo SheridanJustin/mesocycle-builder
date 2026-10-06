@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum Muscle {
+  chest
+  lats
+  upper_back
+  traps
+  front_delts
+  side_delts
+  rear_delts
+  biceps
+  triceps
+  forearms
+  quads
+  hamstrings
+  glutes
+  calves
+  abs
+}
+
+enum Equipment {
+  barbell
+  dumbbell
+  cable
+  machine
+  bodyweight
+}
+
+enum MovementType {
+  compound
+  isolation
+}
+
+enum Priority {
+  focus
+  normal
+  maintenance
+}
+
+enum MesocycleStatus {
+  draft
+  active
+  completed
+}
+
+enum ScheduleMode {
+  calendar
+  relative
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique
+  weightUnit String @default("lb") @map("weight_unit")
+  createdAt DateTime @default(now()) @map("created_at")
+  exercises Exercise[]
+  mesocycles Mesocycle[]
+  @@map("users")
+}
+
+model Exercise {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(255)
+  primaryMuscle Muscle @map("primary_muscle")
+  secondaryMuscles Muscle[] @default([]) @map("secondary_muscles")
+  equipmentType Equipment @map("equipment_type")
+  movementType MovementType @map("movement_type")
+  isCustom Boolean @default(false) @map("is_custom")
+  userId String? @db.Uuid @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User? @relation(fields: [userId], references: [id])
+  slots ExerciseSlot[]
+  sessionExercises SessionExercise[]
+  @@unique([userId, name])
+  @@map("exercises")
+}
+
+model MuscleLandmark {
+  muscle Muscle @id
+  mv Int
+  mev Int
+  mavLow Int @map("mav_low")
+  mavHigh Int @map("mav_high")
+  mrv Int
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("muscle_landmarks")
+}
+
+model Mesocycle {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid @map("user_id")
+  name String @db.VarChar(255)
+  durationWeeks Int @default(4) @map("duration_weeks")
+  daysPerWeek Int @map("days_per_week")
+  scheduleMode ScheduleMode @default(relative) @map("schedule_mode")
+  status MesocycleStatus @default(draft)
+  startDate DateTime? @db.Date @map("start_date")
+  lockedAt DateTime? @map("locked_at")
+  deloadFinalWeek Boolean @default(false) @map("deload_final_week")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields: [userId], references: [id])
+  days MesocycleDay[]
+  priorities MesocycleMusclePriority[]
+  weeks MesocycleWeek[]
+  @@map("mesocycles")
+}
+
+model MesocycleDay {
+  id String @id @default(uuid()) @db.Uuid
+  mesocycleId String @db.Uuid @map("mesocycle_id")
+  dayNumber Int @map("day_number")
+  weekday Int?
+  dayName String @db.VarChar(50) @map("day_name")
+  sortOrder Int @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  mesocycle Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  muscleGroups DayMuscleGroup[]
+  sessions WorkoutSession[]
+  @@unique([mesocycleId, sortOrder])
+  @@map("mesocycle_days")
+}
+
+model DayMuscleGroup {
+  id String @id @default(uuid()) @db.Uuid
+  dayId String @db.Uuid @map("day_id")
+  muscle Muscle
+  sortOrder Int @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  day MesocycleDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  slots ExerciseSlot[]
+  @@unique([dayId, muscle])
+  @@map("day_muscle_groups")
+}
+
+model MesocycleMusclePriority {
+  mesocycleId String @db.Uuid @map("mesocycle_id")
+  muscle Muscle
+  priority Priority @default(normal)
+  mesocycle Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  @@id([mesocycleId, muscle])
+  @@map("mesocycle_muscle_priorities")
+}
+
+model ExerciseSlot {
+  id String @id @default(uuid()) @db.Uuid
+  dayMuscleGroupId String @db.Uuid @map("day_muscle_group_id")
+  exerciseId String @db.Uuid @map("exercise_id")
+  sortOrder Int @map("sort_order")
+  targetSets Int @default(3) @map("target_sets")
+  repRangeMin Int @default(8) @map("rep_range_min")
+  repRangeMax Int @default(12) @map("rep_range_max")
+  targetRir Int @default(3) @map("target_rir")
+  startingWeight Decimal? @db.Decimal(6, 2) @map("starting_weight")
+  createdAt DateTime @default(now()) @map("created_at")
+  dayMuscleGroup DayMuscleGroup @relation(fields: [dayMuscleGroupId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+  @@map("exercise_slots")
+}
+
+model MesocycleWeek {
+  id String @id @default(uuid()) @db.Uuid
+  mesocycleId String @db.Uuid @map("mesocycle_id")
+  weekNumber Int @map("week_number")
+  isDeload Boolean @default(false) @map("is_deload")
+  createdAt DateTime @default(now()) @map("created_at")
+  mesocycle Mesocycle @relation(fields: [mesocycleId], references: [id], onDelete: Cascade)
+  sessions WorkoutSession[]
+  @@unique([mesocycleId, weekNumber])
+  @@map("mesocycle_weeks")
+}
+
+model WorkoutSession {
+  id String @id @default(uuid()) @db.Uuid
+  weekId String @db.Uuid @map("week_id")
+  dayId String @db.Uuid @map("day_id")
+  scheduledDate DateTime? @db.Date @map("scheduled_date")
+  status String @default("planned")
+  createdAt DateTime @default(now()) @map("created_at")
+  week MesocycleWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  day MesocycleDay @relation(fields: [dayId], references: [id])
+  exercises SessionExercise[]
+  @@map("workout_sessions")
+}
+
+model SessionExercise {
+  id String @id @default(uuid()) @db.Uuid
+  sessionId String @db.Uuid @map("session_id")
+  exerciseId String @db.Uuid @map("exercise_id")
+  sortOrder Int @map("sort_order")
+  targetSets Int @map("target_sets")
+  repRangeMin Int @map("rep_range_min")
+  repRangeMax Int @map("rep_range_max")
+  targetRir Int @map("target_rir")
+  targetWeight Decimal? @db.Decimal(6, 2) @map("target_weight")
+  createdAt DateTime @default(now()) @map("created_at")
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+  loggedSets LoggedSet[]
+  @@map("session_exercises")
+}
+
+model LoggedSet {
+  id String @id @default(uuid()) @db.Uuid
+  sessionExerciseId String @db.Uuid @map("session_exercise_id")
+  setNumber Int @map("set_number")
+  reps Int?
+  weight Decimal? @db.Decimal(6, 2)
+  rir Int?
+  createdAt DateTime @default(now()) @map("created_at")
+  sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+  @@map("logged_sets")
+}

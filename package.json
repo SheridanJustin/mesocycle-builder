@@ -1,0 +1,17 @@
+{
+  "name": "mesocycle-builder",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "pnpm --filter @mesocycle/web dev",
+    "db:migrate": "pnpm --filter @mesocycle/web prisma:migrate",
+    "db:seed": "pnpm --filter @mesocycle/web prisma:seed",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "e2e": "pnpm --filter @mesocycle/web e2e"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}

@@ -5,12 +5,12 @@ Hypertrophy Mesocycle & Schedule Builder. Full spec: `docs/SPEC.md` (source of t
 If code and spec disagree, ask or update the spec in the same change. Never silently diverge.
 
 ## Current milestone
-**M0 — Scaffolding.** Work on this milestone only. Do not start later milestones.
+**M1 — Shared schemas and volume engine.**
 (The human updates this line when a milestone is merged. Milestones are listed in SPEC.md section 12.)
 
 ## Environment (read this first)
 - The developer works on **Windows (PowerShell)**. There is **no Docker and no WSL**.
-- PostgreSQL 16 runs natively at `localhost:5432`. Do not add Docker files or rely on Docker.
+- PostgreSQL  runs natively at `localhost:5432`. Do not add Docker files or rely on Docker.
 - Database config comes only from `.env` in the repo root:
   `DATABASE_URL` (dev), `TEST_DATABASE_URL` (integration tests), `DEV_USER_EMAIL` (seeded dev user).
 - Use `.env.example` as the template. **Never create, edit, print, or commit `.env`.** If a new variable is needed, add it to `.env.example` and tell the human.
