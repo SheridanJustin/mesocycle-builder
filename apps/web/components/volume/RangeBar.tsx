@@ -30,7 +30,12 @@ export function RangeBar({ entry, size = 'sm', showLabels = false, className = '
       {showLabels && (
         <div className="relative mt-1 h-3 text-[10px] text-graphite-500">
           {rangeLabels(g.marks).map((label) => (
-            <span key={label.text} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${label.pct}%` }}>
+            <span
+              key={label.text}
+              // Labels at the very ends align inward so they never hang off the bar.
+              className={`absolute whitespace-nowrap ${label.pct < 6 ? '' : label.pct > 94 ? '-translate-x-full' : '-translate-x-1/2'}`}
+              style={{ left: `${label.pct}%` }}
+            >
               {label.text}
             </span>
           ))}

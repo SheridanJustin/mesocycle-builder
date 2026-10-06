@@ -41,7 +41,7 @@ export function RepRangeField({ idPrefix, min, max, onChange }: Props) {
       </label>
       <select
         id={`${idPrefix}-reps`}
-        className="h-7 w-full min-w-0 rounded-md border border-graphite-700 bg-graphite-950 px-1.5 text-sm text-graphite-50"
+        className="h-7 w-full min-w-0 rounded-md border border-graphite-700 bg-graphite-950 px-1 text-sm text-graphite-50"
         value={custom ? 'custom' : presetLabel({ min, max })}
         onChange={(e) => {
           if (e.target.value === 'custom') return setForceCustom(true);

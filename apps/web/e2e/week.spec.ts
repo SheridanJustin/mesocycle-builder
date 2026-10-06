@@ -46,7 +46,7 @@ test('"Number the days" switches names between weekdays and numbers, keeping cus
 
 test('adding an 8th day switches to numbered days; cycles go up to 10 days and back down', async ({ page }) => {
   await createMesocycleViaUi(page);
-  await expect(page.getByText('Adding an 8th day switches to numbered days.')).toBeVisible();
+  await expect(page.getByRole('button', { name: '+ Add day' })).toHaveAttribute('title', 'Adding an 8th day switches to numbered days.');
   await page.getByRole('button', { name: '+ Add day' }).click();
   expect(await columnNames(page)).toEqual(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7', 'Day 8']);
   await expect(numberedToggle(page)).toBeChecked();
@@ -57,7 +57,7 @@ test('adding an 8th day switches to numbered days; cycles go up to 10 days and b
   await page.getByRole('button', { name: '+ Add day' }).click();
   await page.getByRole('button', { name: '+ Add day' }).click();
   await expect(page.getByTestId('day-column')).toHaveCount(10);
-  await expect(page.getByRole('button', { name: '+ Add day' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '+ Add day' })).toBeDisabled();
 
   // Removing a rest day needs no confirmation; the rest are renumbered.
   await (await openDayMenu(page, 'Day 3')).getByRole('menuitem', { name: 'Remove day' }).click();
@@ -104,15 +104,16 @@ test('Review holds the block settings: name, duration and deload', async ({ page
   await expect(page.getByTestId('stat-training-days')).toHaveText('1');
   await expect(page.getByTestId('stat-rest-days')).toHaveText('6');
 
+  // The name is edited right in the header.
   await page.getByLabel('Mesocycle name').fill('Fall Block');
   await page.getByLabel('Mesocycle name').press('Enter');
-  await expect(page.getByTestId('mesocycle-title')).toHaveText('Fall Block');
+  await expect(page.getByTestId('mesocycle-title')).toHaveValue('Fall Block');
   await page.getByLabel('Duration').selectOption('6');
   await page.getByLabel('Deload in the final week').check();
   await waitForSaved(page);
 
   await page.reload();
-  await expect(page.getByTestId('mesocycle-title')).toHaveText('Fall Block');
+  await expect(page.getByTestId('mesocycle-title')).toHaveValue('Fall Block');
   await gotoTab(page, 'Review');
   await expect(page.getByLabel('Duration')).toHaveValue('6');
   await expect(page.getByLabel('Deload in the final week')).toBeChecked();

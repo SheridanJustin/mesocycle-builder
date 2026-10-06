@@ -9,7 +9,6 @@ export function CardPreview({ slot }: { slot: BuilderSlot }) {
       <p className="text-sm font-semibold">{exercise.name}</p>
       <p className="mt-1 text-xs text-graphite-300">
         {equipmentLabel(exercise.equipment_type)} · {slot.sets} sets · {slot.repMin}–{slot.repMax} reps · RIR {slot.rir}
-        {slot.weight !== null ? ` · ${slot.weight}` : ''}
       </p>
     </div>
   );

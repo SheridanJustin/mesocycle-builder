@@ -4,18 +4,16 @@ import { equipmentLabel, groupLabel } from '../../lib/labels';
 import { NumberStepper } from '../ui/NumberStepper';
 import { GROUP_DOT } from './group-colors';
 import { RepRangeField } from './RepRangeField';
-import { WeightField } from './WeightField';
 
 type Props = {
   slot: BuilderSlot;
-  weightUnit: string;
   onUpdate: (patch: Partial<SlotMetrics>) => void;
   onRemove: () => void;
 };
 
 const fieldLabel = 'text-[10px] font-semibold uppercase tracking-wider text-graphite-400';
 
-export function ExerciseCard({ slot, weightUnit, onUpdate, onRemove }: Props) {
+export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
   const { exercise } = slot;
   const group = MUSCLE_GROUP_OF[slot.muscle];
 
@@ -47,7 +45,7 @@ export function ExerciseCard({ slot, weightUnit, onUpdate, onRemove }: Props) {
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-end gap-x-2 gap-y-1.5">
+      <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-start gap-x-1.5">
         <div className="grid gap-0.5">
           <span className={fieldLabel}>Sets</span>
           <NumberStepper label="Sets" value={slot.sets} min={MIN_SETS} max={MAX_SETS} onChange={(sets) => onUpdate({ sets })} />
@@ -59,7 +57,7 @@ export function ExerciseCard({ slot, weightUnit, onUpdate, onRemove }: Props) {
           </label>
           <select
             id={`${slot.id}-rir`}
-            className="h-7 rounded-md border border-graphite-700 bg-graphite-950 px-1.5 text-sm text-graphite-50"
+            className="h-7 w-11 rounded-md border border-graphite-700 bg-graphite-950 px-1 text-sm text-graphite-50"
             value={slot.rir}
             onChange={(e) => onUpdate({ rir: Number(e.target.value) })}
           >
@@ -70,7 +68,6 @@ export function ExerciseCard({ slot, weightUnit, onUpdate, onRemove }: Props) {
             ))}
           </select>
         </div>
-        <WeightField idPrefix={slot.id} value={slot.weight} unit={weightUnit} onChange={(weight) => onUpdate({ weight })} />
       </div>
     </article>
   );

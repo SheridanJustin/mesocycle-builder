@@ -45,18 +45,17 @@ test('metrics are edited inline, cards reorder and delete, and everything persis
   const bench = card(page, 'Mon', 'Barbell Bench Press');
   const fly = card(page, 'Mon', 'Cable Fly');
 
-  // Defaults.
+  // Defaults. Cards are schedule-only: no weight field.
+  await expect(column(page, 'Mon').getByLabel(/Weight/)).toHaveCount(0);
   await expect(bench.getByTestId('value-Sets')).toHaveText('3');
   await expect(bench.getByLabel('Reps', { exact: true })).toHaveValue('8–12');
   await expect(bench.getByLabel('RIR')).toHaveValue('3');
-  await expect(bench.getByLabel(/Weight/)).toHaveValue('');
 
   await bench.getByRole('button', { name: 'Increase Sets' }).click();
   await bench.getByRole('button', { name: 'Increase Sets' }).click();
   await expect(bench.getByTestId('value-Sets')).toHaveText('5');
   await bench.getByLabel('Reps', { exact: true }).selectOption('5–10');
   await bench.getByLabel('RIR').selectOption('1');
-  await bench.getByLabel(/Weight/).fill('102.5');
 
   // Custom rep range: invalid values show an error and are not kept.
   await fly.getByLabel('Reps', { exact: true }).selectOption('custom');
@@ -65,9 +64,6 @@ test('metrics are edited inline, cards reorder and delete, and everything persis
   await expect(fly.getByRole('alert')).toContainText('Min must be below max');
   await fly.getByLabel('Maximum reps').fill('25');
   await expect(fly.getByRole('alert')).toHaveCount(0);
-  await fly.getByLabel(/Weight/).fill('12.345');
-  await expect(fly.getByRole('alert')).toContainText('At most 2 decimals');
-  await fly.getByLabel(/Weight/).fill('40');
 
   // No up/down buttons: cards are reordered by pressing, holding and dragging them.
   const cards = column(page, 'Mon').getByRole('article');
@@ -88,10 +84,8 @@ test('metrics are edited inline, cards reorder and delete, and everything persis
   await expect(reloaded.getByTestId('value-Sets')).toHaveText('5');
   await expect(reloaded.getByLabel('Reps', { exact: true })).toHaveValue('5–10');
   await expect(reloaded.getByLabel('RIR')).toHaveValue('1');
-  await expect(reloaded.getByLabel(/Weight/)).toHaveValue('102.5');
   await expect(card(page, 'Mon', 'Cable Fly').getByLabel('Minimum reps')).toHaveValue('15');
   await expect(card(page, 'Mon', 'Cable Fly').getByLabel('Maximum reps')).toHaveValue('25');
-  await expect(card(page, 'Mon', 'Cable Fly').getByLabel(/Weight/)).toHaveValue('40');
   expect(await pageScrollsSideways(page)).toBe(false);
 });
 

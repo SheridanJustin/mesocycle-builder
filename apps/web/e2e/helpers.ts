@@ -5,7 +5,7 @@ export async function createMesocycleViaUi(page: Page): Promise<string> {
   await page.goto('/mesocycles');
   await page.getByRole('button', { name: 'New mesocycle' }).click();
   await page.waitForURL(/\/mesocycles\/[0-9a-f-]+\/build/);
-  await expect(page.getByTestId('mesocycle-title')).toHaveText('Untitled block');
+  await expect(page.getByTestId('mesocycle-title')).toHaveValue('Untitled block');
   return page.url().match(/\/mesocycles\/([0-9a-f-]+)\/build/)![1] as string;
 }
 

@@ -31,7 +31,6 @@ test('scenario 2: drag a card from column 1 to column 3, metrics survive and vol
   await expect(moved.getByTestId('value-Sets')).toHaveText('5');
   await expect(moved.getByLabel('Reps', { exact: true })).toHaveValue('5–10');
   await expect(moved.getByLabel('RIR')).toHaveValue('1');
-  await expect(moved.getByLabel(/Weight/)).toHaveValue('102.5');
   await expect(card(page, 'Mon', 'Cable Fly')).toBeVisible();
   await expect(card(page, 'Wed', 'Leg Press')).toBeVisible();
 
@@ -41,7 +40,6 @@ test('scenario 2: drag a card from column 1 to column 3, metrics survive and vol
 
   await waitForSaved(page);
   await page.reload();
-  await expect(card(page, 'Wed', 'Barbell Bench Press').getByLabel(/Weight/)).toHaveValue('102.5');
   await expect(page.getByTestId('volume-frequency-chest')).toHaveText('2×/wk');
 });
 
@@ -119,11 +117,9 @@ test('scenario 3: duplicate "Push A" into "Push B" and confirm the cards and met
   await expect(bench.getByTestId('value-Sets')).toHaveText('5');
   await expect(bench.getByLabel('Reps', { exact: true })).toHaveValue('5–10');
   await expect(bench.getByLabel('RIR')).toHaveValue('1');
-  await expect(bench.getByLabel(/Weight/)).toHaveValue('102.5');
   const pushdown = card(page, 'Push B', 'Cable Pushdown');
   await expect(pushdown.getByLabel('Minimum reps')).toHaveValue('12');
   await expect(pushdown.getByLabel('Maximum reps')).toHaveValue('15');
-  await expect(pushdown.getByLabel(/Weight/)).toHaveValue('40');
   await expect(column(page, 'Push B').getByRole('article')).toHaveCount(3);
 
   await expect(page.getByTestId('volume-total-chest')).toHaveText('16');
@@ -145,7 +141,6 @@ test('in a Mon-Sun week a day is copied into another day instead of duplicated',
   await expect(menu.getByRole('menuitem', { name: 'Duplicate as new day' })).toHaveCount(0);
   await menu.getByRole('group', { name: 'Copy exercises to' }).getByRole('menuitem', { name: 'Thu' }).click();
   await expect(column(page, 'Thu').getByRole('article')).toHaveText([/Barbell Bench Press/, /Cable Fly/, /Cable Pushdown/]);
-  await expect(card(page, 'Thu', 'Barbell Bench Press').getByLabel(/Weight/)).toHaveValue('102.5');
   await expect(page.getByTestId('day-column')).toHaveCount(7);
   await expect(page.getByTestId('volume-total-chest')).toHaveText('16');
 });
@@ -155,6 +150,6 @@ test('duplicating stops at 10 days', async ({ page, request }) => {
   await page.goto(`/mesocycles/${id}/build`);
   await (await openDayMenu(page, 'Day 1')).getByRole('menuitem', { name: 'Duplicate as new day' }).click();
   await expect(page.getByTestId('day-column')).toHaveCount(10);
-  await expect(page.getByRole('button', { name: '+ Add day' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '+ Add day' })).toBeDisabled();
   await expect((await openDayMenu(page, 'Day 1')).getByRole('menuitem', { name: 'Duplicate as new day' })).toHaveCount(0);
 });

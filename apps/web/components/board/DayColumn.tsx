@@ -53,7 +53,7 @@ export function DayColumn({ day, copyTargets, canDuplicate, canRemove, handlers,
       id={`day-col-${day.id}`}
       aria-label={`${day.name} column`}
       data-testid="day-column"
-      className={`relative flex max-h-[calc(100dvh-11rem)] w-[85vw] max-w-xs shrink-0 snap-start flex-col overflow-hidden rounded-2xl border sm:w-72 ${
+      className={`relative flex max-h-full snap-start flex-col overflow-hidden rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[14.5rem] max-w-72 flex-1 basis-0'} ${
         isRestDay ? 'bg-graphite-900/40' : 'bg-graphite-900/90 shadow-lg shadow-black/30'
       } ${isDropTarget ? 'border-aqua-400 ring-2 ring-aqua-700' : isRestDay ? 'border-graphite-800/70 border-dashed' : 'border-graphite-800'}`}
     >
@@ -109,7 +109,7 @@ export function DayColumn({ day, copyTargets, canDuplicate, canRemove, handlers,
           onClick={() => handlers.onOpenAddExercises(day.id)}
           className={`w-full rounded-xl border border-dashed font-medium transition-colors ${
             isRestDay
-              ? 'border-graphite-700 py-6 text-graphite-400 hover:border-aqua-500 hover:bg-aqua-950/40 hover:text-aqua-300'
+              ? 'border-graphite-700 py-5 text-sm text-graphite-400 hover:border-aqua-500 hover:bg-aqua-950/40 hover:text-aqua-300'
               : 'border-graphite-700 py-2 text-sm text-graphite-300 hover:border-aqua-500 hover:bg-aqua-950/40 hover:text-aqua-300'
           }`}
         >

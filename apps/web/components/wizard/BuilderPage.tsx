@@ -1,6 +1,7 @@
 'use client';
 
 import { estimateSessionMinutes, type Exercise } from '@mesocycle/shared';
+import { deloadSets } from '@mesocycle/volume-engine';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { useBuilder } from '../../lib/builder/use-builder';
@@ -8,6 +9,7 @@ import { computeBuilderBlockVolume, contributionsFor } from '../../lib/builder/v
 import { AddExercisesPanel } from '../board/AddExercisesPanel';
 import { Board } from '../board/Board';
 import type { BoardHandlers } from '../board/types';
+import { InlineText } from '../ui/InlineText';
 import { SaveIndicator } from '../ui/SaveIndicator';
 import { VolumeBar } from '../volume/VolumeBar';
 import { ReviewTab } from './ReviewTab';
@@ -73,6 +75,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
     trainingDays: training.length,
     restDays: state.days.length - training.length,
     weeklySets: training.reduce((sum, day) => sum + day.slots.reduce((s, slot) => s + slot.sets, 0), 0),
+    deloadWeekSets: training.reduce((sum, day) => sum + day.slots.reduce((s, slot) => s + deloadSets(slot.sets), 0), 0),
     averageMinutes: training.length
       ? Math.round(
           training.reduce(
@@ -87,13 +90,20 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const cycleLabel = state.mode === 'calendar' ? 'Mon–Sun week' : `${state.days.length}-day cycle`;
 
   return (
-    <div>
-      <div className="sticky top-0 z-30 border-b border-graphite-800/80 bg-graphite-950/85 backdrop-blur-md">
+    <div className="flex h-full flex-col">
+      <div className="relative z-30 shrink-0 border-b border-graphite-800/80 bg-graphite-950/85 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 pt-2.5">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold tracking-tight" data-testid="mesocycle-title">
-                {meta.name}
+              <h1 className="-ml-2 text-lg font-semibold tracking-tight">
+                <InlineText
+                  ariaLabel="Mesocycle name"
+                  value={meta.name}
+                  maxLength={255}
+                  onCommit={(name) => void builder.updateSettings({ name })}
+                  className="w-[min(28rem,70vw)] py-0.5"
+                  testId="mesocycle-title"
+                />
               </h1>
               <p className="text-xs text-graphite-400">
                 {meta.durationWeeks} weeks · {cycleLabel} · {stats.trainingDays} training day{stats.trainingDays === 1 ? '' : 's'}
@@ -129,17 +139,19 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
         </p>
       )}
 
-      {tab === 'build' ? (
-        <Board state={state} weightUnit="lb" handlers={handlers} focusDayId={focusDayId} onFocusHandled={clearFocus} />
-      ) : (
-        <ReviewTab
-          settings={{ name: meta.name, durationWeeks: meta.durationWeeks, deloadFinalWeek: meta.deloadFinalWeek }}
-          stats={stats}
-          volume={volume}
-          block={block}
-          onSettingsChange={(patch) => void builder.updateSettings(patch)}
-        />
-      )}
+      <div className="min-h-0 flex-1">
+        {tab === 'build' ? (
+          <Board state={state} handlers={handlers} focusDayId={focusDayId} onFocusHandled={clearFocus} />
+        ) : (
+          <ReviewTab
+            settings={{ durationWeeks: meta.durationWeeks, deloadFinalWeek: meta.deloadFinalWeek }}
+            stats={stats}
+            volume={volume}
+            block={block}
+            onSettingsChange={(patch) => void builder.updateSettings(patch)}
+          />
+        )}
+      </div>
 
       <AddExercisesPanel dayName={addingToDay?.name ?? null} onAdd={addExercises} onClose={() => setAddingToDayId(null)} />
     </div>

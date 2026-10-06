@@ -54,7 +54,7 @@ export function MesocycleListContainer() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8">
+    <main className="mx-auto h-full max-w-7xl overflow-y-auto px-4 py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Mesocycles</h1>

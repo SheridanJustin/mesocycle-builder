@@ -3,6 +3,7 @@
 import type { GroupVolumeSummary, MuscleGroup } from '@mesocycle/shared';
 import { useCallback, useId, useState } from 'react';
 import type { Contribution } from '../../lib/builder/volume';
+import { LandmarkInfo } from './LandmarkInfo';
 import { VolumeChip } from './VolumeChip';
 import { VolumeDetailPopover } from './VolumeDetailPopover';
 
@@ -22,13 +23,14 @@ export function VolumeBar({ volume, contributionsFor }: Props) {
   const open = selected ? volume.summary[selected] : undefined;
 
   return (
-    <div role="region" aria-label="Weekly volume by muscle group" data-testid="volume-bar">
+    <div role="region" aria-label="Weekly volume by muscle group" data-testid="volume-bar" className="flex items-center gap-2 py-1.5">
       {entries.length === 0 ? (
-        <p className="py-2 text-xs text-graphite-500">Weekly sets per muscle group appear here as you add exercises.</p>
+        <p className="flex-1 py-1 text-xs text-graphite-500">Weekly sets per muscle group appear here as you add exercises.</p>
       ) : (
-        <ul className="flex gap-1.5 overflow-x-auto py-1.5">
+        // Ten groups at most, so they always fit: no horizontal scrolling.
+        <ul className="grid flex-1 grid-cols-5 gap-1.5 lg:grid-cols-10">
           {entries.map(([group, entry]) => (
-            <li key={group} className="shrink-0">
+            <li key={group} className="min-w-0">
               <VolumeChip
                 group={group}
                 entry={entry}
@@ -40,6 +42,7 @@ export function VolumeBar({ volume, contributionsFor }: Props) {
           ))}
         </ul>
       )}
+      <LandmarkInfo />
       {selected && open && (
         <VolumeDetailPopover id={popoverId} group={selected} entry={open} contributions={contributionsFor(selected)} onClose={close} />
       )}

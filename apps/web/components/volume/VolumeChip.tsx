@@ -37,7 +37,7 @@ export function VolumeChip({ group, entry, expanded, controlsId, onToggle }: Pro
       data-testid={`volume-chip-${group}`}
       data-status={entry.status}
       data-color={entry.color}
-      className={`w-[7.5rem] shrink-0 rounded-lg border px-2 py-1.5 text-left transition-transform hover:-translate-y-px ${STATUS_STYLE[entry.color]} ${
+      className={`w-full min-w-0 rounded-lg border px-2 py-1.5 text-left transition-transform hover:-translate-y-px ${STATUS_STYLE[entry.color]} ${
         expanded ? 'ring-2 ring-aqua-400' : ''
       }`}
     >

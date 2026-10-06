@@ -29,7 +29,6 @@ import type { BoardHandlers } from './types';
 
 type Props = {
   state: BuilderState;
-  weightUnit: string;
   handlers: BoardHandlers;
   focusDayId: string | null;
   onFocusHandled: () => void;
@@ -62,7 +61,7 @@ const collisionDetection: CollisionDetection = (args) => {
 // The horizontal board: day columns side by side in an overflow-x container with scroll-snap.
 // Only this container scrolls sideways; the page body never does. dnd-kit auto-scrolls it when a
 // dragged card nears the left or right edge.
-export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled }: Props) {
+export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overDayId, setOverDayId] = useState<string | null>(null);
   const numbered = state.mode === 'relative';
@@ -135,7 +134,6 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
           <SortableExerciseCard
             key={slot.id}
             slot={slot}
-            weightUnit={weightUnit}
             onUpdate={(patch) => handlers.onUpdateSlot(slot.id, patch)}
             onRemove={() => handlers.onRemoveSlot(slot.id)}
           />
@@ -145,8 +143,8 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
   }
 
   return (
-    <div>
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-3 text-sm">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 pt-3 text-sm">
         <label className="inline-flex cursor-pointer items-center gap-2 text-graphite-200">
           <input
             type="checkbox"
@@ -164,6 +162,15 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
           />
           Number the days
         </label>
+        <button
+          type="button"
+          onClick={handlers.onAddDay}
+          disabled={state.days.length >= MAX_CYCLE_DAYS}
+          title={numbered ? `Up to ${MAX_CYCLE_DAYS} days` : 'Adding an 8th day switches to numbered days.'}
+          className="rounded-lg border border-dashed border-graphite-700 px-3 py-1 text-sm font-medium text-graphite-300 transition-colors hover:border-aqua-500 hover:text-aqua-300 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          + Add day
+        </button>
         <span className="text-xs text-graphite-500">
           {numbered && state.days.length !== WEEK_DAYS
             ? `Weekday names need exactly ${WEEK_DAYS} days.`
@@ -190,8 +197,11 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
           tabIndex={0}
           data-testid="board"
           // Scroll snapping is switched off while dragging: it would snap every small auto-scroll step back.
-          className={`flex items-start gap-3 overflow-x-auto px-4 pb-6 pt-3 ${activeId ? 'snap-none' : 'snap-x snap-proximity'}`}
+          className={`min-h-0 flex-1 overflow-x-auto overflow-y-hidden ${activeId ? 'snap-none' : 'snap-x snap-proximity'}`}
         >
+          {/* Training days share the width (between a minimum and a maximum), rest days stay narrow, and
+              the row is centered. When the days cannot fit, the row overflows and the board scrolls sideways. */}
+          <div className="flex h-full w-full items-start justify-center-safe gap-3 px-4 pb-4 pt-3">
           {state.days.map((day) => (
             <DroppableDayColumn
               key={day.id}
@@ -207,18 +217,7 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
               {renderCards(day)}
             </DroppableDayColumn>
           ))}
-          {state.days.length < MAX_CYCLE_DAYS && (
-            <div className="w-40 shrink-0 snap-start">
-              <button
-                type="button"
-                onClick={handlers.onAddDay}
-                className="w-full rounded-2xl border border-dashed border-graphite-700 py-8 text-sm font-medium text-graphite-400 transition-colors hover:border-aqua-500 hover:text-aqua-300"
-              >
-                + Add day
-              </button>
-              {!numbered && <p className="mt-2 px-1 text-[11px] text-graphite-500">Adding an 8th day switches to numbered days.</p>}
-            </div>
-          )}
+          </div>
         </div>
         <DragOverlay>{activeSlot ? <CardPreview slot={activeSlot} /> : null}</DragOverlay>
       </DndContext>
