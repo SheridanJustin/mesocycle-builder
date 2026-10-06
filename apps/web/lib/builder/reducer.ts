@@ -13,6 +13,10 @@ import type { BuilderDay, BuilderSlot, BuilderState, SlotMetrics } from './types
 
 export type BuilderAction =
   | { type: 'hydrate'; state: BuilderState }
+  // Replaces the whole schedule (e.g. with a template). Unlike hydrate, this is a user edit and is saved.
+  | { type: 'replace'; state: BuilderState }
+  // Moves a day column to another position; generated names follow the new position.
+  | { type: 'moveDay'; dayId: string; toIndex: number }
   | { type: 'addDay'; dayId: string }
   | { type: 'removeDay'; dayId: string }
   | { type: 'clearDay'; dayId: string }
@@ -99,10 +103,24 @@ function copyDay(state: BuilderState, action: Extract<BuilderAction, { type: 'co
   return relabel({ ...state, days });
 }
 
+function moveDay(state: BuilderState, dayId: string, toIndex: number): BuilderState {
+  const from = state.days.findIndex((day) => day.id === dayId);
+  const to = Math.min(Math.max(toIndex, 0), state.days.length - 1);
+  if (from === -1 || from === to) return state;
+  const days = [...state.days];
+  const [day] = days.splice(from, 1);
+  days.splice(to, 0, day as BuilderDay);
+  return relabel({ ...state, days });
+}
+
 export function builderReducer(state: BuilderState, action: BuilderAction): BuilderState {
   switch (action.type) {
     case 'hydrate':
+    case 'replace':
       return action.state;
+
+    case 'moveDay':
+      return moveDay(state, action.dayId, action.toIndex);
 
     case 'addDay': {
       if (state.days.length >= MAX_CYCLE_DAYS) return state;

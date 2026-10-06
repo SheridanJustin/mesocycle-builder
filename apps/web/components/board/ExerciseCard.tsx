@@ -21,7 +21,7 @@ export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
     <article
       aria-label={exercise.name}
       data-testid="exercise-card"
-      className="rounded-xl border border-graphite-700/80 bg-graphite-800/70 p-2.5 shadow-sm transition-colors hover:border-graphite-600"
+      className="rounded-xl border border-graphite-700/80 bg-graphite-800/70 p-2 shadow-sm transition-colors hover:border-graphite-600"
     >
       <div className="flex items-start gap-2">
         <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${GROUP_DOT[group]}`} />

@@ -1,6 +1,6 @@
 import type { Exercise } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { dayDropId, describeMove, resolveDrop } from './drop';
+import { columnId, dayDropId, describeDayMove, describeMove, resolveDayDrop, resolveDrop } from './drop';
 import { builderReducer, createSlot } from './reducer';
 import type { BuilderState } from './types';
 
@@ -78,5 +78,26 @@ describe('describeMove', () => {
 
   it('handles an unknown slot', () => {
     expect(describeMove(state, { type: 'moveSlot', slotId: 'zzz', toDayId: 'd1', beforeSlotId: null })).toBe('Nothing was moved.');
+  });
+});
+
+describe('resolveDayDrop', () => {
+  it('moves a day to the position of the column it is dropped on and relabels by position', () => {
+    const action = resolveDayDrop(state, columnId('d2'), columnId('d1'));
+    expect(action).toEqual({ type: 'moveDay', dayId: 'd2', toIndex: 0 });
+    const next = builderReducer(state, action!);
+    expect(next.days.map((d) => d.id)).toEqual(['d2', 'd1', 'd3']);
+    expect(next.days.map((d) => d.name)).toEqual(['Day 1', 'Day 2', 'Day 3']);
+    expect(order(next, 'd2')).toEqual(['e']);
+    expect(describeDayMove(state, action!)).toBe('Day 2 moved to position 1 of 3.');
+  });
+
+  it('ignores drops on itself, on cards or day drop targets, and unknown days', () => {
+    expect(resolveDayDrop(state, columnId('d1'), columnId('d1'))).toBeNull();
+    expect(resolveDayDrop(state, columnId('d1'), 'a')).toBeNull();
+    expect(resolveDayDrop(state, columnId('d1'), dayDropId('d2'))).toBeNull();
+    expect(resolveDayDrop(state, 'a', columnId('d2'))).toBeNull();
+    expect(resolveDayDrop(state, columnId('zz'), columnId('d2'))).toBeNull();
+    expect(resolveDayDrop(state, columnId('d1'), columnId('zz'))).toBeNull();
   });
 });

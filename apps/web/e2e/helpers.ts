@@ -5,7 +5,7 @@ export async function createMesocycleViaUi(page: Page): Promise<string> {
   await page.goto('/mesocycles');
   await page.getByRole('button', { name: 'New mesocycle' }).click();
   await page.waitForURL(/\/mesocycles\/[0-9a-f-]+\/build/);
-  await expect(page.getByTestId('mesocycle-title')).toHaveValue('Untitled block');
+  await expect(page.getByTestId('mesocycle-title')).toHaveValue('Untitled mesocycle');
   return page.url().match(/\/mesocycles\/([0-9a-f-]+)\/build/)![1] as string;
 }
 
@@ -77,4 +77,14 @@ export async function center(locator: Locator): Promise<{ x: number; y: number }
   const box = await locator.boundingBox();
   if (!box) throw new Error('Element has no bounding box');
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+// Review's duration is a row of radio buttons (3-10 weeks). The inputs are visually hidden, so click the label.
+export async function setDuration(page: Page, weeks: number) {
+  await page.getByTestId('duration-options').locator('label').filter({ hasText: new RegExp(`^${weeks} weeks$`) }).click();
+  await expect(durationRadio(page, weeks)).toBeChecked();
+}
+
+export function durationRadio(page: Page, weeks: number) {
+  return page.getByRole('radio', { name: `${weeks} weeks`, exact: true });
 }

@@ -15,6 +15,9 @@ export type BoardHandlers = {
   // Drag and drop result: where the card goes and which card it lands before (null = end).
   onMoveSlot: (slotId: string, toDayId: string, beforeSlotId: string | null) => void;
   onRemoveSlot: (slotId: string) => void;
+  // Day column drag and drop: the day's new 0-based position.
+  onMoveDay: (dayId: string, toIndex: number) => void;
+  onOpenTemplates: () => void;
 };
 
 export type AddExercises = (dayId: string, exercises: Exercise[]) => void;

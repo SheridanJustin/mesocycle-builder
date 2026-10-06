@@ -6,7 +6,28 @@ export const dayDropId = (dayId: string): string => `${DAY_DROP_PREFIX}${dayId}`
 export const isDayDropId = (id: string): boolean => id.startsWith(DAY_DROP_PREFIX);
 export const dayIdFromDropId = (id: string): string => id.slice(DAY_DROP_PREFIX.length);
 
+// Day columns are sortable too. Their sortable ids differ from their card drop-target ids.
+export const COLUMN_PREFIX = 'col:';
+export const columnId = (dayId: string): string => `${COLUMN_PREFIX}${dayId}`;
+export const isColumnId = (id: string): boolean => id.startsWith(COLUMN_PREFIX);
+export const dayIdFromColumnId = (id: string): string => id.slice(COLUMN_PREFIX.length);
+
 export type MoveAction = Extract<BuilderAction, { type: 'moveSlot' }>;
+export type MoveDayAction = Extract<BuilderAction, { type: 'moveDay' }>;
+
+// Dropping day column `activeId` on another column moves the day to that column's position.
+export function resolveDayDrop(state: BuilderState, activeId: string, overId: string): MoveDayAction | null {
+  if (!isColumnId(activeId) || !isColumnId(overId) || activeId === overId) return null;
+  const dayId = dayIdFromColumnId(activeId);
+  const toIndex = state.days.findIndex((d) => d.id === dayIdFromColumnId(overId));
+  if (toIndex === -1 || !state.days.some((d) => d.id === dayId)) return null;
+  return { type: 'moveDay', dayId, toIndex };
+}
+
+export function describeDayMove(state: BuilderState, action: MoveDayAction): string {
+  const day = state.days.find((d) => d.id === action.dayId);
+  return `${day?.name ?? 'Day'} moved to position ${action.toIndex + 1} of ${state.days.length}.`;
+}
 
 // Decides what dropping slot `activeId` onto `overId` (another slot, or a day column) means.
 // - Same day: reorder with the usual sortable convention (dropping on a card below puts the

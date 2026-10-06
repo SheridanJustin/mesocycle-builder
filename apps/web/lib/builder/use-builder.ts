@@ -1,13 +1,14 @@
 'use client';
 
-import { PutScheduleSchema, type Exercise, type MesocycleDetail } from '@mesocycle/shared';
+import { DEFAULT_MESOCYCLE_NAME, PutScheduleSchema, type Exercise, type MesocycleDetail, type MesocycleTemplate } from '@mesocycle/shared';
 import type { Landmarks } from '@mesocycle/volume-engine';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { api, ApiClientError } from '../api-client';
+import { api, ApiClientError, fetchExerciseCatalog } from '../api-client';
 import { AutosaveController, type SaveStatus } from './autosave';
 import { newId } from './ids';
 import { detailToState, stateToSchedule } from './mappers';
 import { builderReducer, EMPTY_STATE, type BuilderAction } from './reducer';
+import { templateToState } from './templates';
 import type { BuilderState, SlotMetrics } from './types';
 import { computeBuilderVolume, toEngineLandmarks } from './volume';
 
@@ -119,6 +120,7 @@ export function useBuilder(mesocycleId: string) {
       updateSlot: (slotId: string, patch: Partial<SlotMetrics>) => dispatch({ type: 'updateSlot', slotId, patch }),
       moveSlot: (slotId: string, toDayId: string, beforeSlotId: string | null) =>
         dispatch({ type: 'moveSlot', slotId, toDayId, beforeSlotId }),
+      moveDay: (dayId: string, toIndex: number) => dispatch({ type: 'moveDay', dayId, toIndex }),
     }),
     [dispatch],
   );
@@ -154,6 +156,18 @@ export function useBuilder(mesocycleId: string) {
     [mesocycleId],
   );
 
+  // Replaces every day with the template's. An untitled mesocycle also takes the template's name.
+  const applyTemplate = useCallback(
+    async (template: MesocycleTemplate) => {
+      setNotice(null);
+      const { state: next, missing } = templateToState(template, await fetchExerciseCatalog());
+      dispatch({ type: 'replace', state: next });
+      if (missing.length > 0) setNotice(`Some template exercises are not in your catalog and were skipped: ${missing.join(', ')}.`);
+      if (meta?.name === DEFAULT_MESOCYCLE_NAME) await updateSettings({ name: template.name });
+    },
+    [dispatch, meta?.name, updateSettings],
+  );
+
   return {
     load,
     meta,
@@ -164,6 +178,7 @@ export function useBuilder(mesocycleId: string) {
     actions,
     updateSettings,
     copyDay,
+    applyTemplate,
     retrySave: () => controller.current?.retry(),
   };
 }

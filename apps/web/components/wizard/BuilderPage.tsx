@@ -1,6 +1,6 @@
 'use client';
 
-import { estimateSessionMinutes, type Exercise } from '@mesocycle/shared';
+import { estimateSessionMinutes, type Exercise, type MesocycleTemplate } from '@mesocycle/shared';
 import { deloadSets } from '@mesocycle/volume-engine';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
@@ -9,10 +9,12 @@ import { computeBuilderBlockVolume, contributionsFor } from '../../lib/builder/v
 import { AddExercisesPanel } from '../board/AddExercisesPanel';
 import { Board } from '../board/Board';
 import type { BoardHandlers } from '../board/types';
+import { TemplatePicker } from '../templates/TemplatePicker';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { InlineText } from '../ui/InlineText';
 import { SaveIndicator } from '../ui/SaveIndicator';
 import { VolumeBar } from '../volume/VolumeBar';
-import { ReviewTab } from './ReviewTab';
+import { ReviewTab, type ReviewDay, type ReviewStats } from './ReviewTab';
 
 type Tab = 'build' | 'review';
 const TABS: { id: Tab; label: string }[] = [
@@ -27,6 +29,10 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const [focusDayId, setFocusDayId] = useState<string | null>(null);
   const { load, meta, state, volume, actions } = builder;
   const clearFocus = useCallback(() => setFocusDayId(null), []);
+  const [pickingTemplate, setPickingTemplate] = useState(false);
+  const [pendingTemplate, setPendingTemplate] = useState<MesocycleTemplate | null>(null);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
 
   const handlers: BoardHandlers = {
     onSetNumbered: actions.setNumbered,
@@ -42,8 +48,28 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
     onOpenAddExercises: setAddingToDayId,
     onUpdateSlot: actions.updateSlot,
     onMoveSlot: actions.moveSlot,
+    onMoveDay: actions.moveDay,
     onRemoveSlot: actions.removeSlot,
+    onOpenTemplates: () => {
+      setTemplateError(null);
+      setPickingTemplate(true);
+    },
   };
+
+  async function applyTemplate(template: MesocycleTemplate) {
+    setPendingTemplate(null);
+    setApplyingId(template.id);
+    setTemplateError(null);
+    try {
+      await builder.applyTemplate(template);
+      setPickingTemplate(false);
+    } catch (error) {
+      setTemplateError(error instanceof Error ? `Could not load the template: ${error.message}` : 'Could not load the template.');
+    } finally {
+      setApplyingId(null);
+    }
+  }
+  const hasExercises = state.days.some((day) => day.slots.length > 0);
 
   function addExercises(exercises: Exercise[]) {
     if (addingToDayId) actions.addExercises(addingToDayId, exercises);
@@ -71,20 +97,19 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   }
 
   const training = state.days.filter((d) => d.slots.length > 0);
-  const stats = {
-    trainingDays: training.length,
-    restDays: state.days.length - training.length,
-    weeklySets: training.reduce((sum, day) => sum + day.slots.reduce((s, slot) => s + slot.sets, 0), 0),
+  const trainingDays: ReviewDay[] = training.map((day) => ({
+    name: day.name,
+    exercises: day.slots.length,
+    sets: day.slots.reduce((sum, slot) => sum + slot.sets, 0),
+    minutes: estimateSessionMinutes(day.slots.map((slot) => ({ sets: slot.sets, movementType: slot.exercise.movement_type }))),
+  }));
+  const stats: ReviewStats = {
+    trainingDays,
+    restDays: state.days.filter((d) => d.slots.length === 0).map((d) => d.name),
+    weeklySets: trainingDays.reduce((sum, day) => sum + day.sets, 0),
     deloadWeekSets: training.reduce((sum, day) => sum + day.slots.reduce((s, slot) => s + deloadSets(slot.sets), 0), 0),
-    averageMinutes: training.length
-      ? Math.round(
-          training.reduce(
-            (sum, day) => sum + estimateSessionMinutes(day.slots.map((slot) => ({ sets: slot.sets, movementType: slot.exercise.movement_type }))),
-            0,
-          ) /
-            training.length /
-            5,
-        ) * 5
+    averageMinutes: trainingDays.length
+      ? Math.round(trainingDays.reduce((sum, day) => sum + day.minutes, 0) / trainingDays.length / 5) * 5
       : 0,
   };
   const cycleLabel = state.mode === 'calendar' ? 'Mon–Sun week' : `${state.days.length}-day cycle`;
@@ -106,7 +131,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
                 />
               </h1>
               <p className="text-xs text-graphite-400">
-                {meta.durationWeeks} weeks · {cycleLabel} · {stats.trainingDays} training day{stats.trainingDays === 1 ? '' : 's'}
+                {meta.durationWeeks} weeks · {cycleLabel} · {trainingDays.length} training day{trainingDays.length === 1 ? '' : 's'}
                 {meta.deloadFinalWeek ? ' · deload' : ''}
               </p>
             </div>
@@ -153,6 +178,22 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
         )}
       </div>
 
+      <TemplatePicker
+        open={pickingTemplate}
+        onClose={() => setPickingTemplate(false)}
+        onPick={(template) => (hasExercises ? setPendingTemplate(template) : void applyTemplate(template))}
+        note={hasExercises ? 'Picking a template replaces all of your current days and exercises.' : undefined}
+        busyId={applyingId}
+        error={templateError}
+      />
+      <ConfirmDialog
+        open={pendingTemplate !== null}
+        title="Replace your days?"
+        message={`“${pendingTemplate?.name ?? ''}” will replace every day and exercise on your board.`}
+        confirmLabel="Use template"
+        onConfirm={() => pendingTemplate && void applyTemplate(pendingTemplate)}
+        onCancel={() => setPendingTemplate(null)}
+      />
       <AddExercisesPanel dayName={addingToDay?.name ?? null} onAdd={addExercises} onClose={() => setAddingToDayId(null)} />
     </div>
   );

@@ -9,10 +9,12 @@ type Props = {
   children: ReactNode;
   // Docks the dialog to the right edge as a side panel.
   side?: boolean;
+  // Wide dialogs hold a grid of choices (e.g. templates).
+  wide?: boolean;
 };
 
 // Native <dialog>: the browser handles focus trapping, Escape and the modal backdrop.
-export function Dialog({ open, title, onClose, children, side = false }: Props) {
+export function Dialog({ open, title, onClose, children, side = false, wide = false }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -25,7 +27,7 @@ export function Dialog({ open, title, onClose, children, side = false }: Props) 
 
   const placement = side
     ? 'ml-auto mr-0 h-dvh max-h-dvh w-full max-w-md rounded-none'
-    : 'm-auto w-full max-w-md rounded-lg';
+    : `m-auto w-full ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-lg`;
 
   return (
     <dialog

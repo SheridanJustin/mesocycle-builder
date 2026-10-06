@@ -49,8 +49,8 @@ test('a short cycle is centered on wide screens', async ({ page, request }) => {
   expect(Math.abs(leftGap - rightGap)).toBeLessThan(40);
 });
 
-test('the block name can be renamed right on the main screen', async ({ page, request }) => {
-  const id = await createPopulatedDraft(request, { name: 'Untitled block', days: week });
+test('the mesocycle name can be renamed right on the main screen', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, { name: 'Untitled mesocycle', days: week });
   await page.goto(`/mesocycles/${id}/build`);
   const title = page.getByTestId('mesocycle-title');
   await title.fill('Summer Push Block');
@@ -84,14 +84,14 @@ test('Review explains the deload week on hover and has a Lock in button', async 
   await expect(tip).toContainText('same rep range');
   await expect(tip).toContainText('Week 1 RIR');
   // 51 weekly sets; deload = sum of ceil(sets / 2) = 30.
-  await expect(page.getByTestId('deload-example')).toHaveText('For this block: 51 sets per week → 30 sets in the deload week.');
+  await expect(page.getByTestId('deload-example')).toHaveText('For this mesocycle: 51 sets per week → 30 sets in the deload week.');
   await page.mouse.move(0, 0);
   await expect(tip).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Lock in block' }).click();
-  await expect(page.getByRole('dialog', { name: 'Lock in block' })).toContainText('Lock-in is coming soon');
-  await page.getByRole('dialog', { name: 'Lock in block' }).getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Lock in block' })).toBeHidden();
+  await page.getByRole('button', { name: 'Lock in mesocycle' }).click();
+  await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toContainText('Lock-in is coming soon');
+  await page.getByRole('dialog', { name: 'Lock in mesocycle' }).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toBeHidden();
 });
 
 test('Log in opens an email and password form (placeholder, sends nothing)', async ({ page }) => {

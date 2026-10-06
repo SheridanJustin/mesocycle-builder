@@ -12,12 +12,14 @@ type Props = {
   trigger?: ReactNode;
   align?: 'left' | 'right';
   className?: string;
+  // Classes for a custom trigger (e.g. a full-width tile).
+  triggerClassName?: string;
   testId?: string;
 };
 
 // A small non-modal explanation panel. Opens on click (and on hover/focus when openOnHover),
 // closes on Escape or a click outside.
-export function InfoPopover({ label, children, openOnHover = false, trigger, align = 'left', className = '', testId }: Props) {
+export function InfoPopover({ label, children, openOnHover = false, trigger, align = 'left', className = '', triggerClassName = 'inline-flex items-center gap-1', testId }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const panelId = useId();
@@ -39,7 +41,7 @@ export function InfoPopover({ label, children, openOnHover = false, trigger, ali
   const hover = openOnHover ? { onMouseEnter: () => setOpen(true), onMouseLeave: () => setOpen(false) } : {};
 
   return (
-    <span ref={ref} className={`relative inline-flex ${className}`} {...hover}>
+    <span ref={ref} className={`relative ${className || 'inline-flex'}`} {...hover}>
       <button
         type="button"
         aria-label={label}
@@ -50,7 +52,7 @@ export function InfoPopover({ label, children, openOnHover = false, trigger, ali
         onBlur={openOnHover ? () => setOpen(false) : undefined}
         className={
           trigger
-            ? 'inline-flex items-center gap-1'
+            ? triggerClassName
             : 'grid h-5 w-5 place-items-center rounded-full border border-graphite-600 text-[11px] font-bold text-graphite-300 hover:border-aqua-400 hover:text-aqua-300'
         }
       >

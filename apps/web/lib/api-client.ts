@@ -2,12 +2,14 @@ import {
   ApiErrorSchema,
   ExerciseListSchema,
   ExerciseSchema,
+  MAX_EXERCISE_PAGE_SIZE,
   MesocycleDetailSchema,
   MesocycleListSchema,
   MuscleLandmarkListSchema,
   type CreateExercise,
   type CreateMesocycle,
   type DuplicateDay,
+  type Exercise,
   type ListExercisesQuery,
   type PatchMesocycle,
 } from '@mesocycle/shared';
@@ -81,3 +83,15 @@ export const api = {
   createExercise: (body: CreateExercise | Record<string, unknown>) =>
     request('/exercises', json('POST', body), ExerciseSchema),
 };
+
+// Every exercise the user can pick (built-in and custom), following the pagination cursor.
+export async function fetchExerciseCatalog(): Promise<Exercise[]> {
+  const all: Exercise[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await api.listExercises({ limit: MAX_EXERCISE_PAGE_SIZE, ...(cursor ? { cursor } : {}) });
+    all.push(...page.items);
+    cursor = page.next_cursor ?? undefined;
+  } while (cursor);
+  return all;
+}

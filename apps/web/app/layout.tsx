@@ -26,7 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             </Link>
             <div className="flex items-center gap-4">
               <Link href="/mesocycles" className="text-sm text-graphite-300 hover:text-graphite-50">
-                My blocks
+                My mesocycles
               </Link>
               <LoginButton />
             </div>

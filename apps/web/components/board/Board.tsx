@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  closestCenter,
   DndContext,
   DragOverlay,
   pointerWithin,
@@ -14,16 +15,28 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { horizontalListSortingStrategy, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { MAX_CYCLE_DAYS, MIN_CYCLE_DAYS, WEEK_DAYS } from '@mesocycle/shared';
-import { useState } from 'react';
-import { dayIdFromDropId, describeMove, isDayDropId, resolveDrop } from '../../lib/builder/drop';
-import { keyboardTarget, type ArrowKey } from '../../lib/builder/keyboard-targets';
+import { useRef, useState } from 'react';
+import {
+  columnId,
+  dayIdFromColumnId,
+  dayIdFromDropId,
+  describeDayMove,
+  describeMove,
+  isColumnId,
+  isDayDropId,
+  resolveDayDrop,
+  resolveDrop,
+} from '../../lib/builder/drop';
+import { columnKeyboardTarget, keyboardTarget, type ArrowKey } from '../../lib/builder/keyboard-targets';
 import { findSlot } from '../../lib/builder/reducer';
 import { CardKeyboardSensor, CardPointerSensor } from '../../lib/builder/sensors';
 import type { BuilderDay, BuilderState } from '../../lib/builder/types';
 import { CardPreview } from './CardPreview';
-import { DroppableDayColumn } from './DroppableDayColumn';
+import { DayPreview } from './DayPreview';
+import { DragTip } from './DragTip';
+import { SortableDayColumn } from './SortableDayColumn';
 import { SortableExerciseCard } from './SortableExerciseCard';
 import type { BoardHandlers } from './types';
 
@@ -39,21 +52,35 @@ type Props = {
 // the target is whichever droppable contains that corner (a card before its column).
 const ARROWS: readonly string[] = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 
+// The droppable whose rect contains a point (keyboard drags park the overlay's top-left corner there).
+function containing(args: Parameters<CollisionDetection>[0], containers: typeof args.droppableContainers) {
+  // Probe a little inside the corner so sub-pixel offsets of the preview cannot miss the target.
+  const x = args.collisionRect.left + 8;
+  const y = args.collisionRect.top + 8;
+  return containers.filter((container) => {
+    const rect = args.droppableRects.get(container.id);
+    return rect !== undefined && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  });
+}
+
 const collisionDetection: CollisionDetection = (args) => {
+  // A whole day is being dragged: only other day columns are targets.
+  if (isColumnId(String(args.active.id))) {
+    const columns = args.droppableContainers.filter((container) => isColumnId(String(container.id)));
+    if (!args.pointerCoordinates) return containing(args, columns).slice(0, 1).map((c) => ({ id: c.id }));
+    return closestCenter({ ...args, droppableContainers: columns });
+  }
+
+  // A card is being dragged: cards and the day drop targets behind them, never the sortable columns.
+  const targets = args.droppableContainers.filter((container) => !isColumnId(String(container.id)));
   if (!args.pointerCoordinates) {
-    // Probe a little inside the corner so sub-pixel offsets of the preview cannot miss the target.
-    const x = args.collisionRect.left + 8;
-    const y = args.collisionRect.top + 8;
-    const containing = args.droppableContainers.filter((container) => {
-      const rect = args.droppableRects.get(container.id);
-      return rect !== undefined && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-    });
-    const card = containing.find((container) => !isDayDropId(String(container.id)));
-    const target = card ?? containing[0];
+    const hits = containing(args, targets);
+    const target = hits.find((container) => !isDayDropId(String(container.id))) ?? hits[0];
     return target ? [{ id: target.id }] : [];
   }
-  const pointer = pointerWithin(args);
-  const hits = pointer.length > 0 ? pointer : rectIntersection(args);
+  const cardArgs = { ...args, droppableContainers: targets };
+  const pointer = pointerWithin(cardArgs);
+  const hits = pointer.length > 0 ? pointer : rectIntersection(cardArgs);
   const card = hits.find((hit) => !isDayDropId(String(hit.id)));
   return card ? [card] : hits.slice(0, 1);
 };
@@ -65,6 +92,9 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overDayId, setOverDayId] = useState<string | null>(null);
   const numbered = state.mode === 'relative';
+  // The last target chosen by an arrow key. dnd-kit reports the new "over" target asynchronously, so a
+  // quick second key press would otherwise start again from the old position.
+  const keyboardOver = useRef<string | null>(null);
 
   // Arrow keys move the dragged card through the targets chosen by keyboardTarget(): up/down within
   // the day, left/right to the neighbouring day.
@@ -72,9 +102,15 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
     if (!ARROWS.includes(event.code)) return undefined;
     event.preventDefault();
     if (!active) return undefined;
-    const target = keyboardTarget(state, String(active.id), over ? String(over.id) : null, event.code as ArrowKey);
+    const activeKey = String(active.id);
+    const overKey = keyboardOver.current ?? (over ? String(over.id) : null);
+    const target = isColumnId(activeKey)
+      ? columnKeyboardTarget(state, activeKey, overKey, event.code as ArrowKey)
+      : keyboardTarget(state, activeKey, overKey, event.code as ArrowKey);
     const rect = target ? droppableRects.get(target) : undefined;
-    return rect ? { x: rect.left, y: rect.top } : undefined;
+    if (!rect) return undefined;
+    keyboardOver.current = target;
+    return { x: rect.left, y: rect.top };
   };
 
   const sensors = useSensors(
@@ -84,7 +120,10 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
   );
 
   const activeSlot = activeId ? findSlot(state, activeId)?.slot : undefined;
+  const activeDay = activeId && isColumnId(activeId) ? state.days.find((d) => d.id === dayIdFromColumnId(activeId)) : undefined;
   const nameOf = (id: string | number) => findSlot(state, String(id))?.slot.exercise.name ?? 'card';
+  const dayNameOf = (id: string | number) => state.days.find((d) => d.id === dayIdFromColumnId(String(id)))?.name ?? 'Day';
+  const positionOf = (id: string | number) => state.days.findIndex((d) => d.id === dayIdFromColumnId(String(id))) + 1;
 
   function dayOf(id: string | number | undefined): string | null {
     if (id === undefined) return null;
@@ -93,8 +132,14 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
   }
 
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up ${nameOf(active.id)}. Use the arrow keys to move it, Space to drop, Escape to cancel.`,
+    onDragStart: ({ active }) =>
+      isColumnId(String(active.id))
+        ? `Picked up ${dayNameOf(active.id)}. Use the Left and Right arrow keys to move the day, Space to drop, Escape to cancel.`
+        : `Picked up ${nameOf(active.id)}. Use the arrow keys to move it, Space to drop, Escape to cancel.`,
     onDragOver: ({ active, over }) => {
+      if (isColumnId(String(active.id))) {
+        return over ? `${dayNameOf(active.id)} is over position ${positionOf(over.id)} of ${state.days.length}.` : undefined;
+      }
       if (!over) return `${nameOf(active.id)} is not over a drop target.`;
       const day = state.days.find((d) => d.id === dayOf(over.id));
       if (!day) return undefined;
@@ -104,25 +149,38 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
         : `${nameOf(active.id)} is over ${nameOf(over.id)} in ${day.name}.`;
     },
     onDragEnd: ({ active, over }) => {
+      if (isColumnId(String(active.id))) {
+        const move = over ? resolveDayDrop(state, String(active.id), String(over.id)) : null;
+        return move ? describeDayMove(state, move) : `${dayNameOf(active.id)} was dropped. Nothing changed.`;
+      }
       const action = over ? resolveDrop(state, String(active.id), String(over.id)) : null;
       return action ? describeMove(state, action) : `${nameOf(active.id)} was dropped. Nothing changed.`;
     },
-    onDragCancel: ({ active }) => `Move cancelled. ${nameOf(active.id)} stays where it was.`,
+    onDragCancel: ({ active }) =>
+      `Move cancelled. ${isColumnId(String(active.id)) ? dayNameOf(active.id) : nameOf(active.id)} stays where it was.`,
   };
 
   function handleDragStart({ active }: DragStartEvent) {
+    keyboardOver.current = null;
     setActiveId(String(active.id));
   }
 
   function handleDragOver({ active, over }: DragOverEvent) {
+    if (isColumnId(String(active.id))) return;
     const target = dayOf(over?.id);
     setOverDayId(target && target !== findSlot(state, String(active.id))?.day.id ? target : null);
   }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
+    keyboardOver.current = null;
     setActiveId(null);
     setOverDayId(null);
     if (!over) return;
+    if (isColumnId(String(active.id))) {
+      const move = resolveDayDrop(state, String(active.id), String(over.id));
+      if (move) handlers.onMoveDay(move.dayId, move.toIndex);
+      return;
+    }
     const action = resolveDrop(state, String(active.id), String(over.id));
     if (action) handlers.onMoveSlot(action.slotId, action.toDayId, action.beforeSlotId);
   }
@@ -171,11 +229,17 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
         >
           + Add day
         </button>
+        <button
+          type="button"
+          onClick={handlers.onOpenTemplates}
+          className="rounded-lg border border-graphite-700 bg-graphite-900 px-3 py-1 text-sm font-medium text-graphite-200 transition-colors hover:border-aqua-500 hover:text-aqua-300"
+        >
+          Templates
+        </button>
         <span className="text-xs text-graphite-500">
-          {numbered && state.days.length !== WEEK_DAYS
-            ? `Weekday names need exactly ${WEEK_DAYS} days.`
-            : 'Empty days are rest days · press and hold a card to drag it'}
+          {numbered && state.days.length !== WEEK_DAYS ? `Weekday names need exactly ${WEEK_DAYS} days.` : 'Empty days are rest days'}
         </span>
+        <DragTip />
       </div>
 
       <DndContext
@@ -187,6 +251,7 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={() => {
+          keyboardOver.current = null;
           setActiveId(null);
           setOverDayId(null);
         }}
@@ -201,9 +266,10 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
         >
           {/* Training days share the width (between a minimum and a maximum), rest days stay narrow, and
               the row is centered. When the days cannot fit, the row overflows and the board scrolls sideways. */}
-          <div className="flex h-full w-full items-start justify-center-safe gap-3 px-4 pb-4 pt-3">
+          <div className="flex h-full w-full items-start justify-center-safe gap-2.5 px-4 pb-4 pt-3">
+          <SortableContext items={state.days.map((day) => columnId(day.id))} strategy={horizontalListSortingStrategy}>
           {state.days.map((day) => (
-            <DroppableDayColumn
+            <SortableDayColumn
               key={day.id}
               day={day}
               copyTargets={state.days.filter((d) => d.id !== day.id).map((d) => ({ id: d.id, name: d.name }))}
@@ -215,11 +281,12 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
               highlighted={overDayId === day.id}
             >
               {renderCards(day)}
-            </DroppableDayColumn>
+            </SortableDayColumn>
           ))}
+          </SortableContext>
           </div>
         </div>
-        <DragOverlay>{activeSlot ? <CardPreview slot={activeSlot} /> : null}</DragOverlay>
+        <DragOverlay>{activeSlot ? <CardPreview slot={activeSlot} /> : activeDay ? <DayPreview day={activeDay} /> : null}</DragOverlay>
       </DndContext>
     </div>
   );

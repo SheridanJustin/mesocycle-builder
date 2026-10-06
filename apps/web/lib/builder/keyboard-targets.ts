@@ -1,4 +1,4 @@
-import { dayDropId, dayIdFromDropId, isDayDropId } from './drop';
+import { columnId, dayDropId, dayIdFromColumnId, dayIdFromDropId, isColumnId, isDayDropId } from './drop';
 import { findSlot } from './reducer';
 import type { BuilderState } from './types';
 
@@ -23,4 +23,14 @@ export function keyboardTarget(state: BuilderState, activeId: string, currentOve
   if (isDayDropId(current)) return key === 'ArrowDown' ? (currentDay.slots[0]?.id ?? null) : null;
   const target = currentDay.slots[currentDay.slots.findIndex((s) => s.id === current) + (key === 'ArrowDown' ? 1 : -1)];
   return target ? target.id : null;
+}
+
+// Keyboard drag of a whole day column: Left/Right step to the neighbouring column's position.
+export function columnKeyboardTarget(state: BuilderState, activeId: string, currentOverId: string | null, key: ArrowKey): string | null {
+  if (key !== 'ArrowLeft' && key !== 'ArrowRight') return null;
+  const current = currentOverId !== null && isColumnId(currentOverId) ? currentOverId : activeId;
+  const index = state.days.findIndex((d) => d.id === dayIdFromColumnId(current));
+  if (index === -1) return null;
+  const next = state.days[index + (key === 'ArrowRight' ? 1 : -1)];
+  return next ? columnId(next.id) : null;
 }

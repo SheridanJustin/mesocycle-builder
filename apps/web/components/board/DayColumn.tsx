@@ -1,7 +1,7 @@
 'use client';
 
 import { estimateSessionMinutes, MAX_DAY_NAME_LENGTH } from '@mesocycle/shared';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
 import type { BuilderDay } from '../../lib/builder/types';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { InlineText } from '../ui/InlineText';
@@ -22,9 +22,28 @@ type Props = {
   // Lets the board register this column as a drop target.
   columnRef?: (element: HTMLElement | null) => void;
   isDropTarget?: boolean;
+  // Lets the board reorder whole days: the header is the drag handle.
+  drag?: {
+    handleRef: (element: HTMLElement | null) => void;
+    handleProps: HTMLAttributes<HTMLElement>;
+    style: CSSProperties;
+    isDragging: boolean;
+  };
 };
 
-export function DayColumn({ day, copyTargets, canDuplicate, canRemove, handlers, children, focusName, onFocusNameHandled, columnRef, isDropTarget = false }: Props) {
+export function DayColumn({
+  day,
+  copyTargets,
+  canDuplicate,
+  canRemove,
+  handlers,
+  children,
+  focusName,
+  onFocusNameHandled,
+  columnRef,
+  isDropTarget = false,
+  drag,
+}: Props) {
   const [confirming, setConfirming] = useState<'clear' | 'remove' | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
   const nameId = `day-name-${day.id}`;
@@ -53,14 +72,31 @@ export function DayColumn({ day, copyTargets, canDuplicate, canRemove, handlers,
       id={`day-col-${day.id}`}
       aria-label={`${day.name} column`}
       data-testid="day-column"
-      className={`relative flex max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[14.5rem] max-w-72 flex-1 basis-0'} ${
+      style={drag?.style}
+      className={`relative flex ${drag?.isDragging ? 'z-10 opacity-40' : ''} max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[14rem] max-w-72 flex-1 basis-0'} ${
         isRestDay ? 'bg-graphite-900/40' : 'bg-graphite-900/90 shadow-lg shadow-black/30'
       } ${isDropTarget ? 'border-aqua-400 ring-2 ring-aqua-700' : isRestDay ? 'border-graphite-800/70 border-dashed' : 'border-graphite-800'}`}
     >
       {/* No overflow clipping on the column: the day menu must be able to extend past short (rest-day) columns. */}
       {!isRestDay && <div aria-hidden="true" className="mx-3 h-0.5 rounded-full bg-gradient-to-r from-aqua-500 via-verdigris-500 to-transparent" />}
-      <header className="px-2.5 pb-2 pt-2">
+      <header
+        ref={drag?.handleRef}
+        {...drag?.handleProps}
+        aria-label={drag ? `Move ${day.name}` : undefined}
+        title={drag ? 'Press and hold to move this day' : undefined}
+        className={`rounded-t-2xl px-2.5 pb-2 pt-2 ${drag ? 'cursor-grab touch-manipulation active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aqua-400' : ''}`}
+      >
         <div className="flex items-center gap-1">
+          {drag && (
+            <svg aria-hidden="true" viewBox="0 0 8 14" className="h-3.5 w-2 shrink-0 fill-graphite-500" data-testid="day-grip">
+              <circle cx="2" cy="2" r="1.2" />
+              <circle cx="6" cy="2" r="1.2" />
+              <circle cx="2" cy="7" r="1.2" />
+              <circle cx="6" cy="7" r="1.2" />
+              <circle cx="2" cy="12" r="1.2" />
+              <circle cx="6" cy="12" r="1.2" />
+            </svg>
+          )}
           <InlineText
             id={nameId}
             ariaLabel={`Day name for ${day.name}`}
@@ -101,7 +137,7 @@ export function DayColumn({ day, copyTargets, canDuplicate, canRemove, handlers,
         </div>
       </header>
 
-      {!isRestDay && <div className="grid flex-1 content-start gap-2 overflow-y-auto px-2.5 pb-1">{children}</div>}
+      {!isRestDay && <div className="grid flex-1 content-start gap-2 overflow-y-auto px-2 pb-1">{children}</div>}
 
       <footer className="p-2.5">
         <button

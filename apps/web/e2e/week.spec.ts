@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createPopulatedDraft } from './api-helpers';
-import { addExercises, card, column, columnNames, createMesocycleViaUi, gotoTab, openDayMenu, waitForSaved } from './helpers';
+import { addExercises, card, column, columnNames, createMesocycleViaUi, durationRadio, gotoTab, openDayMenu, setDuration, waitForSaved } from './helpers';
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const numberedToggle = (page: Page) => page.getByRole('switch', { name: 'Number the days (Day 1, Day 2, …)' });
@@ -97,7 +97,7 @@ test('a Mon-Sun week cannot lose days, but a day can be cleared into a rest day'
   await expect(page.getByTestId('day-column')).toHaveCount(7);
 });
 
-test('Review holds the block settings: name, duration and deload', async ({ page }) => {
+test('Review holds the mesocycle settings: duration and deload', async ({ page }) => {
   await createMesocycleViaUi(page);
   await addExercises(page, 'Mon', ['Cable Fly']);
   await gotoTab(page, 'Review');
@@ -108,14 +108,14 @@ test('Review holds the block settings: name, duration and deload', async ({ page
   await page.getByLabel('Mesocycle name').fill('Fall Block');
   await page.getByLabel('Mesocycle name').press('Enter');
   await expect(page.getByTestId('mesocycle-title')).toHaveValue('Fall Block');
-  await page.getByLabel('Duration').selectOption('6');
+  await setDuration(page, 6);
   await page.getByLabel('Deload in the final week').check();
   await waitForSaved(page);
 
   await page.reload();
   await expect(page.getByTestId('mesocycle-title')).toHaveValue('Fall Block');
   await gotoTab(page, 'Review');
-  await expect(page.getByLabel('Duration')).toHaveValue('6');
+  await expect(durationRadio(page, 6)).toBeChecked();
   await expect(page.getByLabel('Deload in the final week')).toBeChecked();
   await gotoTab(page, 'Build');
   await expect(card(page, 'Mon', 'Cable Fly')).toBeVisible();

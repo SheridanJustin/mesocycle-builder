@@ -153,3 +153,33 @@ describe('hydrate', () => {
     expect(run(week, { type: 'hydrate', state: numbered(2) })).toEqual(numbered(2));
   });
 });
+
+describe('moveDay', () => {
+  it('moves a day and relabels generated weekday names by position', () => {
+    // Wed (d2, exercise d) dragged to the start becomes Mon; old Mon and Tue shift to Tue and Wed.
+    const next = run(week, { type: 'moveDay', dayId: 'd2', toIndex: 0 });
+    expect(next.days.map((d) => d.id)).toEqual(['d2', 'd0', 'd1', 'd3', 'd4', 'd5', 'd6']);
+    expect(names(next)).toEqual(NAMES);
+    expect(next.days.map((d) => d.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(ids(next, 'd2')).toEqual(['d']);
+  });
+
+  it('renumbers numbered days and keeps typed names', () => {
+    const start = run(numbered(3), { type: 'renameDay', dayId: 'n2', name: 'Legs' });
+    const next = run(start, { type: 'moveDay', dayId: 'n1', toIndex: 0 }, { type: 'moveDay', dayId: 'n2', toIndex: 1 });
+    expect(next.days.map((d) => d.id)).toEqual(['n1', 'n2', 'n0']);
+    expect(names(next)).toEqual(['Day 1', 'Legs', 'Day 3']);
+  });
+
+  it('clamps the target index and ignores no-ops and unknown days', () => {
+    expect(run(week, { type: 'moveDay', dayId: 'd0', toIndex: 99 }).days.at(-1)?.id).toBe('d0');
+    expect(run(week, { type: 'moveDay', dayId: 'd3', toIndex: 3 })).toBe(week);
+    expect(run(week, { type: 'moveDay', dayId: 'zz', toIndex: 0 })).toBe(week);
+  });
+});
+
+describe('replace', () => {
+  it('replaces the whole state', () => {
+    expect(run(week, { type: 'replace', state: numbered(3) })).toEqual(numbered(3));
+  });
+});

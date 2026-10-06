@@ -40,7 +40,7 @@ export function LoginButton() {
           </label>
           {submitted && (
             <p role="status" className="rounded-lg bg-graphite-800 p-2 text-sm text-graphite-200">
-              Accounts are coming soon. Your blocks are already saved automatically.
+              Accounts are coming soon. Your mesocycles are already saved automatically.
             </p>
           )}
           <Button type="submit" variant="primary">

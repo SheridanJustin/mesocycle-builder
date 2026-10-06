@@ -15,8 +15,8 @@ export function MesocycleList({ items, onDelete }: Props) {
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-graphite-700 bg-graphite-900/50 p-10 text-center">
-        <p className="text-lg font-medium">No training blocks yet</p>
-        <p className="mt-1 text-sm text-graphite-400">Create your first mesocycle to start planning your week.</p>
+        <p className="text-lg font-medium">No mesocycles yet</p>
+        <p className="mt-1 text-sm text-graphite-400">Create your first mesocycle, or start from a template.</p>
       </div>
     );
   }

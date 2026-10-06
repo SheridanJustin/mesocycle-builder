@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createPopulatedDraft } from './api-helpers';
-import { gotoTab } from './helpers';
+import { gotoTab, setDuration } from './helpers';
 
 const days = [
   { slots: [{ exercise: 'Barbell Bench Press', sets: 4 }, { exercise: 'Cable Lateral Raise', sets: 3 }] },
@@ -26,7 +26,7 @@ test('Review shows overall volume per major muscle group, weekly and for the who
   await expect(page.getByTestId('review-weekly-chest')).toHaveText('7');
   await expect(page.getByTestId('review-block-chest')).toHaveText('28');
   await expect(page.getByTestId('review-status-chest')).toHaveText('Below MV');
-  // Back: pull-ups 5 + rows 3 = 8 (each exercise counts once), 32 over the block.
+  // Back: pull-ups 5 + rows 3 = 8 (each exercise counts once), 32 over the mesocycle.
   await expect(page.getByTestId('review-weekly-back')).toHaveText('8');
   await expect(page.getByTestId('review-block-back')).toHaveText('32');
   // Shoulders: lateral raises 3 + bench 0.5 x 7 + row's rear delts 0.5 x 3 = 8.
@@ -36,8 +36,8 @@ test('Review shows overall volume per major muscle group, weekly and for the who
   expect(rows).toEqual(['review-row-chest', 'review-row-back', 'review-row-shoulders', 'review-row-biceps', 'review-row-triceps']);
   await expect(page.getByTestId('review-untrained')).toHaveText('Not trained: Quads, Hamstrings, Glutes, Calves, Abs');
 
-  // Longer block and a deload week: 5 weeks = 4 full weeks + a deload at ceil(sets/2) per slot.
-  await page.getByLabel('Duration').selectOption('5');
+  // Longer mesocycle and a deload week: 5 weeks = 4 full weeks + a deload at ceil(sets/2) per slot.
+  await setDuration(page, 5);
   await page.getByLabel('Deload in the final week').check();
   // Chest: 7 x 4 + (2 + 2) = 32.
   await expect(page.getByTestId('review-block-chest')).toHaveText('32');

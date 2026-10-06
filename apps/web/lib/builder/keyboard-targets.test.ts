@@ -1,7 +1,7 @@
 import type { Exercise } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { dayDropId } from './drop';
-import { keyboardTarget } from './keyboard-targets';
+import { columnId, dayDropId } from './drop';
+import { columnKeyboardTarget, keyboardTarget } from './keyboard-targets';
 import { createSlot } from './reducer';
 import type { BuilderState } from './types';
 
@@ -46,5 +46,20 @@ describe('keyboardTarget', () => {
     expect(keyboardTarget(state, 'nope', null, 'ArrowDown')).toBeNull();
     expect(keyboardTarget(state, 'a', 'nope', 'ArrowDown')).toBeNull();
     expect(keyboardTarget(state, 'a', dayDropId('nope'), 'ArrowDown')).toBeNull();
+  });
+});
+
+describe('columnKeyboardTarget', () => {
+  it('steps left and right through the columns from where the drag currently is', () => {
+    expect(columnKeyboardTarget(state, columnId('d1'), null, 'ArrowRight')).toBe(columnId('d2'));
+    expect(columnKeyboardTarget(state, columnId('d1'), columnId('d2'), 'ArrowRight')).toBe(columnId('d3'));
+    expect(columnKeyboardTarget(state, columnId('d3'), columnId('d3'), 'ArrowLeft')).toBe(columnId('d2'));
+  });
+
+  it('stops at the ends and ignores Up/Down', () => {
+    expect(columnKeyboardTarget(state, columnId('d1'), null, 'ArrowLeft')).toBeNull();
+    expect(columnKeyboardTarget(state, columnId('d3'), null, 'ArrowRight')).toBeNull();
+    expect(columnKeyboardTarget(state, columnId('d1'), null, 'ArrowDown')).toBeNull();
+    expect(columnKeyboardTarget(state, columnId('zz'), null, 'ArrowRight')).toBeNull();
   });
 });
