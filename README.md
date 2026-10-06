@@ -28,3 +28,10 @@ pnpm typecheck
 pnpm test
 pnpm e2e
 ```
+
+## Packages
+
+- `packages/shared` — enums, constants and Zod schemas shared by the web app and API.
+- `packages/volume-engine` — pure volume calculations (`computeVolume`). `pnpm test` runs it with a 95% coverage threshold.
+
+Both export TypeScript source directly (no build step).

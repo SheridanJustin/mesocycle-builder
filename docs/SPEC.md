@@ -295,7 +295,7 @@ Rules: the server replaces all days/groups/slots in one transaction. `slot.muscl
 Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` and shifting later days. `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
 
 **`POST /mesocycles/validate-volume`** — stateless; used for live feedback and server-side checks.
-Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3 } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ] }`
+Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3, "day_id": "..." } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ], "assigned_muscles": ["chest"] }` (`day_id` and `assigned_muscles` are optional; `day_id` is needed for `weekly_frequency`, and `assigned_muscles` makes zero-set muscles appear.)
 Response: the `VolumeSummary` defined in Section 7.3. (The client normally calls the engine locally; this endpoint exists so server and client share one result and for external callers.)
 
 **`POST /mesocycles/{id}/lock`** — lock-in.
@@ -315,7 +315,7 @@ A **pure, dependency-free TypeScript library**: no database, no React, no `Date.
 
 ```ts
 type ExerciseInfo = { id: string; primary: Muscle; secondary: Muscle[] };
-type SlotInput   = { exerciseId: string; sets: number };
+type SlotInput   = { exerciseId: string; sets: number; dayId?: string };   // dayId drives weekly_frequency; slots without one share one anonymous day
 type Landmarks   = Record<Muscle, { mv: number; mev: number; mavLow: number; mavHigh: number; mrv: number }>;
 type Priorities  = Partial<Record<Muscle, 'focus' | 'normal' | 'maintenance'>>;
 
@@ -324,7 +324,8 @@ function computeVolume(
   exercises: Record<string, ExerciseInfo>,
   landmarks: Landmarks,
   priorities: Priorities,
-  opts?: { secondaryWeight?: number }       // default 0.5
+  opts?: { secondaryWeight?: number;         // default 0.5
+          assignedMuscles?: Muscle[] }      // muscles assigned to a day; shown even with 0 sets
 ): VolumeSummary
 ```
 
@@ -339,6 +340,7 @@ For each slot: add `sets × 1.0` to the exercise's primary muscle, and `sets × 
   "summary": {
     "chest": {
       "total_sets": 14,
+      "exact_total_sets": 14,
       "weekly_frequency": 2,
       "status": "MAV",
       "landmarks": { "mv": 8, "mev": 10, "mav_low": 12, "mav_high": 20, "mrv": 22 },
@@ -351,7 +353,7 @@ For each slot: add `sets × 1.0` to the exercise's primary muscle, and `sets × 
 }
 ```
 
-`weekly_frequency` = number of distinct days on which the muscle receives at least one direct (primary) set. This is the "Frequency Validation" from the wizard.
+`total_sets` is rounded to the nearest 0.5 for display; `exact_total_sets` keeps full precision and is what status is computed from. `weekly_frequency` = number of distinct days on which the muscle receives at least one direct (primary) set. This is the "Frequency Validation" from the wizard.
 
 ### 7.4 Status rules and colors (fixed)
 
