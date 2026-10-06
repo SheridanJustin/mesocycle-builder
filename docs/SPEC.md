@@ -7,16 +7,15 @@
 
 ## 0. Product summary
 
-A web app where a lifter builds a 4–6 week hypertrophy training block (a **mesocycle**) through a six-step wizard:
+A web app where a lifter builds a 4–6 week hypertrophy training block (a **mesocycle**) on one screen:
 
-1. Choose training days
-2. Assign muscle groups to days and set priorities
-3. Add and order exercises
-4. Set Week 1 sets, rep ranges, load, and RIR
-5. See live weekly-volume feedback against volume landmarks (MV / MEV / MAV / MRV)
-6. Review and **lock in** the block, which generates the weekly workout logs
+1. **Build** (the board): a repeating cycle of day columns, Mon–Sun by default. Add one or many exercises to a day, edit Week 1 sets, rep ranges, load and RIR inline, and order or move them. A day without exercises is a rest day.
+2. Watch live weekly-volume feedback against volume landmarks (MV / MEV / MAV / MRV) in a sticky bar while building.
+3. **Review**: block settings (name, duration, deload) now; later the review dashboard and **lock in**, which generates the weekly workout logs.
 
-The signature UI is a **horizontal board**: each training day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
+The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
+
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10).
 
 ### Glossary
 
@@ -51,7 +50,11 @@ The original requirements left several things open. These are the decisions made
 4. **Landmark values** are seed data in a `muscle_landmarks` table, not hard-coded in UI. The seeded numbers in Section 8 are starting defaults. They are editable and not scientific absolutes.
 5. **Progression after Week 1** (adding sets, load changes) is a non-goal for v1. Lock-in copies Week 1 targets into every week, ramping only RIR (Section 9.3). A `ProgressionStrategy` interface exists so smarter logic can be added later.
 6. **Draft autosave:** The builder state autosaves via the full-schedule `PUT` (debounced, 800 ms). A draft is always resumable.
-7. **Wizard vs. board:** Steps 3, 4 and 5 all happen on the same horizontal board. Step 3 adds and orders cards, Step 4 edits metrics inline on those cards, and Step 5 is the always-on volume bar. The wizard stepper marks progress but the user can move between steps freely.
+7. **Build and Review only:** everything happens on the board (adding, ordering and editing exercises, with the always-on volume bar). Review holds the block settings and, from M8, the dashboard and lock-in. There is no stepper and no completion checks.
+8. **Cycle and rest days:** a mesocycle's repeating cycle has 1–10 days, 7 by default. A day without exercises is a **rest day**: it is stored like any other day but generates no sessions at lock-in. Days are named Mon–Sun (`schedule_mode = calendar`, exactly 7 days, `weekday` = position) or numbered "Day 1…N" (`schedule_mode = relative`, no weekdays). A "Number the days" checkbox on the board switches between the two; adding an 8th day switches to numbered days. Names the user typed are kept when switching; generated names are relabelled.
+9. **No create form:** "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens the board. Name, duration and deload are edited on Review.
+10. **Priorities are shelved:** the focus/normal/maintenance priority, its target band and its hint are hidden in the UI. The data model, the API and the engine keep them, so the feature can return later; every muscle is treated as `normal`.
+11. **Muscle groups are implicit:** the UI shows one ordered list of exercises per day, each card tagged with its muscle. `day_muscle_groups` rows are derived on save (one per muscle the day trains, in order of first appearance) and a slot's `muscle` is its exercise's primary muscle when it is added.
 
 ---
 
@@ -136,8 +139,8 @@ mesocycles
   user_id UUID NOT NULL REFERENCES users(id)
   name VARCHAR(255) NOT NULL
   duration_weeks INT NOT NULL DEFAULT 4 CHECK (duration_weeks BETWEEN 4 AND 6)
-  days_per_week INT NOT NULL CHECK (days_per_week BETWEEN 2 AND 6)
-  schedule_mode schedule_mode NOT NULL DEFAULT 'relative'
+  days_per_week INT NOT NULL DEFAULT 7 CHECK (days_per_week BETWEEN 1 AND 10)  -- cycle length, rest days included
+  schedule_mode schedule_mode NOT NULL DEFAULT 'calendar'  -- calendar = Mon-Sun names (exactly 7 days); relative = numbered days
   status mesocycle_status NOT NULL DEFAULT 'draft'
   start_date DATE NULL                     -- set at lock-in
   locked_at TIMESTAMP NULL
@@ -147,8 +150,9 @@ mesocycles
 mesocycle_days
   id UUID PK
   mesocycle_id UUID NOT NULL REFERENCES mesocycles(id) ON DELETE CASCADE
-  day_number INT NOT NULL CHECK (day_number BETWEEN 1 AND 7)  -- position in week
+  day_number INT NOT NULL CHECK (day_number BETWEEN 1 AND 10) -- position in the cycle
   weekday INT NULL CHECK (weekday BETWEEN 0 AND 6)            -- 0=Mon; only when schedule_mode='calendar'
+  -- a day with no exercise_slots is a rest day
   day_name VARCHAR(50) NOT NULL
   sort_order INT NOT NULL
   UNIQUE (mesocycle_id, sort_order)
@@ -248,13 +252,13 @@ Body: `{ name, primary_muscle, secondary_muscles[], equipment_type, movement_typ
 Returns all landmark rows. The client caches these.
 
 **`POST /mesocycles`** — create a draft.
-Body:
+Body (every field optional; shown with defaults):
 ```json
-{ "name": "Fall Hypertrophy Block", "duration_weeks": 5, "days_per_week": 4, "schedule_mode": "relative" }
+{ "name": "Untitled block", "duration_weeks": 4, "days_per_week": 7, "schedule_mode": "calendar" }
 ```
-Creates the mesocycle and `days_per_week` empty days named "Day 1…N" (or Mon/Wed/Fri-style names, sorted by weekday, if calendar mode with `weekdays` provided). Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
+Creates the mesocycle and `days_per_week` empty days (rest days). Calendar mode needs exactly 7 days, named Mon…Sun with `weekday` 0…6; relative mode allows 1–10 days named "Day 1…N". Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
 
-`days_per_week` records the count chosen at creation and is not updated afterwards. The real day count is the number of days (2–7, since Duplicate can add a 7th).
+`days_per_week` is the cycle length (rest days included) and is kept equal to the number of days whenever the schedule is saved.
 
 **`GET /mesocycles`** — list the user's mesocycles (summary only, with `day_count`), most recently updated first.
 
@@ -291,10 +295,10 @@ Body:
   "priorities": [ { "muscle": "chest", "priority": "focus" } ]
 }
 ```
-Rules: the server replaces all days/groups/slots/priorities in one transaction (so day, group and slot ids change on every save). `slot.muscle` must reference a muscle group present on the same day. `weekday` must be `null` in `relative` mode and unique among days in `calendar` mode. Every `exercise_id` must be a global exercise or one of the user's own custom exercises, otherwise `400` with the path of the slot. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
+Rules: the body may also carry `schedule_mode`; it is saved in the same transaction, so names, weekdays and mode always change together. The schedule has 1–10 days. In `calendar` mode it must have exactly 7 days, each with a unique `weekday`; in `relative` mode every `weekday` is `null`. The server replaces all days/groups/slots/priorities in one transaction (so day, group and slot ids change on every save) and sets `days_per_week` to the number of days. `slot.muscle` must reference a muscle group present on the same day. Every `exercise_id` must be a global exercise or one of the user's own custom exercises, otherwise `400` with the path of the slot. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
 
 **`POST /mesocycles/{id}/duplicate-day`**
-Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` (1-based; at most current day count + 1, otherwise `400`) and shifting later days. All days are renumbered so `sort_order` and `day_number` are 1…n. The copy has no `weekday` (weekdays must stay unique). `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
+Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` (1-based; at most current day count + 1, otherwise `400`) and shifting later days. All days are renumbered so `sort_order` and `day_number` are 1…n. Only for numbered (`relative`) cycles: a Mon–Sun week is fixed at 7 days, so this returns `409` in calendar mode. The builder UI does its copies locally and saves them through `PUT /schedule`; this endpoint remains for API clients. `409` if this would exceed 10 days, the mesocycle is in calendar mode, or it is locked. Returns the updated mesocycle.
 
 **`POST /mesocycles/validate-volume`** — stateless; used for live feedback and server-side checks.
 Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3, "day_id": "..." } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ], "assigned_muscles": ["chest"] }` (`day_id` and `assigned_muscles` are optional; `day_id` is needed for `weekly_frequency`, and `assigned_muscles` makes zero-set muscles appear.)
@@ -302,7 +306,7 @@ Response: the `VolumeSummary` defined in Section 7.3. (The client normally calls
 
 **`POST /mesocycles/{id}/lock`** — lock-in.
 Body: `{ "start_date": "2026-10-05" }` (required if `schedule_mode = calendar`, optional otherwise).
-Preconditions (else `400` with details): at least 1 day has at least 1 slot; no day has zero slots; every slot's exercise exists. Volume warnings do **not** block locking, but the request must include `"acknowledge_warnings": true` if any muscle is `EXCEEDS_MRV` or `BELOW_MV`.
+Preconditions (else `400` with details): at least 1 day has at least 1 slot; every slot's exercise exists. Days with zero slots are rest days and are allowed. Volume warnings do **not** block locking, but the request must include `"acknowledge_warnings": true` if any muscle is `EXCEEDS_MRV` or `BELOW_MV`.
 Effect, in one transaction: set status `active`, `locked_at`, generate weeks/sessions/session_exercises (Section 9). Returns the active mesocycle with week/session ids.
 
 **`DELETE /mesocycles/{id}`** — delete a draft (cascade). Returns `204`. `409` for active or completed ones.
@@ -370,9 +374,13 @@ Let `t` = total weekly sets for a muscle.
 | `mav_high < t <= mrv` | `HIGH` | `orange` | Approaching the ceiling |
 | `t > mrv` | `EXCEEDS_MRV` | `red` | Hard warning |
 
+The five color names are fixed. The app uses a dark theme, so each is rendered as a dark tint, a vivid border/bar and light text (see `apps/web/app/globals.css`): amber `#f59e0b`, lightgreen `#a3e635`, green `#22c55e`, orange `#f97316`, red `#ef4444` (border colors).
+
 Boundary rule: when `mv == mev` (e.g. both 0 for low-need muscles), `t = mv` is treated as `ABOVE_MEV` or better, never `MAINTENANCE`. Write a test for this.
 
 ### 7.5 Priority tiers → target band
+
+*Shelved in the UI (decision 10):* the engine still computes bands, but the builder hides them and treats every muscle as `normal`.
 
 Priority never changes the status colors (those depend only on landmarks). It sets a **target band** shown as a marker on the volume chip and used for the hint message:
 
@@ -443,7 +451,7 @@ See `POST /mesocycles/{id}/lock` in Section 6.2.
 
 For `week` in `1..duration_weeks`:
 1. Create a `mesocycle_weeks` row. `is_deload = true` only if `deload_final_week` is true and `week == duration_weeks`.
-2. For each `mesocycle_days` row, ordered by `sort_order`, create a `workout_sessions` row (`status = planned`).
+2. For each `mesocycle_days` row that has at least one slot (rest days are skipped), ordered by `sort_order`, create a `workout_sessions` row (`status = planned`).
    - If `schedule_mode = calendar`: `scheduled_date = start_date + (week-1) × 7 days + offset(weekday)`, where `offset` is relative to the weekday of `start_date`'s week start (Monday). Use a date library (date-fns) and write tests across a month boundary and a DST change.
 3. For each slot on that day (ordered by `sort_order`), create a `session_exercises` snapshot using the Section 9.3 rules.
 
@@ -464,51 +472,42 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 
 ### 10.1 Pages
 
-- `/mesocycles` — list of mesocycles with status badges and "New mesocycle".
-- `/mesocycles/new` — name, duration (4–6), days per week (2–6), mode (calendar/relative). Creates a draft and redirects to the builder.
-- `/mesocycles/[id]/build` — the wizard + horizontal board.
+- `/mesocycles` — list of mesocycles with status badges and "New mesocycle". "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens its builder (no form).
+- `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
 - `/mesocycles/[id]` — read-only view for active/completed (reuses ReviewDashboard).
 
-### 10.2 Wizard stepper (top of builder page)
+The app uses a dark theme built from the product owner's palette (graphite neutrals, electric-aqua accent, verdigris/shamrock positive, snow destructive); tokens live in `apps/web/app/globals.css`.
 
-Six labeled steps with a "current" indicator. Steps are clickable at any time (no hard gating) but each shows a ✓ once its completion rule is met:
+### 10.2 Tabs
 
-| Step | Complete when |
-|---|---|
-| 1 Schedule | Days created and named; in calendar mode every day has a weekday, all unique |
-| 2 Muscles | Every day has ≥ 1 muscle group; priorities set (defaults to `normal`) |
-| 3 Exercises | Every muscle group has ≥ 1 exercise slot |
-| 4 Metrics | At least one slot exists and every slot has valid sets/rep range/RIR |
-| 5 Volume | At least one slot exists and no muscle is `EXCEEDS_MRV` |
-| 6 Review | The user opens it; then the Lock-in button is enabled |
+- **Build**: the board (10.3) — the default.
+- **Review**: block settings (name, duration 4–6 weeks, deload final week), a count of training and rest days, and from M8 the review dashboard and lock-in (10.6).
 
 ### 10.3 The horizontal board (core requirement)
 
 - A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day. Each column has a fixed width (≈ 320 px desktop, ≈ 85vw mobile) with `scroll-snap-align:start`.
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
-- **DayColumn header:** editable day name (inline edit, max 50 chars), weekday selector (calendar mode), per-day estimated duration, and a menu: Duplicate, Rename, Delete.
-- **Inside a column:** muscle-group sections, each with a header (muscle name, priority tag, "+ Add exercise"), containing **ExerciseCards** in the day's global order.
-- **ExerciseCard:** shows exercise name, equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a drag handle, move-up / move-down buttons, and a delete button.
-- **Add exercise:** opens a side panel or modal with the catalog: search box, filters for muscle and equipment, and a "Create custom exercise" form. Results default to the section's muscle. Picking one creates a slot with defaults (3 sets, 8–12 reps, RIR 3).
-- **Add muscle group** control at the bottom of each column.
-- **Add day** control as the last column (until 6 days; the 7th is allowed only via Duplicate).
+- Above the board: a **"Number the days"** checkbox (Mon–Sun ↔ Day 1…N, see decision 8). It is locked on while the cycle does not have exactly 7 days.
+- **DayColumn header:** editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
+- **Inside a column:** the day's **ExerciseCards** as one ordered list (no muscle sections). A big **"+ Add"** button sits at the bottom of every column.
+- **ExerciseCard:** shows exercise name, a muscle tag, an equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a drag handle, move-up / move-down buttons, and a delete button.
+- **Add exercises panel** (opened by "+ Add"): search box, muscle chips (several can be selected at once), an equipment filter, and a checkbox list of the catalog. The user ticks one or many exercises (selections survive filter changes) and confirms with "Add N exercises"; each becomes a slot with defaults (3 sets, 8–12 reps, RIR 3). "+ Custom" opens the create-custom-exercise form; the new exercise is selected.
+- **Add day** control as the last column, up to 10 days. In a Mon–Sun week it switches the cycle to numbered days.
 
 ### 10.4 Drag and drop (dnd-kit)
 
-- Reorder cards within a column.
-- Drag a card to another column (across the horizontal plane). The card keeps **all** its metrics. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
-- If the destination column has no section for the card's exercise's primary muscle, create one automatically.
-- Within a section, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropping on a card in another section of the same day moves the card into that section. A card dropped on the day column it came from does nothing. For a move to another day the destination section is always the exercise's primary muscle (an existing section, or a new one); the card lands before the card it was dropped on when that card is in that section, otherwise at the end.
-- Move up / move down buttons swap a card with the previous/next card **of the same section**. Cards in other sections keep their place in the day's global order.
-- Provide keyboard alternatives (dnd-kit keyboard sensor + the move up/down buttons and a "Move to day…" menu). With the keyboard sensor, Space picks up the drag handle, Up/Down move through the cards of the current section, Left/Right jump to the neighbouring day, and Space drops. Results are announced to screen readers.
+- Reorder cards within a column; drag a card to another column (across the horizontal plane). The card keeps **all** its metrics and its muscle. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
+- Within a day, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropped on a card in another day, it lands before that card; dropped on another day's column (including a rest day), it goes to the end. A card dropped on its own day's column does nothing.
+- Move up / move down buttons swap a card with the previous/next card of the day.
+- Keyboard alternative: the dnd-kit keyboard sensor plus the move up/down buttons. Space picks up the drag handle, Up/Down move through the cards of the current day, Left/Right jump to the neighbouring day's column, and Space drops. Results are announced to screen readers.
 - Scroll snapping on the board is switched off while a drag is in progress, otherwise it undoes the edge auto-scroll.
 - Drag operations update `sort_order` values for the affected days and trigger autosave and a volume recompute.
 
 ### 10.5 Sticky volume bar
 
-- A horizontal bar fixed to the top of the builder viewport (below the stepper) that **does not scroll with the board**.
-- One **VolumeChip** per muscle that has sets or is assigned: muscle label, `total_sets`, and a mini range-bar showing MV/MEV/MAV/MRV marks plus the priority target band. The chip's color comes from Section 7.4.
-- The bar itself scrolls horizontally if there are many muscles. Clicking a chip opens a popover with the full landmarks, frequency, the list of contributing exercises (and days), and the hint message.
+- A horizontal bar fixed to the top of the builder viewport (below the tabs) that **does not scroll with the board**.
+- One **VolumeChip** per muscle that has sets: muscle label, `total_sets`, a mini range-bar showing MV/MEV/MAV/MRV marks, the status label and the weekly frequency. The chip's color comes from Section 7.4. (Priority target bands are hidden; decision 10.)
+- The bar itself scrolls horizontally if there are many muscles. Clicking a chip opens a popover with the status, weekly sets, frequency, the full landmarks and the list of contributing exercises (and days).
 - Updates **synchronously on every change** (no spinner). It calls the local engine; the server result is only used when saving.
 - Provide a text/ARIA label for every color state so color is never the only signal.
 
@@ -516,7 +515,7 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 
 - **Volume panel:** every muscle with a horizontal bar chart against its landmarks.
 - **Day cards:** day name, ordered exercises with sets × reps @ RIR, and estimated duration.
-- **Warnings list:** every `BELOW_MV`, `MAINTENANCE` (for focus muscles), and `EXCEEDS_MRV` muscle.
+- **Warnings list:** every `BELOW_MV` and `EXCEEDS_MRV` muscle (focus-based `MAINTENANCE` warnings return with priorities).
 - **Lock-in button:** opens a confirmation dialog stating that the structure will be frozen for the block. It asks for `start_date` in calendar mode and requires an "I understand" checkbox if warnings exist.
 
 ### 10.7 Estimated session duration
@@ -525,14 +524,14 @@ For each day: `5 min warm-up + Σ over slots of target_sets × (45 s work + rest
 
 ### 10.8 Quick copy
 
-"Duplicate day" calls `POST /duplicate-day`, inserts the copy immediately to the right of the source, and scrolls it into view. Default name: `"<source name> (copy)"`, rename inline immediately.
+From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) inserts a copy immediately to the right of the source, scrolls it into view and focuses its name for an inline rename; default name `"<source name> (copy)"` (a generated name becomes the next "Day N"). **Copy exercises to** appends copies of all the day's exercises, with all metrics, to another day. Both happen locally and autosave.
 
 ### 10.9 Validation and UX rules
 
 - Sets: integer 1–10. Reps: min ≥ 1, min < max ≤ 50. RIR: 0–5. Weight: ≥ 0, max 2 decimals.
-- Cannot delete a day or muscle group silently if it contains slots: show a confirm dialog with the count.
+- Cannot remove or clear a day silently if it contains slots: show a confirm dialog with the count.
 - Show a "Saving… / Saved / Save failed — retry" indicator for autosave. On failure, keep local state and retry with backoff.
-- Empty states: an empty column shows "Add a muscle group to get started."
+- Empty states: an empty column is labelled "Rest day" and shows only its "+ Add" button.
 - Accessibility: all interactive elements reachable by keyboard; visible focus; color contrast meets WCAG AA; announce drag results to screen readers.
 
 ---
@@ -544,9 +543,9 @@ For each day: `5 min warm-up + Σ over slots of target_sets × (45 s work + rest
 **API integration:** each endpoint, success and error paths, including: `409` on locked mesocycles, `404` on another user's resource, atomic rollback if lock-in fails halfway, and `PUT /schedule` idempotency.
 
 **End-to-end (Playwright), minimum:**
-1. Create a 4-day mesocycle, assign muscles, add exercises, edit metrics, and confirm volume chips change.
+1. Create a mesocycle, add exercises (several at once), edit metrics, and confirm volume chips change.
 2. Drag a card from column 1 to column 3 and confirm metrics are preserved and volumes recomputed.
-3. Duplicate "Push A" into "Push B" and confirm the cards and metrics copied.
+3. Duplicate "Push A" into "Push B" (numbered cycle) and confirm the cards and metrics copied; in a Mon–Sun week, copy a day's exercises into another day.
 4. Push a muscle over MRV and confirm the chip turns red and lock-in requires acknowledgement.
 5. Lock in and confirm the weekly sessions exist with the correct RIR ramp.
 6. At a 390 px viewport, confirm horizontal scrolling works and the page body does not scroll sideways.
