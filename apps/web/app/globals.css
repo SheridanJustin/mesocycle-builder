@@ -1,4 +1,50 @@
-* { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; }
-body { font-family: Arial, Helvetica, sans-serif; }
-main { margin: 0 auto; max-width: 72rem; padding: 2rem; }
+@import 'tailwindcss';
+
+/* Volume status colors are fixed by docs/SPEC.md section 7.4. Do not add others.
+   Each status has a tint (background), a border/bar color and a dark text color that meets WCAG AA. */
+@theme {
+  --color-status-amber-bg: #fef3c7;
+  --color-status-amber-border: #d97706;
+  --color-status-amber-bar: #f59e0b;
+  --color-status-amber-text: #78350f;
+
+  --color-status-lightgreen-bg: #ecfccb;
+  --color-status-lightgreen-border: #65a30d;
+  --color-status-lightgreen-bar: #84cc16;
+  --color-status-lightgreen-text: #365314;
+
+  --color-status-green-bg: #dcfce7;
+  --color-status-green-border: #16a34a;
+  --color-status-green-bar: #22c55e;
+  --color-status-green-text: #14532d;
+
+  --color-status-orange-bg: #ffedd5;
+  --color-status-orange-border: #ea580c;
+  --color-status-orange-bar: #f97316;
+  --color-status-orange-text: #7c2d12;
+
+  --color-status-red-bg: #fee2e2;
+  --color-status-red-border: #dc2626;
+  --color-status-red-bar: #ef4444;
+  --color-status-red-text: #7f1d1d;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+/* The page body must never scroll sideways; only the board does. `clip` keeps position: sticky working. */
+body {
+  overflow-x: clip;
+}
+
+:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(15 23 42 / 0.5);
+}

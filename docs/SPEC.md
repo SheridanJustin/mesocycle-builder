@@ -1,7 +1,7 @@
 # Hypertrophy Mesocycle & Schedule Builder — Implementation Spec for Codex
 
 **Audience:** An AI coding agent (OpenAI Codex) and the human reviewing its work.
-**How to use this document:** Put Section 1 into `AGENTS.md` at the repo root. Put this whole file at `docs/SPEC.md`. Then give Codex one milestone at a time from Section 12, always starting with: *"Read AGENTS.md and docs/SPEC.md. Implement Milestone N only. Do not start later milestones."*
+**How to use this document:** This whole file lives at `docs/SPEC.md`; the agent rules live in `AGENTS.md` at the repo root. Then give Codex one milestone at a time from Section 12, always starting with: *"Read AGENTS.md and docs/SPEC.md. Implement Milestone N only. Do not start later milestones."*
 
 ---
 
@@ -35,60 +35,9 @@ The signature UI is a **horizontal board**: each training day is a vertical colu
 
 ---
 
-## 1. AGENTS.md (copy this block into the repo root)
+## 1. AGENTS.md
 
-```markdown
-# AGENTS.md
-
-## Project
-Hypertrophy Mesocycle & Schedule Builder. Full spec: docs/SPEC.md (source of truth).
-If code and spec disagree, ask or update the spec in the same change. Never silently diverge.
-
-## Stack (do not substitute without asking)
-- TypeScript everywhere, strict mode on.
-- Next.js (App Router) + React for web and API route handlers.
-- PostgreSQL + Prisma (migrations committed).
-- Tailwind CSS for styling.
-- @dnd-kit/core + @dnd-kit/sortable for drag and drop.
-- Zod for all request/response validation. Schemas live in packages/shared.
-- Vitest for unit tests, Playwright for end-to-end tests.
-- pnpm workspaces monorepo:
-  - apps/web           Next.js app (UI + API routes)
-  - packages/shared    Zod schemas, types, constants
-  - packages/volume-engine  PURE TypeScript volume logic, no I/O, used by client AND server
-
-## Commands (keep these working at all times)
-- pnpm install
-- pnpm dev            run web app
-- pnpm db:migrate     apply Prisma migrations
-- pnpm db:seed        seed exercises + muscle landmarks
-- pnpm lint
-- pnpm typecheck
-- pnpm test           unit tests
-- pnpm e2e            Playwright tests
-
-## Rules
-1. Work on ONE milestone at a time. Stop when its acceptance criteria pass.
-2. Before finishing any task run: pnpm lint && pnpm typecheck && pnpm test. Fix failures.
-3. Volume calculations exist ONLY in packages/volume-engine. UI and API import it. Never reimplement.
-4. Validate every API input and output with the Zod schemas in packages/shared.
-5. No `any`. No unexplained `// @ts-ignore`.
-6. Database changes only via Prisma migrations. Never edit the DB by hand.
-7. Do not add new dependencies without stating why in the PR description.
-8. Do not build features listed under "Non-goals" in docs/SPEC.md.
-9. Write tests alongside code, not after.
-10. Keep components small. Presentational components get no data fetching.
-
-## UI non-negotiables
-- The builder board is HORIZONTAL: day columns side by side in an overflow-x container
-  with scroll-snap. The page body must never scroll sideways; only the board does.
-- The volume bar is sticky and always visible while the board scrolls.
-- Colors for volume status are fixed in docs/SPEC.md section 7.4. Do not invent others.
-- Everything must be keyboard accessible (move up/down buttons exist alongside drag and drop).
-
-## Definition of done (every milestone)
-Acceptance criteria met, tests added and passing, lint and typecheck clean, README updated if setup changed.
-```
+The agent rules live in the repo-root `AGENTS.md`, which is the maintained copy (it also covers the Windows/native-PostgreSQL environment, the current milestone line and the git rules). This spec no longer duplicates it, so the two cannot drift.
 
 ---
 
@@ -142,7 +91,7 @@ The original requirements left several things open. These are the decisions made
 
 ## 5. Data model
 
-Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `created_at`; mutable tables also have `updated_at`.
+Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `created_at`. Tables whose rows are edited in place also have `updated_at`: `users`, `exercises`, `muscle_landmarks`, `mesocycles`, `workout_sessions`, `logged_sets`. Template rows (`mesocycle_days`, `day_muscle_groups`, `exercise_slots`) are replaced wholesale by `PUT /schedule`, and `session_exercises` are immutable snapshots, so they have no `updated_at`.
 
 ### 5.1 Enums
 
@@ -303,11 +252,13 @@ Body:
 ```json
 { "name": "Fall Hypertrophy Block", "duration_weeks": 5, "days_per_week": 4, "schedule_mode": "relative" }
 ```
-Creates the mesocycle and `days_per_week` empty days named "Day 1…N" (or Mon/Wed/Fri-style names if calendar mode with `weekdays` provided). Returns the full mesocycle.
+Creates the mesocycle and `days_per_week` empty days named "Day 1…N" (or Mon/Wed/Fri-style names, sorted by weekday, if calendar mode with `weekdays` provided). Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
 
-**`GET /mesocycles`** — list the user's mesocycles (summary only).
+`days_per_week` records the count chosen at creation and is not updated afterwards. The real day count is the number of days (2–7, since Duplicate can add a 7th).
 
-**`GET /mesocycles/{id}`** — full mesocycle with days, muscle groups, priorities, slots (nested), plus the computed `volume_summary` (Section 7).
+**`GET /mesocycles`** — list the user's mesocycles (summary only, with `day_count`), most recently updated first.
+
+**`GET /mesocycles/{id}`** — full mesocycle with days, muscle groups, priorities, slots (nested), plus the computed `volume_summary` (Section 7). `priorities` lists only muscles with a stored priority; all others are `normal`. Each slot also carries its `exercise`.
 
 **`PATCH /mesocycles/{id}`** — update `name`, `duration_weeks`, `deload_final_week`. `409` if not `draft`.
 
@@ -340,13 +291,13 @@ Body:
   "priorities": [ { "muscle": "chest", "priority": "focus" } ]
 }
 ```
-Rules: the server replaces all days/groups/slots in one transaction. `slot.muscle` must reference a muscle group present on the same day. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
+Rules: the server replaces all days/groups/slots/priorities in one transaction (so day, group and slot ids change on every save). `slot.muscle` must reference a muscle group present on the same day. `weekday` must be `null` in `relative` mode and unique among days in `calendar` mode. Every `exercise_id` must be a global exercise or one of the user's own custom exercises, otherwise `400` with the path of the slot. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
 
 **`POST /mesocycles/{id}/duplicate-day`**
-Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` and shifting later days. `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
+Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` (1-based; at most current day count + 1, otherwise `400`) and shifting later days. All days are renumbered so `sort_order` and `day_number` are 1…n. The copy has no `weekday` (weekdays must stay unique). `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
 
 **`POST /mesocycles/validate-volume`** — stateless; used for live feedback and server-side checks.
-Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3 } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ] }`
+Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3, "day_id": "..." } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ], "assigned_muscles": ["chest"] }` (`day_id` and `assigned_muscles` are optional; `day_id` is needed for `weekly_frequency`, and `assigned_muscles` makes zero-set muscles appear.)
 Response: the `VolumeSummary` defined in Section 7.3. (The client normally calls the engine locally; this endpoint exists so server and client share one result and for external callers.)
 
 **`POST /mesocycles/{id}/lock`** — lock-in.
@@ -354,7 +305,7 @@ Body: `{ "start_date": "2026-10-05" }` (required if `schedule_mode = calendar`, 
 Preconditions (else `400` with details): at least 1 day has at least 1 slot; no day has zero slots; every slot's exercise exists. Volume warnings do **not** block locking, but the request must include `"acknowledge_warnings": true` if any muscle is `EXCEEDS_MRV` or `BELOW_MV`.
 Effect, in one transaction: set status `active`, `locked_at`, generate weeks/sessions/session_exercises (Section 9). Returns the active mesocycle with week/session ids.
 
-**`DELETE /mesocycles/{id}`** — delete a draft (cascade). `409` for active or completed ones.
+**`DELETE /mesocycles/{id}`** — delete a draft (cascade). Returns `204`. `409` for active or completed ones.
 
 ---
 
@@ -366,7 +317,7 @@ A **pure, dependency-free TypeScript library**: no database, no React, no `Date.
 
 ```ts
 type ExerciseInfo = { id: string; primary: Muscle; secondary: Muscle[] };
-type SlotInput   = { exerciseId: string; sets: number };
+type SlotInput   = { exerciseId: string; sets: number; dayId?: string };   // dayId drives weekly_frequency; slots without one share one anonymous day
 type Landmarks   = Record<Muscle, { mv: number; mev: number; mavLow: number; mavHigh: number; mrv: number }>;
 type Priorities  = Partial<Record<Muscle, 'focus' | 'normal' | 'maintenance'>>;
 
@@ -375,7 +326,8 @@ function computeVolume(
   exercises: Record<string, ExerciseInfo>,
   landmarks: Landmarks,
   priorities: Priorities,
-  opts?: { secondaryWeight?: number }       // default 0.5
+  opts?: { secondaryWeight?: number;         // default 0.5
+          assignedMuscles?: Muscle[] }      // muscles assigned to a day; shown even with 0 sets
 ): VolumeSummary
 ```
 
@@ -390,6 +342,7 @@ For each slot: add `sets × 1.0` to the exercise's primary muscle, and `sets × 
   "summary": {
     "chest": {
       "total_sets": 14,
+      "exact_total_sets": 14,
       "weekly_frequency": 2,
       "status": "MAV",
       "landmarks": { "mv": 8, "mev": 10, "mav_low": 12, "mav_high": 20, "mrv": 22 },
@@ -402,7 +355,7 @@ For each slot: add `sets × 1.0` to the exercise's primary muscle, and `sets × 
 }
 ```
 
-`weekly_frequency` = number of distinct days on which the muscle receives at least one direct (primary) set. This is the "Frequency Validation" from the wizard.
+`total_sets` is rounded to the nearest 0.5 for display; `exact_total_sets` keeps full precision and is what status is computed from. `weekly_frequency` = number of distinct days on which the muscle receives at least one direct (primary) set. This is the "Frequency Validation" from the wizard.
 
 ### 7.4 Status rules and colors (fixed)
 
@@ -525,8 +478,8 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 | 1 Schedule | Days created and named; in calendar mode every day has a weekday, all unique |
 | 2 Muscles | Every day has ≥ 1 muscle group; priorities set (defaults to `normal`) |
 | 3 Exercises | Every muscle group has ≥ 1 exercise slot |
-| 4 Metrics | Every slot has valid sets/rep range/RIR (always true given defaults) |
-| 5 Volume | No muscle is `EXCEEDS_MRV` |
+| 4 Metrics | At least one slot exists and every slot has valid sets/rep range/RIR |
+| 5 Volume | At least one slot exists and no muscle is `EXCEEDS_MRV` |
 | 6 Review | The user opens it; then the Lock-in button is enabled |
 
 ### 10.3 The horizontal board (core requirement)
@@ -535,7 +488,7 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
 - **DayColumn header:** editable day name (inline edit, max 50 chars), weekday selector (calendar mode), per-day estimated duration, and a menu: Duplicate, Rename, Delete.
 - **Inside a column:** muscle-group sections, each with a header (muscle name, priority tag, "+ Add exercise"), containing **ExerciseCards** in the day's global order.
-- **ExerciseCard:** shows exercise name, equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs), RIR (0–5), starting weight (optional, in the user's unit). It has a drag handle, move-up / move-down buttons, and a delete button.
+- **ExerciseCard:** shows exercise name, equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a drag handle, move-up / move-down buttons, and a delete button.
 - **Add exercise:** opens a side panel or modal with the catalog: search box, filters for muscle and equipment, and a "Create custom exercise" form. Results default to the section's muscle. Picking one creates a slot with defaults (3 sets, 8–12 reps, RIR 3).
 - **Add muscle group** control at the bottom of each column.
 - **Add day** control as the last column (until 6 days; the 7th is allowed only via Duplicate).
@@ -545,7 +498,10 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 - Reorder cards within a column.
 - Drag a card to another column (across the horizontal plane). The card keeps **all** its metrics. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
 - If the destination column has no section for the card's exercise's primary muscle, create one automatically.
-- Provide keyboard alternatives (dnd-kit keyboard sensor + the move up/down buttons and a "Move to day…" menu).
+- Within a section, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropping on a card in another section of the same day moves the card into that section. A card dropped on the day column it came from does nothing. For a move to another day the destination section is always the exercise's primary muscle (an existing section, or a new one); the card lands before the card it was dropped on when that card is in that section, otherwise at the end.
+- Move up / move down buttons swap a card with the previous/next card **of the same section**. Cards in other sections keep their place in the day's global order.
+- Provide keyboard alternatives (dnd-kit keyboard sensor + the move up/down buttons and a "Move to day…" menu). With the keyboard sensor, Space picks up the drag handle, Up/Down move through the cards of the current section, Left/Right jump to the neighbouring day, and Space drops. Results are announced to screen readers.
+- Scroll snapping on the board is switched off while a drag is in progress, otherwise it undoes the edge auto-scroll.
 - Drag operations update `sort_order` values for the affected days and trigger autosave and a volume recompute.
 
 ### 10.5 Sticky volume bar

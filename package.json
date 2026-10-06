@@ -9,6 +9,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "test:integration": "pnpm --filter @mesocycle/web test:integration",
     "e2e": "pnpm --filter @mesocycle/web e2e"
   },
   "devDependencies": {
