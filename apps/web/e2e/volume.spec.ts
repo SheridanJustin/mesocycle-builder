@@ -116,7 +116,7 @@ test('the volume bar stays visible while the board scrolls sideways', async ({ p
   await createMesocycleViaUi(page);
   await addExercises(page, 'Mon', ['Cable Fly']);
   const bar = page.getByTestId('volume-bar');
-  await expect(page.locator('div.sticky').first()).toHaveCSS('position', 'sticky');
+  // The page never scrolls; the bar sits above the board, which scrolls on its own.
   await page.getByTestId('board').evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
   await expect(column(page, 'Sun')).toBeInViewport();
   await expect(bar).toBeInViewport();

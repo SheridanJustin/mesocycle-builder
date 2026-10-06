@@ -53,11 +53,12 @@ export function DayColumn({ day, copyTargets, canDuplicate, canRemove, handlers,
       id={`day-col-${day.id}`}
       aria-label={`${day.name} column`}
       data-testid="day-column"
-      className={`relative flex max-h-full snap-start flex-col overflow-hidden rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[14.5rem] max-w-72 flex-1 basis-0'} ${
+      className={`relative flex max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[14.5rem] max-w-72 flex-1 basis-0'} ${
         isRestDay ? 'bg-graphite-900/40' : 'bg-graphite-900/90 shadow-lg shadow-black/30'
       } ${isDropTarget ? 'border-aqua-400 ring-2 ring-aqua-700' : isRestDay ? 'border-graphite-800/70 border-dashed' : 'border-graphite-800'}`}
     >
-      {!isRestDay && <div aria-hidden="true" className="h-0.5 bg-gradient-to-r from-aqua-500 via-verdigris-500 to-transparent" />}
+      {/* No overflow clipping on the column: the day menu must be able to extend past short (rest-day) columns. */}
+      {!isRestDay && <div aria-hidden="true" className="mx-3 h-0.5 rounded-full bg-gradient-to-r from-aqua-500 via-verdigris-500 to-transparent" />}
       <header className="px-2.5 pb-2 pt-2">
         <div className="flex items-center gap-1">
           <InlineText
