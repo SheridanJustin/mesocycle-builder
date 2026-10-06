@@ -6,3 +6,4 @@ export * from './exercise';
 export * from './landmarks';
 export * from './mesocycle';
 export * from './volume';
+export * from './templates';

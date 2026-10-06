@@ -31,7 +31,7 @@ function day(overrides: Record<string, unknown> = {}) {
 describe('CreateMesocycleSchema', () => {
   it('defaults to an untitled 4-week, 7-day Mon-Sun block', () => {
     expect(CreateMesocycleSchema.parse({})).toEqual({
-      name: 'Untitled block',
+      name: 'Untitled mesocycle',
       duration_weeks: 4,
       days_per_week: 7,
       schedule_mode: 'calendar',
@@ -53,7 +53,7 @@ describe('CreateMesocycleSchema', () => {
     expect(CreateMesocycleSchema.safeParse({ days_per_week: 5, schedule_mode: 'calendar' }).success).toBe(false);
   });
 
-  it.each([3, 7])('rejects duration_weeks %i', (duration_weeks) => {
+  it.each([2, 11])('rejects duration_weeks %i', (duration_weeks) => {
     expect(CreateMesocycleSchema.safeParse({ duration_weeks }).success).toBe(false);
   });
 

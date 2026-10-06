@@ -39,7 +39,7 @@ export const WeightSchema = z
   .max(9999.99)
   .refine(hasAtMostTwoDecimals, { message: 'Must have at most 2 decimal places' });
 
-// Every field is optional: "New mesocycle" creates a 7-day Mon-Sun draft named "Untitled block".
+// Every field is optional: "New mesocycle" creates a 7-day Mon-Sun draft named "Untitled mesocycle".
 export const CreateMesocycleSchema = z
   .object({
     name: mesocycleName.default(DEFAULT_MESOCYCLE_NAME),

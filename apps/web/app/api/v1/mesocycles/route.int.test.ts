@@ -18,7 +18,7 @@ describe('POST /api/v1/mesocycles', () => {
     expect(response.status).toBe(201);
     const body = MesocycleDetailSchema.parse(await response.json());
     expect(body).toMatchObject({
-      name: 'Untitled block',
+      name: 'Untitled mesocycle',
       duration_weeks: 4,
       days_per_week: 7,
       schedule_mode: 'calendar',
@@ -60,8 +60,8 @@ describe('POST /api/v1/mesocycles', () => {
     ['zero days', { days_per_week: 0, schedule_mode: 'relative' }],
     ['more than 10 days', { days_per_week: 11, schedule_mode: 'relative' }],
     ['weekday names without 7 days', { days_per_week: 5 }],
-    ['duration too short', { duration_weeks: 3 }],
-    ['duration too long', { duration_weeks: 7 }],
+    ['duration too short', { duration_weeks: 2 }],
+    ['duration too long', { duration_weeks: 11 }],
   ])('returns 400 for %s', async (_label, body) => {
     const response = await create(body);
     expect(response.status).toBe(400);
