@@ -31,14 +31,16 @@ Open <http://localhost:3000> (it redirects to the mesocycle list).
 1. **New mesocycle** opens the board right away: an untitled 4-week block with a Mon–Sun week of rest days.
 2. **+ Add** under a day opens the exercise picker. Filter with the muscle chips (several at once), search or pick equipment,
    tick one or many exercises and press **Add N exercises**. **+ Custom** creates your own exercise.
-3. Edit sets, reps, RIR and starting weight on each card. The sticky volume bar at the top updates as you go. Click a chip
-   for landmarks, frequency and contributing exercises.
+3. Edit sets, reps, RIR and starting weight on each card. The sticky volume bar at the top shows weekly sets for each major
+   muscle group (Chest, Back, Shoulders, Biceps, Triceps, Quads, Hamstrings, Glutes, Calves, Abs) and updates as you go.
+   Click a chip for landmarks, frequency and contributing exercises.
 4. Days without exercises are **rest days**. Tick **Number the days** to switch Mon–Sun to Day 1, Day 2… **+ Add day**
    adds days up to 10 (an 8th day switches to numbered days).
-5. **Reorder and move**: drag a card by its handle (⠿), or use the ↑ ↓ buttons. Keyboard: focus the handle, press Space,
-   use the arrow keys (Left/Right jumps to the next day), press Space again. A day's **⋯ menu** has Rename, Duplicate as
+5. **Reorder and move**: press and hold a card, then drag it up, down or to another day. Keyboard: Tab to a card, press
+   Space, use the arrow keys (Left/Right jumps to the next day), press Space again. A day's **⋯ menu** has Rename, Duplicate as
    new day, Copy exercises to another day, Clear (make rest day) and Remove day.
-6. **Review** holds the block name, duration and deload. The review dashboard and lock-in come in M8.
+6. **Review** shows overall volume per muscle group (weekly, and total sets for the whole block) plus the block name,
+   duration and deload. Lock-in comes in M8.
 7. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
 
 ## Commands

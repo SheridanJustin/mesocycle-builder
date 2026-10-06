@@ -392,7 +392,17 @@ Priority never changes the status colors (those depend only on landmarks). It se
 
 The message tells the user, e.g., "Focus muscle is 4 sets under its target band."
 
-### 7.6 Engine tests (required)
+### 7.6 Major muscle groups (what the UI shows)
+
+The builder and Review show volume for ten major groups, not the 15 muscles: **Chest**, **Back** (lats, upper back, traps), **Shoulders** (front, side and rear delts), **Biceps** (biceps and forearms), **Triceps**, **Quads**, **Hamstrings**, **Glutes**, **Calves**, **Abs** (`MUSCLE_GROUP_OF` in `packages/shared`).
+
+- **Attribution:** for each slot, the group of the exercise's primary muscle gets `sets × 1.0`; every *other* group reached by its secondary muscles gets `sets × SECONDARY_MUSCLE_WEIGHT`, once per group. A pull-up (lats + upper back) is therefore 1 back set per set, not 1.5.
+- **Landmarks:** a group's MV/MEV/MAV/MRV are the highest of its member muscles' landmarks (merged groups are trained by the same exercises, so their targets do not add up). Status and color follow 7.4.
+- **Frequency:** distinct days with at least one set whose primary muscle is in the group.
+- **Block totals (Review):** weekly sets × the number of weeks; when the final week is a deload, that week counts each slot at `ceil(sets / 2)` (9.3).
+- Engine functions: `computeGroupVolume`, `computeBlockVolume`, `groupLandmarks`, `deloadSets`. The muscle-level `computeVolume` and the `validate-volume` API are unchanged.
+
+### 7.7 Engine tests (required)
 
 - Primary/secondary attribution, including exercises with no secondary muscles.
 - Every status boundary (`mv-1, mv, mev-1, mev, mav_low, mav_high, mrv, mrv+1`).
@@ -481,7 +491,7 @@ The app uses a dark theme built from the product owner's palette (graphite neutr
 ### 10.2 Tabs
 
 - **Build**: the board (10.3) — the default.
-- **Review**: block settings (name, duration 4–6 weeks, deload final week), a count of training and rest days, and from M8 the review dashboard and lock-in (10.6).
+- **Review**: summary tiles (training days, rest days, sets per week, average session length), a **Volume by muscle group** table — for each trained major group its weekly sets, status, a range bar with MV/MEV/MAV/MRV marks, its weekly frequency and its total sets over the whole block (7.6) — the untrained groups, and the block settings (name, duration 4–6 weeks, deload final week). Lock-in arrives in M8 (10.6).
 
 ### 10.3 The horizontal board (core requirement)
 
@@ -490,30 +500,30 @@ The app uses a dark theme built from the product owner's palette (graphite neutr
 - Above the board: a **"Number the days"** checkbox (Mon–Sun ↔ Day 1…N, see decision 8). It is locked on while the cycle does not have exactly 7 days.
 - **DayColumn header:** editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
 - **Inside a column:** the day's **ExerciseCards** as one ordered list (no muscle sections). A big **"+ Add"** button sits at the bottom of every column.
-- **ExerciseCard:** shows exercise name, a muscle tag, an equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a drag handle, move-up / move-down buttons, and a delete button.
+- **ExerciseCard:** shows exercise name, its major muscle group (with a color dot), the equipment, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a small delete (✕) button. There are no move buttons: the whole card is dragged (10.4).
 - **Add exercises panel** (opened by "+ Add"): search box, muscle chips (several can be selected at once), an equipment filter, and a checkbox list of the catalog. The user ticks one or many exercises (selections survive filter changes) and confirms with "Add N exercises"; each becomes a slot with defaults (3 sets, 8–12 reps, RIR 3). "+ Custom" opens the create-custom-exercise form; the new exercise is selected.
 - **Add day** control as the last column, up to 10 days. In a Mon–Sun week it switches the cycle to numbered days.
 
 ### 10.4 Drag and drop (dnd-kit)
 
+- **Press and hold** a card (anywhere except its fields and buttons) for about 0.2 s to pick it up, then drag it. A quick click or a scroll never starts a drag.
 - Reorder cards within a column; drag a card to another column (across the horizontal plane). The card keeps **all** its metrics and its muscle. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
 - Within a day, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropped on a card in another day, it lands before that card; dropped on another day's column (including a rest day), it goes to the end. A card dropped on its own day's column does nothing.
-- Move up / move down buttons swap a card with the previous/next card of the day.
-- Keyboard alternative: the dnd-kit keyboard sensor plus the move up/down buttons. Space picks up the drag handle, Up/Down move through the cards of the current day, Left/Right jump to the neighbouring day's column, and Space drops. Results are announced to screen readers.
+- Keyboard alternative: the dnd-kit keyboard sensor. Focus a card (it is a focusable group labelled "Move <exercise>") and press Space to pick it up; Up/Down move through the cards of the current day, Left/Right jump to the neighbouring day's column, and Space drops. Results are announced to screen readers.
 - Scroll snapping on the board is switched off while a drag is in progress, otherwise it undoes the edge auto-scroll.
 - Drag operations update `sort_order` values for the affected days and trigger autosave and a volume recompute.
 
 ### 10.5 Sticky volume bar
 
 - A horizontal bar fixed to the top of the builder viewport (below the tabs) that **does not scroll with the board**.
-- One **VolumeChip** per muscle that has sets: muscle label, `total_sets`, a mini range-bar showing MV/MEV/MAV/MRV marks, the status label and the weekly frequency. The chip's color comes from Section 7.4. (Priority target bands are hidden; decision 10.)
+- One **VolumeChip** per major muscle group that has sets (7.6): muscle label, `total_sets`, a mini range-bar showing MV/MEV/MAV/MRV marks, the status label and the weekly frequency. The chip's color comes from Section 7.4. (Priority target bands are hidden; decision 10.)
 - The bar itself scrolls horizontally if there are many muscles. Clicking a chip opens a popover with the status, weekly sets, frequency, the full landmarks and the list of contributing exercises (and days).
 - Updates **synchronously on every change** (no spinner). It calls the local engine; the server result is only used when saving.
 - Provide a text/ARIA label for every color state so color is never the only signal.
 
 ### 10.6 Review & lock-in (Step 6)
 
-- **Volume panel:** every muscle with a horizontal bar chart against its landmarks.
+- **Volume panel:** every major muscle group with a horizontal bar against its landmarks, plus whole-block totals (built ahead of M8; see 10.2).
 - **Day cards:** day name, ordered exercises with sets × reps @ RIR, and estimated duration.
 - **Warnings list:** every `BELOW_MV` and `EXCEEDS_MRV` muscle (focus-based `MAINTENANCE` warnings return with priorities).
 - **Lock-in button:** opens a confirmation dialog stating that the structure will be frozen for the block. It asks for `start_date` in calendar mode and requires an "I understand" checkbox if warnings exist.
@@ -538,7 +548,7 @@ From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) ins
 
 ## 11. Testing requirements
 
-**Unit (Vitest):** volume engine (Section 7.6), set-attribution, duration estimate, `RirRampStrategy`, lock-in date generation, Zod schemas.
+**Unit (Vitest):** volume engine (Sections 7.6 and 7.7), set-attribution, duration estimate, `RirRampStrategy`, lock-in date generation, Zod schemas.
 
 **API integration:** each endpoint, success and error paths, including: `409` on locked mesocycles, `404` on another user's resource, atomic rollback if lock-in fails halfway, and `PUT /schedule` idempotency.
 
@@ -558,7 +568,7 @@ From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) ins
 *Done when:* `pnpm install && pnpm db:migrate && pnpm dev` works; lint/typecheck/test pass.
 
 **M1 — Shared schemas and volume engine.** `packages/shared` (enums, Zod schemas, constants) and `packages/volume-engine` with full tests.
-*Done when:* every test in Section 7.6 passes with ≥ 95% coverage on the engine.
+*Done when:* every test in Section 7.7 passes with ≥ 95% coverage on the engine.
 
 **M2 — Seed data and catalog API.** Landmarks, ≥ 90 exercises, `GET/POST /exercises`, `GET /muscle-landmarks`.
 *Done when:* seed is idempotent; filtering and search work; duplicate custom names return `409`.

@@ -63,7 +63,7 @@ If code and spec disagree, ask or update the spec in the same change. Never sile
 - The builder board is HORIZONTAL: day columns side by side in an `overflow-x` container with scroll-snap. The page body must never scroll sideways; only the board does.
 - The volume bar is sticky and always visible while the board scrolls.
 - Volume status colors are fixed in `docs/SPEC.md` section 7.4. Do not invent others.
-- Everything must be keyboard accessible (move up/down buttons exist alongside drag and drop).
+- Everything must be keyboard accessible. Cards have no up/down buttons (product decision); keyboard users focus a card, press Space and move it with the arrow keys (dnd-kit keyboard sensor).
 
 ## Definition of done (every milestone)
 Acceptance criteria from SPEC.md met, tests added and passing, lint and typecheck clean, README updated if setup changed.
