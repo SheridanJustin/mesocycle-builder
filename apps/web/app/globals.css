@@ -1,4 +1,7 @@
-* { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; }
-body { font-family: Arial, Helvetica, sans-serif; }
-main { margin: 0 auto; max-width: 72rem; padding: 2rem; }
+@import 'tailwindcss';
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}

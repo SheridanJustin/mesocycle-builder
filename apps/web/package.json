@@ -23,15 +23,21 @@
     "zod": "3.24.2"
   },
   "devDependencies": {
+    "@eslint/js": "9.20.0",
+    "@next/eslint-plugin-next": "15.1.6",
     "@playwright/test": "1.50.1",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.13.4",
     "@types/react": "19.0.8",
     "@types/react-dom": "19.0.3",
     "dotenv-cli": "8.0.0",
     "eslint": "9.20.1",
-    "eslint-config-next": "15.1.6",
+    "eslint-plugin-react-hooks": "5.1.0",
+    "postcss": "8.5.1",
     "prisma": "6.3.1",
+    "tailwindcss": "4.3.3",
     "tsx": "4.19.2",
+    "typescript-eslint": "8.24.0",
     "vitest": "3.0.5"
   },
   "prisma": {
