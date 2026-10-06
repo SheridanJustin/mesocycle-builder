@@ -60,6 +60,7 @@ model User {
   email String @unique
   weightUnit String @default("lb") @map("weight_unit")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   exercises Exercise[]
   mesocycles Mesocycle[]
   @@map("users")
@@ -75,6 +76,7 @@ model Exercise {
   isCustom Boolean @default(false) @map("is_custom")
   userId String? @db.Uuid @map("user_id")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   user User? @relation(fields: [userId], references: [id])
   slots ExerciseSlot[]
   sessionExercises SessionExercise[]
@@ -90,6 +92,7 @@ model MuscleLandmark {
   mavHigh Int @map("mav_high")
   mrv Int
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   @@map("muscle_landmarks")
 }
 
@@ -184,6 +187,7 @@ model WorkoutSession {
   scheduledDate DateTime? @db.Date @map("scheduled_date")
   status String @default("planned")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   week MesocycleWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
   day MesocycleDay @relation(fields: [dayId], references: [id])
   exercises SessionExercise[]
@@ -215,6 +219,7 @@ model LoggedSet {
   weight Decimal? @db.Decimal(6, 2)
   rir Int?
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
   @@map("logged_sets")
 }
