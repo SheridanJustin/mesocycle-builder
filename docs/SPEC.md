@@ -1,7 +1,7 @@
 # Hypertrophy Mesocycle & Schedule Builder — Implementation Spec for Codex
 
 **Audience:** An AI coding agent (OpenAI Codex) and the human reviewing its work.
-**How to use this document:** Put Section 1 into `AGENTS.md` at the repo root. Put this whole file at `docs/SPEC.md`. Then give Codex one milestone at a time from Section 12, always starting with: *"Read AGENTS.md and docs/SPEC.md. Implement Milestone N only. Do not start later milestones."*
+**How to use this document:** This whole file lives at `docs/SPEC.md`; the agent rules live in `AGENTS.md` at the repo root. Then give Codex one milestone at a time from Section 12, always starting with: *"Read AGENTS.md and docs/SPEC.md. Implement Milestone N only. Do not start later milestones."*
 
 ---
 
@@ -35,60 +35,9 @@ The signature UI is a **horizontal board**: each training day is a vertical colu
 
 ---
 
-## 1. AGENTS.md (copy this block into the repo root)
+## 1. AGENTS.md
 
-```markdown
-# AGENTS.md
-
-## Project
-Hypertrophy Mesocycle & Schedule Builder. Full spec: docs/SPEC.md (source of truth).
-If code and spec disagree, ask or update the spec in the same change. Never silently diverge.
-
-## Stack (do not substitute without asking)
-- TypeScript everywhere, strict mode on.
-- Next.js (App Router) + React for web and API route handlers.
-- PostgreSQL + Prisma (migrations committed).
-- Tailwind CSS for styling.
-- @dnd-kit/core + @dnd-kit/sortable for drag and drop.
-- Zod for all request/response validation. Schemas live in packages/shared.
-- Vitest for unit tests, Playwright for end-to-end tests.
-- pnpm workspaces monorepo:
-  - apps/web           Next.js app (UI + API routes)
-  - packages/shared    Zod schemas, types, constants
-  - packages/volume-engine  PURE TypeScript volume logic, no I/O, used by client AND server
-
-## Commands (keep these working at all times)
-- pnpm install
-- pnpm dev            run web app
-- pnpm db:migrate     apply Prisma migrations
-- pnpm db:seed        seed exercises + muscle landmarks
-- pnpm lint
-- pnpm typecheck
-- pnpm test           unit tests
-- pnpm e2e            Playwright tests
-
-## Rules
-1. Work on ONE milestone at a time. Stop when its acceptance criteria pass.
-2. Before finishing any task run: pnpm lint && pnpm typecheck && pnpm test. Fix failures.
-3. Volume calculations exist ONLY in packages/volume-engine. UI and API import it. Never reimplement.
-4. Validate every API input and output with the Zod schemas in packages/shared.
-5. No `any`. No unexplained `// @ts-ignore`.
-6. Database changes only via Prisma migrations. Never edit the DB by hand.
-7. Do not add new dependencies without stating why in the PR description.
-8. Do not build features listed under "Non-goals" in docs/SPEC.md.
-9. Write tests alongside code, not after.
-10. Keep components small. Presentational components get no data fetching.
-
-## UI non-negotiables
-- The builder board is HORIZONTAL: day columns side by side in an overflow-x container
-  with scroll-snap. The page body must never scroll sideways; only the board does.
-- The volume bar is sticky and always visible while the board scrolls.
-- Colors for volume status are fixed in docs/SPEC.md section 7.4. Do not invent others.
-- Everything must be keyboard accessible (move up/down buttons exist alongside drag and drop).
-
-## Definition of done (every milestone)
-Acceptance criteria met, tests added and passing, lint and typecheck clean, README updated if setup changed.
-```
+The agent rules live in the repo-root `AGENTS.md`, which is the maintained copy (it also covers the Windows/native-PostgreSQL environment, the current milestone line and the git rules). This spec no longer duplicates it, so the two cannot drift.
 
 ---
 
@@ -142,7 +91,7 @@ The original requirements left several things open. These are the decisions made
 
 ## 5. Data model
 
-Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `created_at`; mutable tables also have `updated_at`.
+Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `created_at`. Tables whose rows are edited in place also have `updated_at`: `users`, `exercises`, `muscle_landmarks`, `mesocycles`, `workout_sessions`, `logged_sets`. Template rows (`mesocycle_days`, `day_muscle_groups`, `exercise_slots`) are replaced wholesale by `PUT /schedule`, and `session_exercises` are immutable snapshots, so they have no `updated_at`.
 
 ### 5.1 Enums
 
