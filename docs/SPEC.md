@@ -60,7 +60,7 @@ The original requirements left several things open. These are the decisions made
 
 ## 3. Non-goals (do NOT build)
 
-- Authentication, billing, social features, or sharing.
+- Authentication, billing, social features, or sharing. (A **Log in** button opens a placeholder email/password form that sends nothing; it exists only as a visual stand-in.)
 - Workout logging UI (entering actual reps and weights per set). Lock-in only **generates** empty logs.
 - Automatic set or load progression beyond the RIR ramp.
 - Mobile native apps. (The web UI must still be usable on a phone via horizontal snap scroll.)
@@ -486,23 +486,25 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 - `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
 - `/mesocycles/[id]` — read-only view for active/completed (reuses ReviewDashboard).
 
+The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name, "My blocks" and **Log in** (placeholder, see Section 3).
+
 The app uses a dark theme built from the product owner's palette (graphite neutrals, electric-aqua accent, verdigris/shamrock positive, snow destructive); tokens live in `apps/web/app/globals.css`.
 
 ### 10.2 Tabs
 
 - **Build**: the board (10.3) — the default.
-- **Review**: summary tiles (training days, rest days, sets per week, average session length), a **Volume by muscle group** table — for each trained major group its weekly sets, status, a range bar with MV/MEV/MAV/MRV marks, its weekly frequency and its total sets over the whole block (7.6) — the untrained groups, and the block settings (name, duration 4–6 weeks, deload final week). Lock-in arrives in M8 (10.6).
+- The **block name** is shown in the builder header and is renamed in place (click, type, Enter).
+- **Review**: summary tiles (training days, rest days, sets per week, average session length), a **Volume by muscle group** table — for each trained major group its weekly sets, status, a range bar with MV/MEV/MAV/MRV marks, its weekly frequency and its total sets over the whole block (7.6) — the untrained groups, and the block settings (duration 4–6 weeks, deload final week). Hovering or focusing the ⓘ next to "Deload in the final week" explains it: each exercise drops to half its sets (rounded up), keeps its rep range and returns to its Week 1 RIR, with this block's weekly sets → deload-week sets. A **Lock in block** button is shown; until M8 it only opens a "coming soon" dialog (10.6).
 
 ### 10.3 The horizontal board (core requirement)
 
-- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day. Each column has a fixed width (≈ 320 px desktop, ≈ 85vw mobile) with `scroll-snap-align:start`.
+- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day, with `scroll-snap-align:start`. Training-day columns share the available width (≈ 232–288 px each), rest days are narrow (≈ 112 px), and the row is **centered** (safe centering: when the days cannot fit, the row starts at the left edge and the board scrolls sideways). A Mon–Sun week with typical rest days fits a 1440 px window without scrolling.
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
-- Above the board: a **"Number the days"** checkbox (Mon–Sun ↔ Day 1…N, see decision 8). It is locked on while the cycle does not have exactly 7 days.
+- Above the board: a **"Number the days"** switch (Mon–Sun ↔ Day 1…N, see decision 8), locked on while the cycle does not have exactly 7 days, and the **+ Add day** button (up to 10 days; in a Mon–Sun week it switches to numbered days).
 - **DayColumn header:** editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
 - **Inside a column:** the day's **ExerciseCards** as one ordered list (no muscle sections). A big **"+ Add"** button sits at the bottom of every column.
-- **ExerciseCard:** shows exercise name, its major muscle group (with a color dot), the equipment, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a small delete (✕) button. There are no move buttons: the whole card is dragged (10.4).
+- **ExerciseCard:** shows exercise name, its major muscle group (with a color dot), the equipment, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot) and RIR (0–5). **Starting weight is not shown**: the builder is a schedule planner. The API and database keep `starting_weight`, and the UI preserves any stored value. It has a small delete (✕) button. There are no move buttons: the whole card is dragged (10.4).
 - **Add exercises panel** (opened by "+ Add"): search box, muscle chips (several can be selected at once), an equipment filter, and a checkbox list of the catalog. The user ticks one or many exercises (selections survive filter changes) and confirms with "Add N exercises"; each becomes a slot with defaults (3 sets, 8–12 reps, RIR 3). "+ Custom" opens the create-custom-exercise form; the new exercise is selected.
-- **Add day** control as the last column, up to 10 days. In a Mon–Sun week it switches the cycle to numbered days.
 
 ### 10.4 Drag and drop (dnd-kit)
 
@@ -517,7 +519,7 @@ The app uses a dark theme built from the product owner's palette (graphite neutr
 
 - A horizontal bar fixed to the top of the builder viewport (below the tabs) that **does not scroll with the board**.
 - One **VolumeChip** per major muscle group that has sets (7.6): muscle label, `total_sets`, a mini range-bar showing MV/MEV/MAV/MRV marks, the status label and the weekly frequency. The chip's color comes from Section 7.4. (Priority target bands are hidden; decision 10.)
-- The bar itself scrolls horizontally if there are many muscles. Clicking a chip opens a popover with the status, weekly sets, frequency, the full landmarks and the list of contributing exercises (and days).
+- The chips sit in a grid (5 per row on narrow screens, 10 on wide ones), so the bar never needs a scrollbar. An **ⓘ** button opens plain-language definitions: MV (Maintenance Volume): ~6 sets per week maintains current muscle mass; MEV (Minimum Effective Volume): starting point for growth, varies by training experience; MAV (Maximum Adaptive Volume): sweet spot range between MEV and MRV for optimal gains; MRV (Maximum Recoverable Volume): upper limit before recovery fails and gains stop. The same ⓘ appears on Review. Clicking a chip opens a popover with the status, weekly sets, frequency, the full landmarks and the list of contributing exercises (and days).
 - Updates **synchronously on every change** (no spinner). It calls the local engine; the server result is only used when saving.
 - Provide a text/ARIA label for every color state so color is never the only signal.
 
