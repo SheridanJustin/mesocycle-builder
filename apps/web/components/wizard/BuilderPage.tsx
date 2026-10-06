@@ -42,6 +42,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
       const found = findSlot(state, slotId);
       if (found) actions.moveSlot(slotId, dayId, found.slot.exercise.primary_muscle, null);
     },
+    onMoveSlot: actions.moveSlot,
     onRemoveSlot: actions.removeSlot,
   };
 

@@ -14,5 +14,7 @@ export type BoardHandlers = {
   onUpdateSlot: (slotId: string, patch: Partial<SlotMetrics>) => void;
   onStepSlot: (slotId: string, direction: 'up' | 'down') => void;
   onMoveSlotToDay: (slotId: string, dayId: string) => void;
+  // Drag and drop result: where the card goes and which card it lands before (null = end).
+  onMoveSlot: (slotId: string, toDayId: string, toMuscle: Muscle, beforeSlotId: string | null) => void;
   onRemoveSlot: (slotId: string) => void;
 };

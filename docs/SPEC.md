@@ -478,8 +478,8 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 | 1 Schedule | Days created and named; in calendar mode every day has a weekday, all unique |
 | 2 Muscles | Every day has ≥ 1 muscle group; priorities set (defaults to `normal`) |
 | 3 Exercises | Every muscle group has ≥ 1 exercise slot |
-| 4 Metrics | Every slot has valid sets/rep range/RIR (always true given defaults) |
-| 5 Volume | No muscle is `EXCEEDS_MRV` |
+| 4 Metrics | At least one slot exists and every slot has valid sets/rep range/RIR |
+| 5 Volume | At least one slot exists and no muscle is `EXCEEDS_MRV` |
 | 6 Review | The user opens it; then the Lock-in button is enabled |
 
 ### 10.3 The horizontal board (core requirement)
@@ -488,7 +488,7 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
 - **DayColumn header:** editable day name (inline edit, max 50 chars), weekday selector (calendar mode), per-day estimated duration, and a menu: Duplicate, Rename, Delete.
 - **Inside a column:** muscle-group sections, each with a header (muscle name, priority tag, "+ Add exercise"), containing **ExerciseCards** in the day's global order.
-- **ExerciseCard:** shows exercise name, equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs), RIR (0–5), starting weight (optional, in the user's unit). It has a drag handle, move-up / move-down buttons, and a delete button.
+- **ExerciseCard:** shows exercise name, equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a drag handle, move-up / move-down buttons, and a delete button.
 - **Add exercise:** opens a side panel or modal with the catalog: search box, filters for muscle and equipment, and a "Create custom exercise" form. Results default to the section's muscle. Picking one creates a slot with defaults (3 sets, 8–12 reps, RIR 3).
 - **Add muscle group** control at the bottom of each column.
 - **Add day** control as the last column (until 6 days; the 7th is allowed only via Duplicate).
@@ -498,7 +498,10 @@ Six labeled steps with a "current" indicator. Steps are clickable at any time (n
 - Reorder cards within a column.
 - Drag a card to another column (across the horizontal plane). The card keeps **all** its metrics. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
 - If the destination column has no section for the card's exercise's primary muscle, create one automatically.
-- Provide keyboard alternatives (dnd-kit keyboard sensor + the move up/down buttons and a "Move to day…" menu).
+- Within a section, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropping on a card in another section of the same day moves the card into that section. A card dropped on the day column it came from does nothing. For a move to another day the destination section is always the exercise's primary muscle (an existing section, or a new one); the card lands before the card it was dropped on when that card is in that section, otherwise at the end.
+- Move up / move down buttons swap a card with the previous/next card **of the same section**. Cards in other sections keep their place in the day's global order.
+- Provide keyboard alternatives (dnd-kit keyboard sensor + the move up/down buttons and a "Move to day…" menu). With the keyboard sensor, Space picks up the drag handle, Up/Down move through the cards of the current section, Left/Right jump to the neighbouring day, and Space drops. Results are announced to screen readers.
+- Scroll snapping on the board is switched off while a drag is in progress, otherwise it undoes the edge auto-scroll.
 - Drag operations update `sort_order` values for the affected days and trigger autosave and a volume recompute.
 
 ### 10.5 Sticky volume bar

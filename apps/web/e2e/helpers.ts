@@ -51,3 +51,18 @@ export function card(page: Page, dayName: string, exerciseName: string) {
 export async function pageScrollsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 }
+
+// Drags with real mouse events (dnd-kit's pointer sensor needs movement past a small threshold).
+export async function dragTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, opts: { release?: boolean } = {}) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 });
+  await page.mouse.move(to.x, to.y, { steps: 25 });
+  if (opts.release !== false) await page.mouse.up();
+}
+
+export async function center(locator: import('@playwright/test').Locator): Promise<{ x: number; y: number }> {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('Element has no bounding box');
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
