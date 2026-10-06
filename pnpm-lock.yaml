@@ -17,6 +17,9 @@ importers:
       '@mesocycle/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@mesocycle/volume-engine':
+        specifier: workspace:*
+        version: link:../../packages/volume-engine
       '@prisma/client':
         specifier: 6.3.1
         version: 6.3.1(prisma@6.3.1(typescript@5.7.3))(typescript@5.7.3)

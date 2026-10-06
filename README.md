@@ -28,6 +28,12 @@ API endpoints (see `docs/SPEC.md` section 6):
 - `GET /api/v1/exercises` (filters: `primary_muscle`, `equipment`, `movement_type`, `search`; paging: `limit`, `cursor`)
 - `POST /api/v1/exercises` (custom exercise; `409` on a duplicate name)
 - `GET /api/v1/muscle-landmarks`
+- `GET`/`POST /api/v1/mesocycles`, `GET`/`PATCH`/`DELETE /api/v1/mesocycles/{id}`
+- `PUT /api/v1/mesocycles/{id}/schedule` (replace the whole schedule; used for autosave)
+- `POST /api/v1/mesocycles/{id}/duplicate-day`
+- `POST /api/v1/mesocycles/validate-volume`
+
+Locking a mesocycle (`POST /api/v1/mesocycles/{id}/lock`) arrives in a later milestone.
 
 ```powershell
 pnpm lint

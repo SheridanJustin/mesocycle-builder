@@ -252,11 +252,13 @@ Body:
 ```json
 { "name": "Fall Hypertrophy Block", "duration_weeks": 5, "days_per_week": 4, "schedule_mode": "relative" }
 ```
-Creates the mesocycle and `days_per_week` empty days named "Day 1…N" (or Mon/Wed/Fri-style names if calendar mode with `weekdays` provided). Returns the full mesocycle.
+Creates the mesocycle and `days_per_week` empty days named "Day 1…N" (or Mon/Wed/Fri-style names, sorted by weekday, if calendar mode with `weekdays` provided). Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
 
-**`GET /mesocycles`** — list the user's mesocycles (summary only).
+`days_per_week` records the count chosen at creation and is not updated afterwards. The real day count is the number of days (2–7, since Duplicate can add a 7th).
 
-**`GET /mesocycles/{id}`** — full mesocycle with days, muscle groups, priorities, slots (nested), plus the computed `volume_summary` (Section 7).
+**`GET /mesocycles`** — list the user's mesocycles (summary only, with `day_count`), most recently updated first.
+
+**`GET /mesocycles/{id}`** — full mesocycle with days, muscle groups, priorities, slots (nested), plus the computed `volume_summary` (Section 7). `priorities` lists only muscles with a stored priority; all others are `normal`. Each slot also carries its `exercise`.
 
 **`PATCH /mesocycles/{id}`** — update `name`, `duration_weeks`, `deload_final_week`. `409` if not `draft`.
 
@@ -289,10 +291,10 @@ Body:
   "priorities": [ { "muscle": "chest", "priority": "focus" } ]
 }
 ```
-Rules: the server replaces all days/groups/slots in one transaction. `slot.muscle` must reference a muscle group present on the same day. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
+Rules: the server replaces all days/groups/slots/priorities in one transaction (so day, group and slot ids change on every save). `slot.muscle` must reference a muscle group present on the same day. `weekday` must be `null` in `relative` mode and unique among days in `calendar` mode. Every `exercise_id` must be a global exercise or one of the user's own custom exercises, otherwise `400` with the path of the slot. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
 
 **`POST /mesocycles/{id}/duplicate-day`**
-Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` and shifting later days. `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
+Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` (1-based; at most current day count + 1, otherwise `400`) and shifting later days. All days are renumbered so `sort_order` and `day_number` are 1…n. The copy has no `weekday` (weekdays must stay unique). `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
 
 **`POST /mesocycles/validate-volume`** — stateless; used for live feedback and server-side checks.
 Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3, "day_id": "..." } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ], "assigned_muscles": ["chest"] }` (`day_id` and `assigned_muscles` are optional; `day_id` is needed for `weekly_frequency`, and `assigned_muscles` makes zero-set muscles appear.)
@@ -303,7 +305,7 @@ Body: `{ "start_date": "2026-10-05" }` (required if `schedule_mode = calendar`, 
 Preconditions (else `400` with details): at least 1 day has at least 1 slot; no day has zero slots; every slot's exercise exists. Volume warnings do **not** block locking, but the request must include `"acknowledge_warnings": true` if any muscle is `EXCEEDS_MRV` or `BELOW_MV`.
 Effect, in one transaction: set status `active`, `locked_at`, generate weeks/sessions/session_exercises (Section 9). Returns the active mesocycle with week/session ids.
 
-**`DELETE /mesocycles/{id}`** — delete a draft (cascade). `409` for active or completed ones.
+**`DELETE /mesocycles/{id}`** — delete a draft (cascade). Returns `204`. `409` for active or completed ones.
 
 ---
 
