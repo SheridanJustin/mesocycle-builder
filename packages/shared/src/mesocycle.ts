@@ -17,7 +17,9 @@ import {
   MIN_RIR,
   MIN_SETS,
 } from './constants';
-import { MuscleSchema, PrioritySchema, ScheduleModeSchema } from './enums';
+import { MesocycleStatusSchema, MuscleSchema, PrioritySchema, ScheduleModeSchema } from './enums';
+import { ExerciseSchema } from './exercise';
+import { VolumeSummarySchema } from './volume';
 
 const mesocycleName = z.string().trim().min(1).max(255);
 const durationWeeks = z.number().int().min(MIN_DURATION_WEEKS).max(MAX_DURATION_WEEKS);
@@ -195,3 +197,58 @@ export const LockMesocycleSchema = z.object({
   acknowledge_warnings: z.boolean().default(false),
 });
 export type LockMesocycle = z.infer<typeof LockMesocycleSchema>;
+
+// ---- Responses ----
+
+export const MesocycleSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  duration_weeks: z.number().int(),
+  // Count chosen at creation. The real day count is days.length (2-7 once days are duplicated).
+  days_per_week: z.number().int(),
+  schedule_mode: ScheduleModeSchema,
+  status: MesocycleStatusSchema,
+  start_date: isoDate.nullable(),
+  locked_at: z.string().nullable(),
+  deload_final_week: z.boolean(),
+  day_count: z.number().int().min(0),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type MesocycleSummary = z.infer<typeof MesocycleSummarySchema>;
+
+export const MesocycleListSchema = z.object({ items: z.array(MesocycleSummarySchema) });
+export type MesocycleList = z.infer<typeof MesocycleListSchema>;
+
+export const SlotDetailSchema = z.object({
+  id: z.string().uuid(),
+  muscle: MuscleSchema,
+  exercise_id: z.string().uuid(),
+  exercise: ExerciseSchema,
+  sort_order: z.number().int(),
+  target_sets: z.number().int(),
+  rep_range_min: z.number().int(),
+  rep_range_max: z.number().int(),
+  target_rir: z.number().int(),
+  starting_weight: z.number().nullable(),
+});
+export type SlotDetail = z.infer<typeof SlotDetailSchema>;
+
+export const DayDetailSchema = z.object({
+  id: z.string().uuid(),
+  day_number: z.number().int(),
+  weekday: z.number().int().nullable(),
+  day_name: z.string(),
+  sort_order: z.number().int(),
+  muscle_groups: z.array(z.object({ id: z.string().uuid(), muscle: MuscleSchema, sort_order: z.number().int() })),
+  slots: z.array(SlotDetailSchema),
+});
+export type DayDetail = z.infer<typeof DayDetailSchema>;
+
+export const MesocycleDetailSchema = MesocycleSummarySchema.omit({ day_count: true }).extend({
+  days: z.array(DayDetailSchema),
+  // Only muscles with a stored priority; every other muscle is 'normal'.
+  priorities: z.array(z.object({ muscle: MuscleSchema, priority: PrioritySchema })),
+  volume_summary: VolumeSummarySchema,
+});
+export type MesocycleDetail = z.infer<typeof MesocycleDetailSchema>;

@@ -3,6 +3,8 @@ import {
   CreateMesocycleSchema,
   DuplicateDaySchema,
   LockMesocycleSchema,
+  MesocycleDetailSchema,
+  MesocycleSummarySchema,
   PatchMesocycleSchema,
   PutScheduleSchema,
   ScheduleSlotSchema,
@@ -173,5 +175,33 @@ describe('LockMesocycleSchema', () => {
     expect(LockMesocycleSchema.safeParse({ start_date: '2026-10-05' }).success).toBe(true);
     expect(LockMesocycleSchema.safeParse({ start_date: '2026-02-30' }).success).toBe(false);
     expect(LockMesocycleSchema.safeParse({ start_date: '10/05/2026' }).success).toBe(false);
+  });
+});
+
+describe('response schemas', () => {
+  const summary = {
+    id: exerciseId,
+    name: 'Block',
+    duration_weeks: 4,
+    days_per_week: 4,
+    schedule_mode: 'relative',
+    status: 'draft',
+    start_date: null,
+    locked_at: null,
+    deload_final_week: false,
+    created_at: '2026-10-06T00:00:00.000Z',
+    updated_at: '2026-10-06T00:00:00.000Z',
+  };
+
+  it('accepts a summary and a detail with empty days', () => {
+    expect(MesocycleSummarySchema.safeParse({ ...summary, day_count: 4 }).success).toBe(true);
+    expect(
+      MesocycleDetailSchema.safeParse({ ...summary, days: [], priorities: [], volume_summary: { summary: {} } }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an unknown status and a malformed start_date', () => {
+    expect(MesocycleSummarySchema.safeParse({ ...summary, day_count: 1, status: 'locked' }).success).toBe(false);
+    expect(MesocycleSummarySchema.safeParse({ ...summary, day_count: 1, start_date: '10/05/2026' }).success).toBe(false);
   });
 });
