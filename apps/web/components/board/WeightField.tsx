@@ -12,8 +12,8 @@ export function WeightField({ idPrefix, value, unit, onChange }: Props) {
   const parsed = parseWeight(text);
 
   return (
-    <div className="grid gap-1">
-      <label htmlFor={`${idPrefix}-weight`} className="text-xs font-medium text-graphite-300">
+    <div className="col-span-3 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-0.5">
+      <label htmlFor={`${idPrefix}-weight`} className="text-[10px] font-semibold uppercase tracking-wider text-graphite-400">
         Weight ({unit})
       </label>
       <input
@@ -21,7 +21,7 @@ export function WeightField({ idPrefix, value, unit, onChange }: Props) {
         inputMode="decimal"
         placeholder="optional"
         aria-invalid={!parsed.ok}
-        className="w-24 rounded border border-graphite-700 bg-graphite-950 px-1.5 py-1 text-sm text-graphite-50"
+        className="h-7 w-full rounded-md border border-graphite-700 bg-graphite-950 px-2 text-sm text-graphite-50 placeholder:text-graphite-600"
         value={text}
         onChange={(e) => {
           const next = parseWeight(e.target.value);
@@ -35,7 +35,7 @@ export function WeightField({ idPrefix, value, unit, onChange }: Props) {
         onBlur={() => setDraft(null)}
       />
       {!parsed.ok && (
-        <p role="alert" className="text-xs text-snow-300">
+        <p role="alert" className="col-span-2 text-xs text-snow-300">
           {parsed.error}
         </p>
       )}

@@ -3,7 +3,7 @@ import { createPopulatedDraft } from './api-helpers';
 import { addExercises, card, column, columnNames, createMesocycleViaUi, gotoTab, openDayMenu, waitForSaved } from './helpers';
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const numberedToggle = (page: import('@playwright/test').Page) => page.getByRole('checkbox', { name: 'Number the days (Day 1, Day 2, …)' });
+const numberedToggle = (page: import('@playwright/test').Page) => page.getByRole('switch', { name: 'Number the days (Day 1, Day 2, …)' });
 
 test('New mesocycle opens straight onto an empty Mon-Sun board of rest days', async ({ page }) => {
   await createMesocycleViaUi(page);
@@ -11,7 +11,7 @@ test('New mesocycle opens straight onto an empty Mon-Sun board of rest days', as
   await expect(page.getByTestId('rest-day')).toHaveCount(7);
   for (const day of WEEK) await expect(column(page, day).getByRole('button', { name: `Add exercises to ${day}` })).toBeVisible();
   await expect(numberedToggle(page)).not.toBeChecked();
-  await expect(page.getByTestId('volume-bar')).toContainText('Weekly sets per muscle appear here as you add exercises.');
+  await expect(page.getByTestId('volume-bar')).toContainText('Weekly sets per muscle group appear here as you add exercises.');
   // Only two tabs remain.
   const tabs = page.getByRole('navigation', { name: 'Builder tabs' }).getByRole('button');
   await expect(tabs).toHaveText(['Build', 'Review']);
@@ -95,7 +95,8 @@ test('Review holds the block settings: name, duration and deload', async ({ page
   await createMesocycleViaUi(page);
   await addExercises(page, 'Mon', ['Cable Fly']);
   await gotoTab(page, 'Review');
-  await expect(page.getByTestId('cycle-summary')).toHaveText('1 training day and 6 rest days per cycle.');
+  await expect(page.getByTestId('stat-training-days')).toHaveText('1');
+  await expect(page.getByTestId('stat-rest-days')).toHaveText('6');
 
   await page.getByLabel('Mesocycle name').fill('Fall Block');
   await page.getByLabel('Mesocycle name').press('Enter');

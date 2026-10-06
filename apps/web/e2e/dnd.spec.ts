@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createPopulatedDraft, type DaySpec } from './api-helpers';
-import { card, center, column, columnNames, dragTo, openDayMenu, waitForSaved } from './helpers';
+import { card, center, column, columnNames, dragTo, grip, openDayMenu, waitForSaved } from './helpers';
 
 // A tall viewport keeps cards out of dnd-kit's edge auto-scroll zones, so drags are deterministic.
 test.beforeEach(async ({ page }) => {
@@ -23,7 +23,7 @@ test('scenario 2: drag a card from column 1 to column 3, metrics survive and vol
   await expect(page.getByTestId('volume-total-chest')).toHaveText('8');
   await expect(page.getByTestId('volume-frequency-chest')).toHaveText('1×/wk');
 
-  const handle = card(page, 'Mon', 'Barbell Bench Press').getByRole('button', { name: 'Drag Barbell Bench Press' });
+  const handle = grip(page, 'Mon', 'Barbell Bench Press');
   await dragTo(page, await center(handle), await center(column(page, 'Wed').getByTestId('day-duration')));
 
   await expect(card(page, 'Mon', 'Barbell Bench Press')).toHaveCount(0);
@@ -50,19 +50,16 @@ test('dropping on a card positions the dragged card, within a day and across day
   await page.goto(`/mesocycles/${id}/build`);
 
   const mon = column(page, 'Mon').getByRole('article');
-  const fly = card(page, 'Mon', 'Cable Fly');
-  await dragTo(page, await center(fly.getByRole('button', { name: 'Drag Cable Fly' })), await center(card(page, 'Mon', 'Barbell Bench Press')));
+  await dragTo(page, await center(grip(page, 'Mon', 'Cable Fly')), await center(card(page, 'Mon', 'Barbell Bench Press')));
   await expect(mon).toHaveText([/Cable Fly/, /Barbell Bench Press/, /Cable Pushdown/]);
 
   // Onto a card in another day: lands before it.
-  const lat = card(page, 'Tue', 'Lat Pulldown');
-  await dragTo(page, await center(lat.getByRole('button', { name: 'Drag Lat Pulldown' })), await center(card(page, 'Wed', 'Leg Press')));
+  await dragTo(page, await center(grip(page, 'Tue', 'Lat Pulldown')), await center(card(page, 'Wed', 'Leg Press')));
   await expect(column(page, 'Wed').getByRole('article')).toHaveText([/Lat Pulldown/, /Leg Press/]);
   await expect(column(page, 'Tue').getByTestId('rest-day')).toBeVisible();
 
   // Onto a rest day column.
-  const pushdown = card(page, 'Mon', 'Cable Pushdown');
-  await dragTo(page, await center(pushdown.getByRole('button', { name: 'Drag Cable Pushdown' })), await center(column(page, 'Thu').getByRole('button', { name: 'Add exercises to Thu' })));
+  await dragTo(page, await center(grip(page, 'Mon', 'Cable Pushdown')), await center(column(page, 'Thu').getByRole('button', { name: 'Add exercises to Thu' })));
   await expect(column(page, 'Thu').getByRole('article')).toHaveText([/Cable Pushdown/]);
 });
 
@@ -72,7 +69,7 @@ test('the board auto-scrolls sideways when a dragged card nears the edge', async
   await page.goto(`/mesocycles/${id}/build`);
   const board = page.getByTestId('board');
   const startLeft = await board.evaluate((el) => el.scrollLeft);
-  const from = await center(card(page, 'Mon', 'Barbell Bench Press').getByRole('button', { name: 'Drag Barbell Bench Press' }));
+  const from = await center(grip(page, 'Mon', 'Barbell Bench Press'));
   await dragTo(page, from, { x: 690, y: from.y }, { release: false });
   await expect.poll(() => board.evaluate((el) => el.scrollLeft), { timeout: 5000 }).toBeGreaterThan(startLeft + 100);
   await page.mouse.up();
@@ -85,7 +82,7 @@ test('cards move with the keyboard: up/down within a day, right to the next day,
   await page.goto(`/mesocycles/${id}/build`);
   const status = (text: string) => page.getByRole('status').filter({ hasText: text });
 
-  await card(page, 'Mon', 'Barbell Bench Press').getByRole('button', { name: 'Drag Barbell Bench Press' }).focus();
+  await page.getByRole('group', { name: 'Move Barbell Bench Press' }).focus();
   await page.keyboard.press('Space');
   await expect(status('Barbell Bench Press is in its original position in Mon.')).toHaveCount(1);
   await page.keyboard.press('ArrowDown');
@@ -94,7 +91,7 @@ test('cards move with the keyboard: up/down within a day, right to the next day,
   await expect(column(page, 'Mon').getByRole('article')).toHaveText([/Cable Fly/, /Barbell Bench Press/, /Cable Pushdown/]);
   await expect(status('Moved Barbell Bench Press within Mon, position 2 of 3.')).toHaveCount(1);
 
-  await card(page, 'Mon', 'Cable Pushdown').getByRole('button', { name: 'Drag Cable Pushdown' }).focus();
+  await page.getByRole('group', { name: 'Move Cable Pushdown' }).focus();
   await page.keyboard.press('Space');
   await page.keyboard.press('ArrowRight');
   await expect(status('Cable Pushdown is over Tue.')).toHaveCount(1);

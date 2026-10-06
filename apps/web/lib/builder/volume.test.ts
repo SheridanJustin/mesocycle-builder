@@ -2,7 +2,7 @@ import { MUSCLES, type Exercise, type MuscleLandmarkList } from '@mesocycle/shar
 import { describe, expect, it } from 'vitest';
 import { createSlot } from './reducer';
 import type { BuilderState } from './types';
-import { computeBuilderVolume, contributionsFor, toEngineLandmarks } from './volume';
+import { computeBuilderBlockVolume, computeBuilderVolume, contributionsFor, toEngineLandmarks } from './volume';
 
 const list: MuscleLandmarkList = {
   items: MUSCLES.map((muscle) => ({ muscle, mv: 8, mev: 10, mav_low: 12, mav_high: 20, mrv: 22 })),
@@ -18,16 +18,18 @@ const bench: Exercise = {
   movement_type: 'compound',
   is_custom: false,
 };
+const pullup: Exercise = { ...bench, id: 'pullup', name: 'Pull-Up', primary_muscle: 'lats', secondary_muscles: ['biceps', 'upper_back'] };
 
 function state(): BuilderState {
   return {
     mode: 'relative',
     days: [
       { id: 'd1', name: 'Push A', weekday: null, slots: [{ ...createSlot(bench, 's1'), sets: 4 }] },
-      { id: 'd2', name: 'Push B', weekday: null, slots: [{ ...createSlot(bench, 's2'), sets: 2 }] },
-      { id: 'd3', name: 'Day 3', weekday: null, slots: [] },
+      { id: 'd2', name: 'Pull', weekday: null, slots: [{ ...createSlot(pullup, 's2'), sets: 3 }] },
+      { id: 'd3', name: 'Push B', weekday: null, slots: [{ ...createSlot(bench, 's3'), sets: 2 }] },
+      { id: 'd4', name: 'Day 4', weekday: null, slots: [] },
     ],
-    priorities: { chest: 'focus' },
+    priorities: {},
   };
 }
 
@@ -42,32 +44,37 @@ describe('toEngineLandmarks', () => {
 });
 
 describe('computeBuilderVolume', () => {
-  it('feeds slots, days and priorities into the engine', () => {
+  it('reports major muscle groups only', () => {
     const { summary } = computeBuilderVolume(state(), landmarks);
-    expect(summary.chest).toMatchObject({ total_sets: 6, weekly_frequency: 2, priority: 'focus' });
-    expect(summary.triceps?.total_sets).toBe(3);
-    // Rest days contribute nothing; untrained muscles are omitted.
-    expect(summary.quads).toBeUndefined();
+    expect(Object.keys(summary)).toEqual(['chest', 'back', 'shoulders', 'biceps', 'triceps']);
+    expect(summary.chest).toMatchObject({ total_sets: 6, weekly_frequency: 2 });
+    expect(summary.back).toMatchObject({ total_sets: 3, weekly_frequency: 1 });
+    expect(summary.shoulders?.total_sets).toBe(3);
   });
 
-  it('is empty for an empty board', () => {
+  it('is empty for an empty board and reacts to edits', () => {
     expect(computeBuilderVolume({ mode: 'calendar', days: [], priorities: {} }, landmarks)).toEqual({ summary: {} });
-  });
-
-  it('reacts to edits', () => {
     const edited = state();
     edited.days[0]!.slots[0] = { ...edited.days[0]!.slots[0]!, sets: 10 };
     expect(computeBuilderVolume(edited, landmarks).summary.chest?.total_sets).toBe(12);
   });
 });
 
+describe('computeBuilderBlockVolume', () => {
+  it('totals each group over the block, with a half-volume deload week', () => {
+    expect(computeBuilderBlockVolume(state(), 4, false).chest).toEqual({ weekly: 6, block: 24 });
+    // Deload: ceil(4/2) + ceil(2/2) = 3 chest sets.
+    expect(computeBuilderBlockVolume(state(), 4, true).chest).toEqual({ weekly: 6, block: 6 * 3 + 3 });
+  });
+});
+
 describe('contributionsFor', () => {
-  it('lists primary and secondary contributors with their day', () => {
-    expect(contributionsFor(state(), 'triceps')).toEqual([
+  it('lists the exercises feeding a group with their day and role', () => {
+    expect(contributionsFor(state(), 'shoulders')).toEqual([
       { dayName: 'Push A', exerciseName: 'Bench', sets: 4, role: 'secondary' },
       { dayName: 'Push B', exerciseName: 'Bench', sets: 2, role: 'secondary' },
     ]);
-    expect(contributionsFor(state(), 'chest').map((c) => c.role)).toEqual(['primary', 'primary']);
-    expect(contributionsFor(state(), 'abs')).toEqual([]);
+    expect(contributionsFor(state(), 'back')).toEqual([{ dayName: 'Pull', exerciseName: 'Pull-Up', sets: 3, role: 'primary' }]);
+    expect(contributionsFor(state(), 'calves')).toEqual([]);
   });
 });

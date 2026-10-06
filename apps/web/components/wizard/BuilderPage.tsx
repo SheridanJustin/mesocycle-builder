@@ -1,10 +1,10 @@
 'use client';
 
-import type { Exercise } from '@mesocycle/shared';
+import { estimateSessionMinutes, type Exercise } from '@mesocycle/shared';
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useBuilder } from '../../lib/builder/use-builder';
-import { contributionsFor } from '../../lib/builder/volume';
+import { computeBuilderBlockVolume, contributionsFor } from '../../lib/builder/volume';
 import { AddExercisesPanel } from '../board/AddExercisesPanel';
 import { Board } from '../board/Board';
 import type { BoardHandlers } from '../board/types';
@@ -39,7 +39,6 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
     },
     onOpenAddExercises: setAddingToDayId,
     onUpdateSlot: actions.updateSlot,
-    onStepSlot: actions.stepSlot,
     onMoveSlot: actions.moveSlot,
     onRemoveSlot: actions.removeSlot,
   };
@@ -49,6 +48,11 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
     setAddingToDayId(null);
   }
   const addingToDay = state.days.find((d) => d.id === addingToDayId);
+
+  const block = useMemo(
+    () => (meta ? computeBuilderBlockVolume(state, meta.durationWeeks, meta.deloadFinalWeek) : {}),
+    [state, meta],
+  );
 
   if (load.kind === 'loading') return <p className="p-6 text-graphite-300">Loading…</p>;
   if (load.kind === 'error' || !meta) {
@@ -64,26 +68,49 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
     );
   }
 
-  const trainingDays = state.days.filter((d) => d.slots.length > 0).length;
+  const training = state.days.filter((d) => d.slots.length > 0);
+  const stats = {
+    trainingDays: training.length,
+    restDays: state.days.length - training.length,
+    weeklySets: training.reduce((sum, day) => sum + day.slots.reduce((s, slot) => s + slot.sets, 0), 0),
+    averageMinutes: training.length
+      ? Math.round(
+          training.reduce(
+            (sum, day) => sum + estimateSessionMinutes(day.slots.map((slot) => ({ sets: slot.sets, movementType: slot.exercise.movement_type }))),
+            0,
+          ) /
+            training.length /
+            5,
+        ) * 5
+      : 0,
+  };
+  const cycleLabel = state.mode === 'calendar' ? 'Mon–Sun week' : `${state.days.length}-day cycle`;
 
   return (
     <div>
-      <div className="sticky top-0 z-30 border-b border-graphite-800 bg-graphite-950/95 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-4 py-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-3">
-              <h1 className="truncate text-lg font-semibold" data-testid="mesocycle-title">
+      <div className="sticky top-0 z-30 border-b border-graphite-800/80 bg-graphite-950/85 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 pt-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold tracking-tight" data-testid="mesocycle-title">
                 {meta.name}
               </h1>
-              <nav aria-label="Builder tabs" className="flex gap-1">
+              <p className="text-xs text-graphite-400">
+                {meta.durationWeeks} weeks · {cycleLabel} · {stats.trainingDays} training day{stats.trainingDays === 1 ? '' : 's'}
+                {meta.deloadFinalWeek ? ' · deload' : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <SaveIndicator status={builder.saveStatus} onRetry={builder.retrySave} />
+              <nav aria-label="Builder tabs" className="flex rounded-xl border border-graphite-800 bg-graphite-900 p-0.5">
                 {TABS.map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     aria-current={tab === t.id ? 'page' : undefined}
                     onClick={() => setTab(t.id)}
-                    className={`rounded-md px-3 py-1 text-sm font-medium ${
-                      tab === t.id ? 'bg-aqua-500 text-graphite-950' : 'text-graphite-200 hover:bg-graphite-800'
+                    className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                      tab === t.id ? 'bg-aqua-500 text-graphite-950 shadow' : 'text-graphite-300 hover:text-graphite-50'
                     }`}
                   >
                     {t.label}
@@ -91,9 +118,8 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
                 ))}
               </nav>
             </div>
-            <SaveIndicator status={builder.saveStatus} onRetry={builder.retrySave} />
           </div>
-          <VolumeBar volume={volume} contributionsFor={(muscle) => contributionsFor(state, muscle)} />
+          <VolumeBar volume={volume} contributionsFor={(group) => contributionsFor(state, group)} />
         </div>
       </div>
 
@@ -108,8 +134,9 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
       ) : (
         <ReviewTab
           settings={{ name: meta.name, durationWeeks: meta.durationWeeks, deloadFinalWeek: meta.deloadFinalWeek }}
-          trainingDays={trainingDays}
-          restDays={state.days.length - trainingDays}
+          stats={stats}
+          volume={volume}
+          block={block}
           onSettingsChange={(patch) => void builder.updateSettings(patch)}
         />
       )}

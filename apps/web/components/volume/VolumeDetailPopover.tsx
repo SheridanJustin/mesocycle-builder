@@ -1,18 +1,19 @@
-import type { Muscle, MuscleVolume } from '@mesocycle/shared';
+import type { GroupVolume, MuscleGroup } from '@mesocycle/shared';
 import { useEffect, useRef } from 'react';
 import type { Contribution } from '../../lib/builder/volume';
 import { formatSets } from '../../lib/builder/range-geometry';
-import { muscleLabel, STATUS_DESCRIPTION, STATUS_LABEL } from '../../lib/labels';
+import { groupLabel, STATUS_DESCRIPTION, STATUS_LABEL } from '../../lib/labels';
+import { RangeBar } from './RangeBar';
 
 type Props = {
   id: string;
-  muscle: Muscle;
-  entry: MuscleVolume;
+  group: MuscleGroup;
+  entry: GroupVolume;
   contributions: Contribution[];
   onClose: () => void;
 };
 
-export function VolumeDetailPopover({ id, muscle, entry, contributions, onClose }: Props) {
+export function VolumeDetailPopover({ id, group, entry, contributions, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const { landmarks: l } = entry;
 
@@ -30,13 +31,13 @@ export function VolumeDetailPopover({ id, muscle, entry, contributions, onClose 
       id={id}
       role="dialog"
       aria-modal="false"
-      aria-label={`${muscleLabel(muscle)} volume details`}
+      aria-label={`${groupLabel(group)} volume details`}
       data-testid="volume-popover"
-      className="absolute left-0 right-0 top-full z-40 mx-auto max-w-2xl rounded-b-lg border border-graphite-700 bg-graphite-900 p-4 text-sm text-graphite-50 shadow-2xl"
+      className="absolute left-0 right-0 top-full z-40 mx-auto max-w-2xl rounded-b-2xl border border-graphite-700 bg-graphite-900/95 p-4 text-sm text-graphite-50 shadow-2xl shadow-black/60 backdrop-blur"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold">{muscleLabel(muscle)}</h2>
+          <h2 className="text-base font-semibold">{groupLabel(group)}</h2>
           <p className="text-graphite-200">
             <strong>{STATUS_LABEL[entry.status]}</strong> — {STATUS_DESCRIPTION[entry.status]}
           </p>
@@ -53,6 +54,8 @@ export function VolumeDetailPopover({ id, muscle, entry, contributions, onClose 
       </div>
 
 
+      <RangeBar entry={entry} size="lg" showLabels className="mt-3" />
+
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
         <div>
           <dt className="text-xs text-graphite-400">Weekly sets</dt>
@@ -65,7 +68,7 @@ export function VolumeDetailPopover({ id, muscle, entry, contributions, onClose 
       </dl>
 
       <table className="mt-3 w-full text-left text-xs">
-        <caption className="sr-only">Volume landmarks for {muscleLabel(muscle)}</caption>
+        <caption className="sr-only">Volume landmarks for {groupLabel(group)}</caption>
         <thead>
           <tr className="text-graphite-400">
             <th scope="col">MV</th>

@@ -117,7 +117,6 @@ export function useBuilder(mesocycleId: string) {
         dispatch({ type: 'addSlots', dayId, items: exercises.map((exercise) => ({ slotId: newId(), exercise })) }),
       removeSlot: (slotId: string) => dispatch({ type: 'removeSlot', slotId }),
       updateSlot: (slotId: string, patch: Partial<SlotMetrics>) => dispatch({ type: 'updateSlot', slotId, patch }),
-      stepSlot: (slotId: string, direction: 'up' | 'down') => dispatch({ type: 'stepSlot', slotId, direction }),
       moveSlot: (slotId: string, toDayId: string, beforeSlotId: string | null) =>
         dispatch({ type: 'moveSlot', slotId, toDayId, beforeSlotId }),
     }),

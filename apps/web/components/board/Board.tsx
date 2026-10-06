@@ -3,8 +3,6 @@
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  PointerSensor,
   pointerWithin,
   rectIntersection,
   useSensor,
@@ -22,8 +20,8 @@ import { useState } from 'react';
 import { dayIdFromDropId, describeMove, isDayDropId, resolveDrop } from '../../lib/builder/drop';
 import { keyboardTarget, type ArrowKey } from '../../lib/builder/keyboard-targets';
 import { findSlot } from '../../lib/builder/reducer';
+import { CardKeyboardSensor, CardPointerSensor } from '../../lib/builder/sensors';
 import type { BuilderDay, BuilderState } from '../../lib/builder/types';
-import { Button } from '../ui/Button';
 import { CardPreview } from './CardPreview';
 import { DroppableDayColumn } from './DroppableDayColumn';
 import { SortableExerciseCard } from './SortableExerciseCard';
@@ -79,9 +77,9 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
   };
 
   const sensors = useSensors(
-    // A small distance keeps clicks on the handle from starting a drag.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: keyboardCoordinates }),
+    // Press and hold a card for a moment to pick it up; a quick click or a scroll does not.
+    useSensor(CardPointerSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(CardKeyboardSensor, { coordinateGetter: keyboardCoordinates }),
   );
 
   const activeSlot = activeId ? findSlot(state, activeId)?.slot : undefined;
@@ -131,15 +129,12 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
   function renderCards(day: BuilderDay) {
     return (
       <SortableContext items={day.slots.map((slot) => slot.id)} strategy={verticalListSortingStrategy}>
-        {day.slots.map((slot, index) => (
+        {day.slots.map((slot) => (
           <SortableExerciseCard
             key={slot.id}
             slot={slot}
-            isFirst={index === 0}
-            isLast={index === day.slots.length - 1}
             weightUnit={weightUnit}
             onUpdate={(patch) => handlers.onUpdateSlot(slot.id, patch)}
-            onStep={(direction) => handlers.onStepSlot(slot.id, direction)}
             onRemove={() => handlers.onRemoveSlot(slot.id)}
           />
         ))}
@@ -149,22 +144,28 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-3 text-sm">
-        <label className="flex items-center gap-2 text-graphite-200">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-3 text-sm">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-graphite-200">
           <input
             type="checkbox"
-            className="h-4 w-4 accent-aqua-500"
+            role="switch"
+            className="peer sr-only"
             checked={numbered}
             // Weekday names need exactly 7 days, so going back to them is only possible then.
             disabled={numbered && state.days.length !== WEEK_DAYS}
             onChange={(e) => handlers.onSetNumbered(e.target.checked)}
+            aria-label="Number the days (Day 1, Day 2, …)"
           />
-          Number the days (Day 1, Day 2, …)
+          <span
+            aria-hidden="true"
+            className="relative h-5 w-9 rounded-full bg-graphite-700 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-graphite-200 after:transition-transform peer-checked:bg-aqua-600 peer-checked:after:translate-x-4 peer-checked:after:bg-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-aqua-400 peer-disabled:opacity-50"
+          />
+          Number the days
         </label>
-        <span className="text-xs text-graphite-400">
+        <span className="text-xs text-graphite-500">
           {numbered && state.days.length !== WEEK_DAYS
             ? `Weekday names need exactly ${WEEK_DAYS} days.`
-            : 'Days without exercises are rest days.'}
+            : 'Empty days are rest days · press and hold a card to drag it'}
         </span>
       </div>
 
@@ -187,7 +188,7 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
           tabIndex={0}
           data-testid="board"
           // Scroll snapping is switched off while dragging: it would snap every small auto-scroll step back.
-          className={`flex items-start gap-4 overflow-x-auto px-4 pb-6 pt-3 ${activeId ? 'snap-none' : 'snap-x snap-proximity'}`}
+          className={`flex items-start gap-3 overflow-x-auto px-4 pb-6 pt-3 ${activeId ? 'snap-none' : 'snap-x snap-proximity'}`}
         >
           {state.days.map((day) => (
             <DroppableDayColumn
@@ -205,11 +206,15 @@ export function Board({ state, weightUnit, handlers, focusDayId, onFocusHandled 
             </DroppableDayColumn>
           ))}
           {state.days.length < MAX_CYCLE_DAYS && (
-            <div className="w-[85vw] max-w-sm shrink-0 snap-start sm:w-80">
-              <Button className="w-full border-dashed py-6" onClick={handlers.onAddDay}>
+            <div className="w-40 shrink-0 snap-start">
+              <button
+                type="button"
+                onClick={handlers.onAddDay}
+                className="w-full rounded-2xl border border-dashed border-graphite-700 py-8 text-sm font-medium text-graphite-400 transition-colors hover:border-aqua-500 hover:text-aqua-300"
+              >
                 + Add day
-              </Button>
-              {!numbered && <p className="mt-2 px-1 text-xs text-graphite-400">Adding an 8th day switches to numbered days.</p>}
+              </button>
+              {!numbered && <p className="mt-2 px-1 text-[11px] text-graphite-500">Adding an 8th day switches to numbered days.</p>}
             </div>
           )}
         </div>

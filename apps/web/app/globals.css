@@ -104,6 +104,17 @@ body {
 /* The page body must never scroll sideways; only the board does. `clip` keeps position: sticky working. */
 body {
   overflow-x: clip;
+  background:
+    radial-gradient(900px 420px at 0% -10%, rgb(0 229 255 / 0.07), transparent 70%),
+    radial-gradient(700px 380px at 100% -5%, rgb(32 223 201 / 0.05), transparent 70%),
+    var(--color-graphite-950);
+  background-attachment: fixed;
+}
+
+/* Slim dark scrollbars (the board and columns scroll). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-graphite-700) transparent;
 }
 
 :focus-visible {

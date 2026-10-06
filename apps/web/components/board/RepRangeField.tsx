@@ -5,7 +5,7 @@ import { matchingPreset, presetLabel, repRangeError, REP_PRESETS } from '../../l
 
 type Props = { idPrefix: string; min: number; max: number; onChange: (min: number, max: number) => void };
 
-const input = 'w-14 rounded border border-graphite-700 bg-graphite-950 px-1.5 py-1 text-sm text-graphite-50';
+const input = 'h-7 w-11 rounded-md border border-graphite-700 bg-graphite-950 px-1.5 text-sm text-graphite-50';
 
 // Preset dropdown with a "Custom" option that reveals min/max inputs. Invalid custom values stay
 // in the local draft (with an inline error) and are never committed to the schedule.
@@ -30,18 +30,18 @@ export function RepRangeField({ idPrefix, min, max, onChange }: Props) {
 
   return (
     <div
-      className="grid gap-1"
+      className="grid min-w-0 gap-0.5"
       // Drafts survive moving between the min and max inputs; they reset once focus leaves the group.
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraft({});
       }}
     >
-      <label htmlFor={`${idPrefix}-reps`} className="text-xs font-medium text-graphite-300">
+      <label htmlFor={`${idPrefix}-reps`} className="text-[10px] font-semibold uppercase tracking-wider text-graphite-400">
         Reps
       </label>
       <select
         id={`${idPrefix}-reps`}
-        className="rounded border border-graphite-700 bg-graphite-950 px-1.5 py-1 text-sm text-graphite-50"
+        className="h-7 w-full min-w-0 rounded-md border border-graphite-700 bg-graphite-950 px-1.5 text-sm text-graphite-50"
         value={custom ? 'custom' : presetLabel({ min, max })}
         onChange={(e) => {
           if (e.target.value === 'custom') return setForceCustom(true);

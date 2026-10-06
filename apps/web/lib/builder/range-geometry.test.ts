@@ -1,8 +1,8 @@
-import type { MuscleVolume } from '@mesocycle/shared';
+import type { GroupVolume } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { formatSets, rangeGeometry } from './range-geometry';
+import { formatSets, rangeGeometry, rangeLabels } from './range-geometry';
 
-const chest: Pick<MuscleVolume, 'exact_total_sets' | 'landmarks'> = {
+const chest: Pick<GroupVolume, 'exact_total_sets' | 'landmarks'> = {
   exact_total_sets: 12,
   landmarks: { mv: 8, mev: 10, mav_low: 12, mav_high: 20, mrv: 22 },
 };
@@ -46,5 +46,19 @@ describe('formatSets', () => {
     expect(formatSets(14)).toBe('14');
     expect(formatSets(6.5)).toBe('6.5');
     expect(formatSets(0)).toBe('0');
+  });
+});
+
+describe('rangeLabels', () => {
+  it('labels MV, MEV, MAV (low end) and MRV when they are far apart', () => {
+    const marks = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 8, mav_low: 16, mav_high: 22, mrv: 30 } }).marks;
+    expect(rangeLabels(marks).map((l) => l.text)).toEqual(['MV', 'MEV', 'MAV', 'MRV']);
+  });
+
+  it('merges landmarks that coincide or crowd each other', () => {
+    const glutes = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 0, mav_low: 4, mav_high: 12, mrv: 16 } }).marks;
+    expect(rangeLabels(glutes).map((l) => l.text)).toEqual(['MV/MEV', 'MAV', 'MRV']);
+    const chest = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 8, mev: 10, mav_low: 12, mav_high: 20, mrv: 22 } }).marks;
+    expect(rangeLabels(chest).map((l) => l.text)).toEqual(['MV/MEV', 'MAV', 'MRV']);
   });
 });

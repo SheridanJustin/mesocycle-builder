@@ -1,5 +1,12 @@
-import { MUSCLES, type Muscle, type MuscleLandmarkList, type VolumeSummary } from '@mesocycle/shared';
-import { computeVolume, type ExerciseInfo, type Landmarks } from '@mesocycle/volume-engine';
+import { MUSCLE_GROUP_OF, MUSCLES, type GroupVolumeSummary, type MuscleGroup, type MuscleLandmarkList } from '@mesocycle/shared';
+import {
+  computeBlockVolume,
+  computeGroupVolume,
+  type BlockVolume,
+  type ExerciseInfo,
+  type Landmarks,
+  type SlotInput,
+} from '@mesocycle/volume-engine';
 import type { BuilderState } from './types';
 
 export function toEngineLandmarks(list: MuscleLandmarkList): Landmarks {
@@ -12,35 +19,38 @@ export function toEngineLandmarks(list: MuscleLandmarkList): Landmarks {
   return Object.fromEntries(entries) as Landmarks;
 }
 
-// Runs the shared engine locally so the volume bar updates synchronously on every edit.
-export function computeBuilderVolume(state: BuilderState, landmarks: Landmarks): VolumeSummary {
+function engineInput(state: BuilderState): { slots: SlotInput[]; exercises: Record<string, ExerciseInfo> } {
   const exercises: Record<string, ExerciseInfo> = {};
   const slots = state.days.flatMap((day) =>
     day.slots.map((slot) => {
-      exercises[slot.exercise.id] = {
-        id: slot.exercise.id,
-        primary: slot.exercise.primary_muscle,
-        secondary: slot.exercise.secondary_muscles,
-      };
+      exercises[slot.exercise.id] = { id: slot.exercise.id, primary: slot.exercise.primary_muscle, secondary: slot.exercise.secondary_muscles };
       return { exerciseId: slot.exercise.id, sets: slot.sets, dayId: day.id };
     }),
   );
-  return computeVolume(slots, exercises, landmarks, state.priorities);
+  return { slots, exercises };
+}
+
+// Runs the shared engine locally so the volume bar updates synchronously on every edit.
+export function computeBuilderVolume(state: BuilderState, landmarks: Landmarks): GroupVolumeSummary {
+  const { slots, exercises } = engineInput(state);
+  return computeGroupVolume(slots, exercises, landmarks);
+}
+
+export function computeBuilderBlockVolume(state: BuilderState, weeks: number, deloadFinalWeek: boolean): BlockVolume {
+  const { slots, exercises } = engineInput(state);
+  return computeBlockVolume(slots, exercises, { weeks, deloadFinalWeek });
 }
 
 export type Contribution = { dayName: string; exerciseName: string; sets: number; role: 'primary' | 'secondary' };
 
-// Lists what feeds a muscle (for the chip popover). It reports raw sets only; weighting is the engine's job.
-export function contributionsFor(state: BuilderState, muscle: Muscle): Contribution[] {
+// Lists what feeds a muscle group (for the chip popover). Raw sets only; weighting is the engine's job.
+export function contributionsFor(state: BuilderState, group: MuscleGroup): Contribution[] {
   return state.days.flatMap((day) =>
     day.slots.flatMap((slot): Contribution[] => {
       const { exercise } = slot;
-      if (exercise.primary_muscle === muscle) {
-        return [{ dayName: day.name, exerciseName: exercise.name, sets: slot.sets, role: 'primary' }];
-      }
-      if (exercise.secondary_muscles.includes(muscle)) {
-        return [{ dayName: day.name, exerciseName: exercise.name, sets: slot.sets, role: 'secondary' }];
-      }
+      const base = { dayName: day.name, exerciseName: exercise.name, sets: slot.sets };
+      if (MUSCLE_GROUP_OF[exercise.primary_muscle] === group) return [{ ...base, role: 'primary' }];
+      if (exercise.secondary_muscles.some((m) => MUSCLE_GROUP_OF[m] === group)) return [{ ...base, role: 'secondary' }];
       return [];
     }),
   );

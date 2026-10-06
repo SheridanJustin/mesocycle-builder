@@ -1,4 +1,4 @@
-import type { Equipment, Muscle, VolumeStatus } from '@mesocycle/shared';
+import type { Equipment, Muscle, MuscleGroup, VolumeStatus } from '@mesocycle/shared';
 
 function humanize(value: string): string {
   const text = value.replace(/_/g, ' ');
@@ -6,6 +6,7 @@ function humanize(value: string): string {
 }
 
 export const muscleLabel = (muscle: Muscle): string => humanize(muscle);
+export const groupLabel = (group: MuscleGroup): string => humanize(group);
 export const equipmentLabel = (equipment: Equipment): string => humanize(equipment);
 
 // Text for every color state, so color is never the only signal (SPEC 10.5).

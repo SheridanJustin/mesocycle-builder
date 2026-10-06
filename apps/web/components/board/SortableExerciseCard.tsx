@@ -2,28 +2,29 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { DragHandle } from './DragHandle';
 import { ExerciseCard } from './ExerciseCard';
 
 type CardProps = Parameters<typeof ExerciseCard>[0];
 
-// Adds sortable behaviour to the presentational card. The dragged card stays in place, dimmed;
-// the board renders a preview in a DragOverlay.
-export function SortableExerciseCard(props: Omit<CardProps, 'dragHandle'>) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+// The whole card is the drag target: press and hold it (anywhere but its controls) and move it.
+// Keyboard: focus the card, press Space, move with the arrow keys, press Space to drop.
+export function SortableExerciseCard(props: CardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: props.slot.id,
+    attributes: { role: 'group', roleDescription: 'draggable exercise' },
   });
 
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      aria-label={`Move ${props.slot.exercise.name}`}
+      title="Press and hold to drag"
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={isDragging ? 'opacity-40' : undefined}
+      className={`cursor-grab touch-manipulation rounded-xl active:cursor-grabbing ${isDragging ? 'opacity-30' : ''}`}
     >
-      <ExerciseCard
-        {...props}
-        dragHandle={<DragHandle exerciseName={props.slot.exercise.name} handleRef={setActivatorNodeRef} {...attributes} {...listeners} />}
-      />
+      <ExerciseCard {...props} />
     </div>
   );
 }

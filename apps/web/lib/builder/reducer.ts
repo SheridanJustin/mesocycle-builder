@@ -21,7 +21,6 @@ export type BuilderAction =
   | { type: 'addSlots'; dayId: string; items: { slotId: string; exercise: Exercise }[] }
   | { type: 'removeSlot'; slotId: string }
   | { type: 'updateSlot'; slotId: string; patch: Partial<SlotMetrics> }
-  | { type: 'stepSlot'; slotId: string; direction: 'up' | 'down' }
   | { type: 'moveSlot'; slotId: string; toDayId: string; beforeSlotId: string | null }
   // Copies a day's exercises into another day, or (targetDayId null) into a new day right after it.
   | { type: 'copyDay'; sourceDayId: string; targetDayId: string | null; newDayId: string; slotIds: string[] };
@@ -77,19 +76,6 @@ function moveSlot(state: BuilderState, slotId: string, toDayId: string, beforeSl
     const slots = [...day.slots];
     const index = beforeSlotId === null ? -1 : slots.findIndex((s) => s.id === beforeSlotId);
     slots.splice(index === -1 ? slots.length : index, 0, found.slot);
-    return { ...day, slots };
-  });
-}
-
-function stepSlot(state: BuilderState, slotId: string, direction: 'up' | 'down'): BuilderState {
-  const found = findSlot(state, slotId);
-  if (!found) return state;
-  const from = found.day.slots.findIndex((s) => s.id === slotId);
-  const to = direction === 'up' ? from - 1 : from + 1;
-  if (to < 0 || to >= found.day.slots.length) return state;
-  return mapDay(state, found.day.id, (day) => {
-    const slots = [...day.slots];
-    [slots[from], slots[to]] = [slots[to] as BuilderSlot, slots[from] as BuilderSlot];
     return { ...day, slots };
   });
 }
@@ -153,9 +139,6 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
 
     case 'updateSlot':
       return mapSlots(state, (slots) => slots.map((s) => (s.id === action.slotId ? { ...s, ...action.patch } : s)));
-
-    case 'stepSlot':
-      return stepSlot(state, action.slotId, action.direction);
 
     case 'moveSlot':
       return moveSlot(state, action.slotId, action.toDayId, action.beforeSlotId);

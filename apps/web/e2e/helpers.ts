@@ -59,11 +59,16 @@ export async function pageScrollsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 }
 
-// Drags with real mouse events (dnd-kit's pointer sensor needs movement past a small threshold).
+// Press and hold a card's title, then drag with real mouse events (cards activate after a short hold).
+export function grip(page: Page, dayName: string, exerciseName: string) {
+  return card(page, dayName, exerciseName).getByRole('heading', { name: exerciseName });
+}
+
 export async function dragTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, opts: { release?: boolean } = {}) {
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 });
+  await page.waitForTimeout(300);
+  await page.mouse.move(from.x + 4, from.y + 4, { steps: 2 });
   await page.mouse.move(to.x, to.y, { steps: 25 });
   if (opts.release !== false) await page.mouse.up();
 }

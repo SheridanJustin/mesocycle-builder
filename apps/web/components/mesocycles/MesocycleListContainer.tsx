@@ -54,9 +54,12 @@ export function MesocycleListContainer() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Mesocycles</h1>
+    <main className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Mesocycles</h1>
+          <p className="text-sm text-graphite-400">Plan a 4–6 week hypertrophy block, one week at a time.</p>
+        </div>
         <Button variant="primary" onClick={() => void createNew()} disabled={creating}>
           {creating ? 'Creating…' : 'New mesocycle'}
         </Button>
@@ -66,7 +69,7 @@ export function MesocycleListContainer() {
           {error}
         </p>
       )}
-      {items === null && !error && <p className="text-graphite-300">Loading…</p>}
+      {items === null && !error && <p className="text-graphite-400">Loading…</p>}
       {items && <MesocycleList items={items} onDelete={setPendingDelete} />}
       <ConfirmDialog
         open={pendingDelete !== null}

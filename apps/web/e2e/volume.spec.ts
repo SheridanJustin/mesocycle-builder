@@ -29,7 +29,9 @@ test('scenario 1: build a week and watch the volume chips change with every edit
   await addExercises(page, 'Mon', ['Barbell Bench Press']);
   await expect(page.getByTestId('volume-total-chest')).toHaveText('3');
   await expect(page.getByTestId('volume-total-triceps')).toHaveText('1.5');
-  await expect(page.getByTestId('volume-total-front_delts')).toHaveText('1.5');
+  // Only major groups are shown: front delts count toward Shoulders.
+  await expect(page.getByTestId('volume-total-shoulders')).toHaveText('1.5');
+  await expect(page.getByTestId('volume-chip-front_delts')).toHaveCount(0);
   await expect(page.getByTestId('volume-frequency-chest')).toHaveText('1×/wk');
 
   const expectStatus = async (status: string, color: keyof typeof BORDER, total: string) => {
@@ -60,6 +62,26 @@ test('scenario 1: build a week and watch the volume chips change with every edit
   await page.reload();
   await expect(page.getByTestId('volume-total-chest')).toHaveText('20');
   await expect(page.getByTestId('volume-total-triceps')).toHaveText('5');
+});
+
+test('back and shoulders are each one group, counted once per exercise', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, {
+    name: 'Group Block',
+    days: [
+      { slots: [{ exercise: 'Pull-Up', sets: 4 }, { exercise: 'Barbell Row', sets: 4 }, { exercise: 'Barbell Shrug', sets: 3 }] },
+      { slots: [{ exercise: 'Dumbbell Lateral Raise', sets: 4 }, { exercise: 'Face Pull', sets: 3 }] },
+      {}, {}, {}, {}, {},
+    ],
+  });
+  await page.goto(`/mesocycles/${id}/build`);
+  // Pull-ups (lats + upper back) count once: 4 + 4 + 3 = 11 back sets.
+  await expect(page.getByTestId('volume-total-back')).toHaveText('11');
+  // Lateral raises 4 + face pulls 3 + barbell row's rear-delt secondary 2 = 9 shoulder sets.
+  await expect(page.getByTestId('volume-total-shoulders')).toHaveText('9');
+  for (const muscle of ['lats', 'upper_back', 'traps', 'side_delts', 'rear_delts', 'forearms']) {
+    await expect(page.getByTestId(`volume-chip-${muscle}`)).toHaveCount(0);
+  }
+  await expect(page.getByTestId('volume-chip-back')).toHaveAccessibleName(/^Back: 11 sets per week/);
 });
 
 test('chips explain themselves in text, and priorities and target bands are hidden', async ({ page, request }) => {

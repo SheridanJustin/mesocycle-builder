@@ -108,14 +108,6 @@ describe('slots', () => {
     expect(ids(next, 'd0')).toEqual(['a', 'c']);
   });
 
-  it('moves up and down within the day and stops at the ends', () => {
-    expect(ids(run(week, { type: 'stepSlot', slotId: 'b', direction: 'up' }), 'd0')).toEqual(['b', 'a', 'c']);
-    expect(ids(run(week, { type: 'stepSlot', slotId: 'b', direction: 'down' }), 'd0')).toEqual(['a', 'c', 'b']);
-    expect(run(week, { type: 'stepSlot', slotId: 'a', direction: 'up' })).toBe(week);
-    expect(run(week, { type: 'stepSlot', slotId: 'c', direction: 'down' })).toBe(week);
-    expect(run(week, { type: 'stepSlot', slotId: 'zz', direction: 'up' })).toBe(week);
-  });
-
   it('moves a slot to another day keeping its metrics, before a slot or at the end', () => {
     const edited = run(week, { type: 'updateSlot', slotId: 'a', patch: { sets: 7, repMin: 6, repMax: 9, rir: 1, weight: 55 } });
     let next = run(edited, { type: 'moveSlot', slotId: 'a', toDayId: 'd2', beforeSlotId: 'd' });

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createPopulatedDraft } from './api-helpers';
-import { addExercises, card, column, createMesocycleViaUi, pageScrollsSideways, waitForSaved } from './helpers';
+import { addExercises, card, center, column, createMesocycleViaUi, dragTo, grip, pageScrollsSideways, waitForSaved } from './helpers';
 
 test('the Add panel adds several exercises at once, filtered by muscle chips', async ({ page }) => {
   await createMesocycleViaUi(page);
@@ -36,6 +36,7 @@ test('the Add panel adds several exercises at once, filtered by muscle chips', a
 });
 
 test('metrics are edited inline, cards reorder and delete, and everything persists', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 1000 });
   const id = await createPopulatedDraft(request, {
     name: 'Metrics Block',
     days: [{ slots: [{ exercise: 'Barbell Bench Press' }, { exercise: 'Cable Fly' }, { exercise: 'Cable Pushdown' }] }, {}, {}, {}, {}, {}, {}],
@@ -68,13 +69,14 @@ test('metrics are edited inline, cards reorder and delete, and everything persis
   await expect(fly.getByRole('alert')).toContainText('At most 2 decimals');
   await fly.getByLabel(/Weight/).fill('40');
 
-  // Move up / down within the day.
+  // No up/down buttons: cards are reordered by pressing, holding and dragging them.
   const cards = column(page, 'Mon').getByRole('article');
-  await expect(bench.getByRole('button', { name: 'Move Barbell Bench Press up' })).toBeDisabled();
-  await card(page, 'Mon', 'Cable Pushdown').getByRole('button', { name: 'Move Cable Pushdown up' }).click();
-  await expect(cards).toHaveText([/Barbell Bench Press/, /Cable Pushdown/, /Cable Fly/]);
-  await bench.getByRole('button', { name: 'Move Barbell Bench Press down' }).click();
+  await expect(page.getByRole('button', { name: /^Move .* (up|down)$/ })).toHaveCount(0);
+  await dragTo(page, await center(grip(page, 'Mon', 'Cable Pushdown')), await center(grip(page, 'Mon', 'Barbell Bench Press')));
   await expect(cards).toHaveText([/Cable Pushdown/, /Barbell Bench Press/, /Cable Fly/]);
+  // A quick click on a card (no hold) does not pick it up.
+  await grip(page, 'Mon', 'Cable Fly').click();
+  await expect(page.getByTestId('drag-preview')).toHaveCount(0);
 
   await card(page, 'Mon', 'Cable Pushdown').getByRole('button', { name: 'Delete Cable Pushdown' }).click();
   await expect(cards).toHaveCount(2);

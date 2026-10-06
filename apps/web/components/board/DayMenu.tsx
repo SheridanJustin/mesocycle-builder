@@ -51,7 +51,7 @@ export function DayMenu({ dayName, hasExercises, copyTargets, canDuplicate, canR
         <div
           role="menu"
           aria-label={`${dayName} actions`}
-          className="absolute right-0 z-20 mt-1 max-h-96 w-52 overflow-y-auto rounded-md border border-graphite-700 bg-graphite-800 py-1 shadow-xl"
+          className="absolute right-0 z-20 mt-1 max-h-96 w-52 overflow-y-auto rounded-xl border border-graphite-700 bg-graphite-800 py-1 shadow-2xl shadow-black/50"
         >
           <button role="menuitem" type="button" className={item} onClick={() => choose(onRename)}>
             Rename
