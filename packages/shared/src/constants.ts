@@ -72,3 +72,25 @@ export const REST_SECONDS = { compound: 150, isolation: 90 } as const;
 // Exercise catalog paging (SPEC 6.2).
 export const DEFAULT_EXERCISE_PAGE_SIZE = 50;
 export const MAX_EXERCISE_PAGE_SIZE = 200;
+
+// Major muscle groups shown in the volume bar and on Review. Back and shoulders merge several
+// muscles that are trained by the same exercises; forearms count toward biceps.
+export const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'] as const;
+
+export const MUSCLE_GROUP_OF = {
+  chest: 'chest',
+  lats: 'back',
+  upper_back: 'back',
+  traps: 'back',
+  front_delts: 'shoulders',
+  side_delts: 'shoulders',
+  rear_delts: 'shoulders',
+  biceps: 'biceps',
+  forearms: 'biceps',
+  triceps: 'triceps',
+  quads: 'quads',
+  hamstrings: 'hamstrings',
+  glutes: 'glutes',
+  calves: 'calves',
+  abs: 'abs',
+} as const satisfies Record<(typeof MUSCLES)[number], (typeof MUSCLE_GROUPS)[number]>;

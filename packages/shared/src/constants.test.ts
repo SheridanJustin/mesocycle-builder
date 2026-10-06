@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MUSCLES, SECONDARY_MUSCLE_WEIGHT, VOLUME_COLORS, VOLUME_STATUS_COLOR, VOLUME_STATUSES } from './constants';
+import { MUSCLE_GROUP_OF, MUSCLE_GROUPS, MUSCLES, SECONDARY_MUSCLE_WEIGHT, VOLUME_COLORS, VOLUME_STATUS_COLOR, VOLUME_STATUSES } from './constants';
 
 describe('constants', () => {
   it('lists the 15 muscles from the spec without duplicates', () => {
@@ -22,5 +22,14 @@ describe('constants', () => {
 
   it('weights secondary muscles at 0.5', () => {
     expect(SECONDARY_MUSCLE_WEIGHT).toBe(0.5);
+  });
+
+  it('maps every muscle to one of the 10 major groups, and every group has a muscle', () => {
+    expect(MUSCLE_GROUPS).toHaveLength(10);
+    expect(Object.keys(MUSCLE_GROUP_OF).sort()).toEqual([...MUSCLES].sort());
+    expect(new Set(Object.values(MUSCLE_GROUP_OF))).toEqual(new Set(MUSCLE_GROUPS));
+    expect([MUSCLE_GROUP_OF.lats, MUSCLE_GROUP_OF.upper_back, MUSCLE_GROUP_OF.traps]).toEqual(['back', 'back', 'back']);
+    expect([MUSCLE_GROUP_OF.front_delts, MUSCLE_GROUP_OF.side_delts, MUSCLE_GROUP_OF.rear_delts]).toEqual(['shoulders', 'shoulders', 'shoulders']);
+    expect(MUSCLE_GROUP_OF.forearms).toBe('biceps');
   });
 });
