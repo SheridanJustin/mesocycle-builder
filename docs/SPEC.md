@@ -7,21 +7,21 @@
 
 ## 0. Product summary
 
-A web app where a lifter builds a 4–6 week hypertrophy training block (a **mesocycle**) on one screen:
+A web app where a lifter builds a 3–10 week hypertrophy training block (a **mesocycle**) on one screen:
 
 1. **Build** (the board): a repeating cycle of day columns, Mon–Sun by default. Add one or many exercises to a day, edit Week 1 sets, rep ranges, load and RIR inline, and order or move them. A day without exercises is a rest day.
 2. Watch live weekly-volume feedback against volume landmarks (MV / MEV / MAV / MRV) in a sticky bar while building.
-3. **Review**: block settings (name, duration, deload) now; later the review dashboard and **lock in**, which generates the weekly workout logs.
+3. **Review**: mesocycle settings (duration, deload) now; later the review dashboard and **lock in**, which generates the weekly workout logs.
 
 The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
 
-*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10).
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13).
 
 ### Glossary
 
 | Term | Meaning |
 |---|---|
-| Mesocycle | A training block, usually 4–6 weeks. |
+| Mesocycle | A training block of 3–10 weeks (4 by default). The UI always calls it a mesocycle, never a "block". |
 | Training day | One day in the weekly template (e.g. "Push A"). Repeats every week of the block. |
 | Muscle group slot | A container on a day that says "this day trains chest". Exercises live inside it. Holds the priority tier. |
 | Exercise slot | One exercise placed on a day, with its Week 1 targets. |
@@ -50,11 +50,13 @@ The original requirements left several things open. These are the decisions made
 4. **Landmark values** are seed data in a `muscle_landmarks` table, not hard-coded in UI. The seeded numbers in Section 8 are starting defaults. They are editable and not scientific absolutes.
 5. **Progression after Week 1** (adding sets, load changes) is a non-goal for v1. Lock-in copies Week 1 targets into every week, ramping only RIR (Section 9.3). A `ProgressionStrategy` interface exists so smarter logic can be added later.
 6. **Draft autosave:** The builder state autosaves via the full-schedule `PUT` (debounced, 800 ms). A draft is always resumable.
-7. **Build and Review only:** everything happens on the board (adding, ordering and editing exercises, with the always-on volume bar). Review holds the block settings and, from M8, the dashboard and lock-in. There is no stepper and no completion checks.
+7. **Build and Review only:** everything happens on the board (adding, ordering and editing exercises, with the always-on volume bar). Review holds the mesocycle settings and, from M8, the dashboard and lock-in. There is no stepper and no completion checks.
 8. **Cycle and rest days:** a mesocycle's repeating cycle has 1–10 days, 7 by default. A day without exercises is a **rest day**: it is stored like any other day but generates no sessions at lock-in. Days are named Mon–Sun (`schedule_mode = calendar`, exactly 7 days, `weekday` = position) or numbered "Day 1…N" (`schedule_mode = relative`, no weekdays). A "Number the days" checkbox on the board switches between the two; adding an 8th day switches to numbered days. Names the user typed are kept when switching; generated names are relabelled.
 9. **No create form:** "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens the board. Name, duration and deload are edited on Review.
 10. **Priorities are shelved:** the focus/normal/maintenance priority, its target band and its hint are hidden in the UI. The data model, the API and the engine keep them, so the feature can return later; every muscle is treated as `normal`.
 11. **Muscle groups are implicit:** the UI shows one ordered list of exercises per day, each card tagged with its muscle. `day_muscle_groups` rows are derived on save (one per muscle the day trains, in order of first appearance) and a slot's `muscle` is its exercise's primary muscle when it is added.
+12. **Templates:** a few prebuilt splits (10.10) are static data in `packages/shared`, not database rows. Applying one fills the board with ordinary slots through the normal schedule save, so a templated mesocycle is edited exactly like any other. Templates are curated by hand, never generated (Section 3).
+13. **Duration and wording:** a mesocycle lasts 3–10 weeks. User-facing text says "mesocycle"; "block" remains only as an internal word in code (e.g. block volume = totals over the whole mesocycle).
 
 ---
 
@@ -138,7 +140,7 @@ mesocycles
   id UUID PK
   user_id UUID NOT NULL REFERENCES users(id)
   name VARCHAR(255) NOT NULL
-  duration_weeks INT NOT NULL DEFAULT 4 CHECK (duration_weeks BETWEEN 4 AND 6)
+  duration_weeks INT NOT NULL DEFAULT 4 CHECK (duration_weeks BETWEEN 3 AND 10)
   days_per_week INT NOT NULL DEFAULT 7 CHECK (days_per_week BETWEEN 1 AND 10)  -- cycle length, rest days included
   schedule_mode schedule_mode NOT NULL DEFAULT 'calendar'  -- calendar = Mon-Sun names (exactly 7 days); relative = numbered days
   status mesocycle_status NOT NULL DEFAULT 'draft'
@@ -254,7 +256,7 @@ Returns all landmark rows. The client caches these.
 **`POST /mesocycles`** — create a draft.
 Body (every field optional; shown with defaults):
 ```json
-{ "name": "Untitled block", "duration_weeks": 4, "days_per_week": 7, "schedule_mode": "calendar" }
+{ "name": "Untitled mesocycle", "duration_weeks": 4, "days_per_week": 7, "schedule_mode": "calendar" }
 ```
 Creates the mesocycle and `days_per_week` empty days (rest days). Calendar mode needs exactly 7 days, named Mon…Sun with `weekday` 0…6; relative mode allows 1–10 days named "Day 1…N". Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
 
@@ -486,22 +488,22 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 - `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
 - `/mesocycles/[id]` — read-only view for active/completed (reuses ReviewDashboard).
 
-The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name, "My blocks" and **Log in** (placeholder, see Section 3).
+The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name, "My mesocycles" and **Log in** (placeholder, see Section 3).
 
 The app uses a dark theme built from the product owner's palette (graphite neutrals, electric-aqua accent, verdigris/shamrock positive, snow destructive); tokens live in `apps/web/app/globals.css`.
 
 ### 10.2 Tabs
 
 - **Build**: the board (10.3) — the default.
-- The **block name** is shown in the builder header and is renamed in place (click, type, Enter).
-- **Review**: summary tiles (training days, rest days, sets per week, average session length), a **Volume by muscle group** table — for each trained major group its weekly sets, status, a range bar with MV/MEV/MAV/MRV marks, its weekly frequency and its total sets over the whole block (7.6) — the untrained groups, and the block settings (duration 4–6 weeks, deload final week). Hovering or focusing the ⓘ next to "Deload in the final week" explains it: each exercise drops to half its sets (rounded up), keeps its rep range and returns to its Week 1 RIR, with this block's weekly sets → deload-week sets. A **Lock in block** button is shown; until M8 it only opens a "coming soon" dialog (10.6).
+- The **mesocycle name** is shown in the builder header and is renamed in place (click, type, Enter).
+- **Review**: summary tiles (training days, rest days, sets per week, average session length), a **Volume by muscle group** table — for each trained major group its weekly sets, status, a range bar with MV/MEV/MAV/MRV marks, its weekly frequency and its total sets over the whole mesocycle (7.6) — the untrained groups, and the mesocycle settings. Hovering or focusing a summary tile explains it: training days lists each training day with its exercise count; rest days lists the rest days and says they create no workouts; sets per week explains that it adds every exercise's sets (unweighted, unlike the per-group table) with a per-day breakdown; average session gives the 10.7 formula with each day's estimate. **Duration** is a row of radio buttons, 3 to 10 weeks, that scrolls sideways when it does not fit. Hovering or focusing the ⓘ next to "Deload in the final week" explains it: each exercise drops to half its sets (rounded up), keeps its rep range and returns to its Week 1 RIR, with this mesocycle's weekly sets → deload-week sets. A **Lock in mesocycle** button is shown; until M8 it only opens a "coming soon" dialog (10.6).
 
 ### 10.3 The horizontal board (core requirement)
 
-- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day, with `scroll-snap-align:start`. Training-day columns share the available width (≈ 232–288 px each), rest days are narrow (≈ 112 px), and the row is **centered** (safe centering: when the days cannot fit, the row starts at the left edge and the board scrolls sideways). A Mon–Sun week with typical rest days fits a 1440 px window without scrolling.
+- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day, with `scroll-snap-align:start`. Training-day columns share the available width (≈ 224–288 px each), rest days are narrow (≈ 112 px), and the row is **centered** (safe centering: when the days cannot fit, the row starts at the left edge and the board scrolls sideways). A Mon–Sun week with up to five training days fits a 1440 px window without scrolling.
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
-- Above the board: a **"Number the days"** switch (Mon–Sun ↔ Day 1…N, see decision 8), locked on while the cycle does not have exactly 7 days, and the **+ Add day** button (up to 10 days; in a Mon–Sun week it switches to numbered days).
-- **DayColumn header:** editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
+- Above the board: a **"Number the days"** switch (Mon–Sun ↔ Day 1…N, see decision 8), locked on while the cycle does not have exactly 7 days, the **+ Add day** button (up to 10 days; in a Mon–Sun week it switches to numbered days), the **Templates** button (10.10), and a visible **drag tip** ("press and hold an exercise to drag it … Drag a day's header to reorder days") that can be dismissed; the dismissal is remembered in that browser only.
+- **DayColumn header:** a grip icon (the header is the day's drag handle, 10.4), editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
 - **Inside a column:** the day's **ExerciseCards** as one ordered list (no muscle sections). A big **"+ Add"** button sits at the bottom of every column.
 - **ExerciseCard:** shows exercise name, its major muscle group (with a color dot), the equipment, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot) and RIR (0–5). **Starting weight is not shown**: the builder is a schedule planner. The API and database keep `starting_weight`, and the UI preserves any stored value. It has a small delete (✕) button. There are no move buttons: the whole card is dragged (10.4).
 - **Add exercises panel** (opened by "+ Add"): search box, muscle chips (several can be selected at once), an equipment filter, and a checkbox list of the catalog. The user ticks one or many exercises (selections survive filter changes) and confirms with "Add N exercises"; each becomes a slot with defaults (3 sets, 8–12 reps, RIR 3). "+ Custom" opens the create-custom-exercise form; the new exercise is selected.
@@ -512,6 +514,7 @@ The app uses a dark theme built from the product owner's palette (graphite neutr
 - Reorder cards within a column; drag a card to another column (across the horizontal plane). The card keeps **all** its metrics and its muscle. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
 - Within a day, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropped on a card in another day, it lands before that card; dropped on another day's column (including a rest day), it goes to the end. A card dropped on its own day's column does nothing.
 - Keyboard alternative: the dnd-kit keyboard sensor. Focus a card (it is a focusable group labelled "Move <exercise>") and press Space to pick it up; Up/Down move through the cards of the current day, Left/Right jump to the neighbouring day's column, and Space drops. Results are announced to screen readers.
+- **Days are reordered** the same way: press and hold a column's header (anywhere but its name field and menu) and drag it left or right; the other columns make room. Generated names belong to the position, not the day: dragging Tuesday's column to the front makes its exercises Monday's (and the old Monday becomes Tuesday), and in a numbered cycle "Day 2" moved to the front becomes "Day 1". Names the user typed travel with their day. Keyboard: focus the header (a group labelled "Move <day>"), press Space, use Left/Right, press Space; the result is announced and focus stays on the moved day.
 - Scroll snapping on the board is switched off while a drag is in progress, otherwise it undoes the edge auto-scroll.
 - Drag operations update `sort_order` values for the affected days and trigger autosave and a volume recompute.
 
@@ -525,10 +528,10 @@ The app uses a dark theme built from the product owner's palette (graphite neutr
 
 ### 10.6 Review & lock-in (Step 6)
 
-- **Volume panel:** every major muscle group with a horizontal bar against its landmarks, plus whole-block totals (built ahead of M8; see 10.2).
+- **Volume panel:** every major muscle group with a horizontal bar against its landmarks, plus whole-mesocycle totals (built ahead of M8; see 10.2).
 - **Day cards:** day name, ordered exercises with sets × reps @ RIR, and estimated duration.
 - **Warnings list:** every `BELOW_MV` and `EXCEEDS_MRV` muscle (focus-based `MAINTENANCE` warnings return with priorities).
-- **Lock-in button:** opens a confirmation dialog stating that the structure will be frozen for the block. It asks for `start_date` in calendar mode and requires an "I understand" checkbox if warnings exist.
+- **Lock-in button:** opens a confirmation dialog stating that the structure will be frozen for the mesocycle. It asks for `start_date` in calendar mode and requires an "I understand" checkbox if warnings exist.
 
 ### 10.7 Estimated session duration
 
@@ -546,6 +549,22 @@ From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) ins
 - Empty states: an empty column is labelled "Rest day" and shows only its "+ Add" button.
 - Accessibility: all interactive elements reachable by keyboard; visible focus; color contrast meets WCAG AA; announce drag results to screen readers.
 
+### 10.10 Templates
+
+Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) and referencing seeded exercises by name:
+
+| Template | Days (Mon–Sun week) |
+|---|---|
+| Full Body | Mon, Wed, Fri |
+| Upper / Lower | Mon, Tue, Thu, Fri |
+| Push / Pull / Legs + Upper / Lower | Mon, Tue, Wed, Fri, Sat |
+| Push / Pull / Legs | Mon–Sat |
+
+- Every template gives each of the 10 major groups at least its MEV and at most the top of its MAV with the seeded landmarks (a unit test enforces this), uses the board's rep-range presets and RIR 2.
+- **From the list:** "Start from a template" opens a picker (name, description, a Mon–Sun strip showing training days, exercise and weekly-set counts). Picking one creates a mesocycle named after the template, saves its schedule through `PUT /schedule` and opens the board.
+- **On the board:** the **Templates** button opens the same picker. If the board has exercises, a confirmation dialog warns that every day will be replaced. An untitled mesocycle takes the template's name.
+- Exercises are matched by name against `GET /exercises` (built-in exercises win over custom ones with the same name). A name that is missing from the catalog is skipped and listed in a notice.
+
 ---
 
 ## 11. Testing requirements
@@ -561,6 +580,8 @@ From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) ins
 4. Push a muscle over MRV and confirm the chip turns red and lock-in requires acknowledgement.
 5. Lock in and confirm the weekly sessions exist with the correct RIR ramp.
 6. At a 390 px viewport, confirm horizontal scrolling works and the page body does not scroll sideways.
+7. Drag a day column to a new position (pointer and keyboard) and confirm generated names follow the position while exercises move with the day.
+8. Create a mesocycle from a template (list page) and apply a template on the board (with confirmation).
 
 ---
 
