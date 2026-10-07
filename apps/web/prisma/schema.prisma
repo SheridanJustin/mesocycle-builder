@@ -48,6 +48,7 @@ enum MesocycleStatus {
   draft
   active
   completed
+  dropped
 }
 
 enum ScheduleMode {
@@ -106,6 +107,8 @@ model Mesocycle {
   status MesocycleStatus @default(draft)
   startDate DateTime? @db.Date @map("start_date")
   lockedAt DateTime? @map("locked_at")
+  // When the mesocycle was completed (every workout done or skipped) or dropped.
+  endedAt DateTime? @map("ended_at")
   deloadFinalWeek Boolean @default(false) @map("deload_final_week")
   // The user's own order on the list page (drag to reorder); lower comes first.
   position Int @default(0)

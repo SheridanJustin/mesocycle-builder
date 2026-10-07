@@ -198,6 +198,10 @@ export const ReorderMesocyclesSchema = z
   .refine((value) => new Set(value.ids).size === value.ids.length, { message: 'Ids must be unique', path: ['ids'] });
 export type ReorderMesocycles = z.infer<typeof ReorderMesocyclesSchema>;
 
+// Marks one generated workout done or skipped (or back to planned to undo). Active mesocycles only.
+export const UpdateSessionSchema = z.object({ status: z.enum(['planned', 'completed', 'skipped']) });
+export type UpdateSession = z.infer<typeof UpdateSessionSchema>;
+
 // ---- Responses ----
 
 export const MesocycleSummarySchema = z.object({
@@ -210,6 +214,8 @@ export const MesocycleSummarySchema = z.object({
   status: MesocycleStatusSchema,
   start_date: isoDate.nullable(),
   locked_at: z.string().nullable(),
+  // When it was completed or dropped.
+  ended_at: z.string().nullable(),
   deload_final_week: z.boolean(),
   day_count: z.number().int().min(0),
   created_at: z.string(),
@@ -275,6 +281,8 @@ export const WeekDetailSchema = z.object({
   id: z.string().uuid(),
   week_number: z.number().int(),
   is_deload: z.boolean(),
+  // Every workout of the week is completed or skipped.
+  is_complete: z.boolean(),
   sessions: z.array(SessionDetailSchema),
 });
 export type WeekDetail = z.infer<typeof WeekDetailSchema>;

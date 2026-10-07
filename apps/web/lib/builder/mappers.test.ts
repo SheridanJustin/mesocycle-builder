@@ -85,6 +85,7 @@ describe('detailToState', () => {
       status: 'draft',
       start_date: null,
       locked_at: null,
+      ended_at: null,
       deload_final_week: false,
       created_at: '2026-10-06T00:00:00.000Z',
       updated_at: '2026-10-06T00:00:00.000Z',

@@ -38,14 +38,15 @@ export function PATCH(request: Request, { params }: Context) {
   });
 }
 
-// DELETE /api/v1/mesocycles/{id}: drafts only (cascades to days, groups and slots).
+// DELETE /api/v1/mesocycles/{id}: drafts and archived (completed or dropped) mesocycles; everything
+// cascades. An active one must be dropped first.
 export function DELETE(_request: Request, { params }: Context) {
   return handle(async () => {
     const user = await getCurrentUser();
     const { id } = await params;
     const mesocycle = await findOwnedMesocycle(id, user.id);
-    if (mesocycle.status !== 'draft') {
-      throw new ApiRouteError('CONFLICT', `Only draft mesocycles can be deleted; this one is ${mesocycle.status}`);
+    if (mesocycle.status === 'active') {
+      throw new ApiRouteError('CONFLICT', 'An active mesocycle cannot be deleted; drop it first');
     }
     await prisma.mesocycle.delete({ where: { id } });
     return new NextResponse(null, { status: 204 });

@@ -45,6 +45,7 @@ export function toSummaryDto(row: SummaryRow): MesocycleSummary {
     status: row.status,
     start_date: isoDate(row.startDate),
     locked_at: row.lockedAt?.toISOString() ?? null,
+    ended_at: row.endedAt?.toISOString() ?? null,
     deload_final_week: row.deloadFinalWeek,
     day_count: row._count.days,
     created_at: row.createdAt.toISOString(),
@@ -57,6 +58,7 @@ function toWeekDtos(row: MesocycleRow): WeekDetail[] {
     id: week.id,
     week_number: week.weekNumber,
     is_deload: week.isDeload,
+    is_complete: week.sessions.length > 0 && week.sessions.every((s) => s.status === 'completed' || s.status === 'skipped'),
     sessions: week.sessions.map((session) => ({
       id: session.id,
       day_id: session.dayId,
@@ -127,6 +129,7 @@ export async function toDetailDto(row: MesocycleRow): Promise<MesocycleDetail> {
     status: row.status,
     start_date: isoDate(row.startDate),
     locked_at: row.lockedAt?.toISOString() ?? null,
+    ended_at: row.endedAt?.toISOString() ?? null,
     deload_final_week: row.deloadFinalWeek,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),

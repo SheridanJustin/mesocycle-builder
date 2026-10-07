@@ -99,12 +99,20 @@ describe('DELETE /api/v1/mesocycles/{id}', () => {
     expect(await prisma.mesocycleDay.count({ where: { mesocycleId: id } })).toBe(0);
   });
 
-  it.each(['active', 'completed'] as const)('returns 409 for a %s mesocycle and keeps it', async (status) => {
+  it('returns 409 for an active mesocycle and keeps it', async () => {
     const id = await createDraft();
-    await prisma.mesocycle.update({ where: { id }, data: { status } });
+    await prisma.mesocycle.update({ where: { id }, data: { status: 'active' } });
     const response = await DELETE(request(`/api/v1/mesocycles/${id}`, { method: 'DELETE' }), ctx(id));
     expect(response.status).toBe(409);
     expect(await prisma.mesocycle.count({ where: { id } })).toBe(1);
+  });
+
+  it.each(['completed', 'dropped'] as const)('deletes an archived (%s) mesocycle', async (status) => {
+    const id = await createDraft();
+    await prisma.mesocycle.update({ where: { id }, data: { status } });
+    const response = await DELETE(request(`/api/v1/mesocycles/${id}`, { method: 'DELETE' }), ctx(id));
+    expect(response.status).toBe(204);
+    expect(await prisma.mesocycle.count({ where: { id } })).toBe(0);
   });
 
   it('returns 404 for another user\'s mesocycle and keeps it', async () => {
