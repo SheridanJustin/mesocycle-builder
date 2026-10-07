@@ -65,6 +65,8 @@ model User {
   // Google account subject ("sub"), set when the user signs in with Google.
   googleId String? @unique @map("google_id")
   weightUnit String @default("lb") @map("weight_unit")
+  // Show RIR targets in the UI (some lifters do not use RIR). The plan still stores them.
+  showRir Boolean @default(true) @map("show_rir")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   exercises Exercise[]
