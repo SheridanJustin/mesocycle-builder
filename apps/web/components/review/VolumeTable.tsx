@@ -62,9 +62,17 @@ export function VolumeTable({ volume, block, durationWeeks, deloadFinalWeek, emp
                     <span className="ml-1.5 text-[11px] font-normal text-graphite-400">{entry.weekly_frequency}×/wk</span>
                   </th>
                   <td className="whitespace-nowrap px-2 py-1.5 text-right">
-                    <span className="text-base font-semibold tabular-nums" data-testid={`review-weekly-${group}`}>
+                    {/* The number carries its status color (as the chips do), so phones, which hide the
+                        status badge and range bar, still show where it stands. */}
+                    <span
+                      className={`inline-block rounded-md border px-1.5 text-base font-semibold tabular-nums ${STATUS_STYLE[entry.color]}`}
+                      data-testid={`review-weekly-${group}`}
+                      data-color={entry.color}
+                      title={STATUS_LABEL[entry.status]}
+                    >
                       {formatSets(entry.total_sets)}
                     </span>
+                    <span className="sr-only md:hidden">, {STATUS_LABEL[entry.status]}</span>
                     <span
                       data-testid={`review-status-${group}`}
                       className={`ml-2 hidden rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide md:inline ${STATUS_STYLE[entry.color]}`}

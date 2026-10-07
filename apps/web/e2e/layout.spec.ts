@@ -71,6 +71,10 @@ test('an info button explains MV, MEV, MAV and MRV in plain language', async ({ 
   await expect(info).toContainText('MEV (Minimum Effective Volume): Starting point for growth, varies by training experience');
   await expect(info).toContainText('MAV (Maximum Adaptive Volume): Sweet spot range between MEV and MRV for optimal gains');
   await expect(info).toContainText('MRV (Maximum Recoverable Volume): Upper limit before recovery fails and gains stop');
+  // Each term carries the chip color of its zone, with the five zones listed in order.
+  await expect(info.locator('[data-color]').filter({ hasText: /^MV$/ })).toHaveAttribute('data-color', 'amber');
+  await expect(info.locator('[data-color]').filter({ hasText: /^MRV$/ })).toHaveAttribute('data-color', 'red');
+  await expect(info.getByTestId('volume-zones').locator('span')).toHaveText(['Below MEV', 'MEV to MAV', 'In MAV', 'Above MAV', 'Over MRV']);
   await page.keyboard.press('Escape');
   await expect(info).toHaveCount(0);
 });

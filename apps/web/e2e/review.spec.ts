@@ -51,3 +51,33 @@ test('Review has a clear empty state before any exercises are added', async ({ p
   await expect(page.getByText('Add exercises on the Build tab to see volume here.')).toBeVisible();
   await expect(page.getByTestId('stat-average-minutes')).toHaveText('—');
 });
+
+test('weekly numbers carry their status color, also on a phone where the badge is hidden', async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await createPopulatedDraft(request, {
+    name: 'Colored Numbers',
+    // Chest 3 sets (below MEV: amber); quads 10 + 10 + 3 = 23 sets (over MRV 20: red).
+    days: [
+      {
+        slots: [
+          { exercise: 'Barbell Bench Press', sets: 3 },
+          { exercise: 'Leg Press', sets: 10 },
+          { exercise: 'Hack Squat', sets: 10 },
+          { exercise: 'Leg Extension', sets: 3 },
+        ],
+      },
+      {},
+      {},
+      {},
+      {},
+      {},
+      {},
+    ],
+  });
+  await page.goto(`/mesocycles/${id}/build`);
+  await gotoTab(page, 'Review');
+  await expect(page.getByTestId('review-status-chest')).toBeHidden();
+  await expect(page.getByTestId('review-weekly-chest')).toHaveAttribute('data-color', 'amber');
+  await expect(page.getByTestId('review-weekly-quads')).toHaveAttribute('data-color', 'red');
+  await expect(page.getByTestId('review-weekly-quads')).toHaveCSS('border-top-color', 'rgb(239, 68, 68)');
+});
