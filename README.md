@@ -64,7 +64,8 @@ On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to r
 8. **Train with the plan**: each week shows every day, rest days included. Press **Complete** or **Skip** on a workout
    (**Undo** if you slip). A week is complete when all its workouts are; the mesocycle completes after the last one and moves
    to the **Archive** tab on the list. **Drop mesocycle** stops an active one early (also archived). Archived mesocycles can be
-   deleted; active ones can't be edited or deleted.
+   deleted; active ones can't be edited or deleted. Only one mesocycle runs at a time: locking in a new one **pauses** the
+   current one, and **Resume mesocycle** on a paused one switches back (pausing the other).
 9. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
 
 ## Commands
@@ -75,6 +76,7 @@ pnpm typecheck
 pnpm test                # unit tests (no database needed)
 pnpm test:integration    # API tests against TEST_DATABASE_URL (runs migrations + seed on that database)
 pnpm e2e                 # Playwright tests against TEST_DATABASE_URL
+                         # (includes a phone-width pass and an axe accessibility audit of every main screen)
 ```
 
 `test:integration` and `e2e` modify data, so they refuse to run if `TEST_DATABASE_URL` equals `DATABASE_URL`.

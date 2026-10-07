@@ -15,7 +15,7 @@ A web app where a lifter builds a 3–10 week hypertrophy training block (a **me
 
 The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
 
-*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1). *Revision R6:* an account menu in the header (profile, training stats, preferences, Sign out) and a "Show RIR" preference (decision 16).
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1). *Revision R6:* an account menu in the header (profile, training stats, preferences, Sign out) and a "Show RIR" preference (decision 16). *Revision R7 (M9):* only one mesocycle runs at a time (decision 17), plus the hardening pass: phone layout, accessibility audit, 404 and error pages (10.11).
 
 ### Glossary
 
@@ -60,6 +60,7 @@ The original requirements left several things open. These are the decisions made
 14. **List order and lock-in details:** the user's own order on the list page is stored in `mesocycles.position` (new mesocycles go first; reordering does not change `updated_at`). A Mon–Sun mesocycle locks in with a start date that is a **Monday**, so every week lines up with Mon–Sun. Lock-in warnings use the major muscle groups the builder shows (7.6), not individual muscles.
 15. **Tracking without logging:** on an active mesocycle each generated workout can be marked **completed** or **skipped** (and undone). That records whether it happened, not what was lifted: entering reps and weights stays a non-goal. A week is complete when all its workouts are completed or skipped; the mesocycle becomes `completed` when all of its are (undoing one reopens it). An active mesocycle can be **dropped** (stopped early). Completed and dropped mesocycles form the **archive**; drafts and archived ones can be deleted, an active one must be dropped first. "Export week as PNG" draws the plan as one plain week on a canvas in the browser (no new dependency, nothing sent to the server).
 16. **Account menu and RIR preference:** a person icon in the header opens the account panel: name, email, sign-in methods, member-since date, training stats (workouts done and skipped, sets done = target sets of completed workouts, mesocycles completed, and the active mesocycle with its progress), the **Show RIR** switch, and **Sign out**. Show RIR (`users.show_rir`, on by default) only changes the display: RIR disappears from exercise cards, the drag preview, the plan, the lock-in and deload explanations and the PNG export. RIR values are still stored and still ramp at lock-in, so switching it back on shows them again.
+17. **One mesocycle at a time:** a user has at most one `active` mesocycle (a partial unique index enforces it). Locking in a new one **pauses** the active one (`paused`), in the same transaction; the lock-in dialog names it. A paused mesocycle keeps its workouts but cannot track them until **Resume**, which pauses whichever one is active then. Paused ones stay on the Current tab, can be dropped, and cannot be deleted (drop first). Undoing a workout of a completed mesocycle while another one is active reopens it as `paused`.
 
 ---
 
@@ -107,7 +108,7 @@ Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `create
 - `equipment`: `barbell, dumbbell, cable, machine, bodyweight`
 - `movement_type`: `compound, isolation`
 - `priority`: `focus, normal, maintenance`
-- `mesocycle_status`: `draft, active, completed, dropped`
+- `mesocycle_status`: `draft, active, completed, dropped, paused`
 - `schedule_mode`: `calendar, relative`
 
 ### 5.2 Tables
@@ -328,9 +329,11 @@ Effect, in one transaction: set status `active`, `locked_at`, generate weeks/ses
 
 **`PATCH /sessions/{id}`** — body `{ "status": "completed" | "skipped" | "planned" }` (`planned` undoes). Only for workouts of an `active` or `completed` mesocycle (else `409`; another user's workout is `404`). When every workout of the mesocycle is completed or skipped, the mesocycle becomes `completed` and `ended_at` is set; setting one back to `planned` makes it `active` again. Returns the whole mesocycle. Each week in the detail carries `is_complete` (all its workouts completed or skipped).
 
-**`POST /mesocycles/{id}/drop`** — stop an `active` mesocycle early: status `dropped`, `ended_at` set, workouts kept as they are. `409` for any other status. Returns the mesocycle.
+**`POST /mesocycles/{id}/resume`** — continue a `paused` mesocycle; the active one (if any) becomes `paused`, in one transaction. `409` for any other status. Returns the mesocycle.
 
-**`DELETE /mesocycles/{id}`** — delete a draft or an archived (`completed` / `dropped`) mesocycle, with everything under it (cascade). Returns `204`. `409` for an active one (drop it first).
+**`POST /mesocycles/{id}/drop`** — stop an `active` or `paused` mesocycle early: status `dropped`, `ended_at` set, workouts kept as they are. `409` for any other status. Returns the mesocycle.
+
+**`DELETE /mesocycles/{id}`** — delete a draft or an archived (`completed` / `dropped`) mesocycle, with everything under it (cascade). Returns `204`. `409` for an active or paused one (drop it first).
 
 ---
 
@@ -505,9 +508,9 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 
 - `/login` — **Sign in** and **Create account** tabs (name optional, email, password with "at least 8 characters"), and **Continue with Google** when configured. Errors appear inline ("Email or password is incorrect.", "An account with this email already exists."). Signed-in visitors are sent on. The header shows **Log in** when signed out; when signed in it shows a **person icon** that opens the account panel (decision 16), which also holds **Sign out**.
 
-- `/mesocycles` — list of mesocycles with status badges and "New mesocycle". "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens its builder (no form). Each card has a ⠿ grip: drag it (or focus it, press Space, use the arrow keys, Space) to reorder the list; the order is saved. Two tabs: **Current** (drafts and active) and **Archive** (completed and dropped, showing when they ended); each tab is reordered on its own. Drafts and archived mesocycles have a clearly visible red-outlined **Delete** button (with confirmation); active ones don't. Drafts open the builder; locked mesocycles open their plan.
+- `/mesocycles` — list of mesocycles with status badges and "New mesocycle". "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens its builder (no form). Each card has a ⠿ grip: drag it (or focus it, press Space, use the arrow keys, Space) to reorder the list; the order is saved. Two tabs: **Current** (drafts, active and paused) and **Archive** (completed and dropped, showing when they ended); each tab is reordered on its own. Drafts and archived mesocycles have a clearly visible red-outlined **Delete** button (with confirmation); active ones don't. Drafts open the builder; locked mesocycles open their plan.
 - `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
-- `/mesocycles/[id]` — the plan of a locked mesocycle: name, status, start date and lock date, a progress bar ("6 of 16 workouts done"), the Review summary tiles, **Workouts** by week (a tab per week, deload marked, ✓ when complete), and the volume table. A week shows **every day of the cycle**: workout cards (day, date, estimated length, every exercise as `sets × reps · RIR`, and **Complete** / **Skip** buttons, or the result with **Undo**) and dashed **Rest day** cards, so it is clear when to rest; today's card is outlined. A complete week shows "✓ Week N complete". It opens on the week with the next workout. Active mesocycles have **Drop mesocycle** (with confirmation); completed and dropped ones show a banner saying so. The plan is never editable (exercises, days), and a dropped one's workouts are frozen. **Export week as PNG** is offered here too. A draft opened here goes to the builder, and the builder sends a locked mesocycle here.
+- `/mesocycles/[id]` — the plan of a locked mesocycle: name, status, start date and lock date, a progress bar ("6 of 16 workouts done"), the Review summary tiles, **Workouts** by week (a tab per week, deload marked, ✓ when complete), and the volume table. A week shows **every day of the cycle**: workout cards (day, date, estimated length, every exercise as `sets × reps · RIR`, and **Complete** / **Skip** buttons, or the result with **Undo**) and dashed **Rest day** cards, so it is clear when to rest; today's card is outlined. A complete week shows "✓ Week N complete". It opens on the week with the next workout. Active mesocycles have **Drop mesocycle** (with confirmation); paused ones show a "Paused" banner, no Complete/Skip buttons, **Resume mesocycle** and **Drop mesocycle**; completed and dropped ones show a banner saying so. The plan is never editable (exercises, days), and a dropped one's workouts are frozen. **Export week as PNG** is offered here too. A draft opened here goes to the builder, and the builder sends a locked mesocycle here.
 
 The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name, "My mesocycles" and the account controls (10.1, `/login`).
 
@@ -568,7 +571,7 @@ From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) ins
 - Cannot remove or clear a day silently if it contains slots: show a confirm dialog with the count.
 - Show a "Saving… / Saved / Save failed — retry" indicator for autosave. On failure, keep local state and retry with backoff.
 - Empty states: an empty column is labelled "Rest day" and shows only its "+ Add" button.
-- Accessibility: all interactive elements reachable by keyboard; visible focus; color contrast meets WCAG AA; announce drag results to screen readers.
+- Accessibility: all interactive elements reachable by keyboard; visible focus; color contrast meets WCAG AA (small grey text uses `graphite-400` or lighter on dark surfaces); announce drag results to screen readers. Every page has one `main` landmark and headings in order (the board has a visually hidden "Training days" `h2`; exercise cards use `h3`). An axe audit runs in e2e on every main screen (`e2e/a11y.spec.ts`) and must report no violations; Lighthouse accessibility scored 100 on the builder, the list and login (M9).
 
 ### 10.10 Templates
 
@@ -585,6 +588,11 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 - **From the list:** "Start from a template" opens a picker (name, description, a Mon–Sun strip showing training days, exercise and weekly-set counts). Picking one creates a mesocycle named after the template, saves its schedule through `PUT /schedule` and opens the board.
 - **On the board:** the **Templates** button opens the same picker. If the board has exercises, a confirmation dialog warns that every day will be replaced. An untitled mesocycle takes the template's name.
 - Exercises are matched by name against `GET /exercises` (built-in exercises win over custom ones with the same name). A name that is missing from the catalog is skipped and listed in a notice.
+
+### 10.11 Phones and error pages (M9)
+
+- At phone width (390 px) every screen fits the width; the page never scrolls sideways. On the board a training day is nearly the full width (one day at a time, the next one peeking in, snap scrolling); rest days stay narrow. The volume chips keep readable labels in one row that scrolls sideways (from 640 px up they form the fitting grid). The drag tip is shortened and the "Empty days are rest days" hint is hidden. Dialogs keep a 16 px margin.
+- Unknown URLs show a **Page not found** page with a link to the list; an unexpected crash shows **Something went wrong** with **Try again**. A mesocycle that does not exist (or belongs to someone else) shows "Mesocycle not found." with a link back.
 
 ---
 
@@ -609,6 +617,8 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 12. Export the week as a PNG from Review and from the plan page.
 13. Sign-up, sign-out and sign-in; signed-out visitors are redirected to `/login` (and back afterwards) and the API answers `401`; each account sees only its own mesocycles.
 14. The account panel shows the user and stats that follow completed workouts; switching Show RIR off hides RIR on the board, the plan and the deload text, and stays off after a reload.
+15. One active mesocycle: locking in a second pauses the first (the dialog says so); a paused one cannot track workouts until resumed.
+16. Phone width (390 px): every screen fits, the board and the volume chips scroll sideways; the accessibility audit reports no violations.
 
 ---
 
