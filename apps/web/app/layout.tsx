@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { LoginButton } from '../components/auth/LoginButton';
+import { AccountMenu } from '../components/auth/AccountMenu';
+import { auth } from '../lib/auth';
 import './globals.css';
 
 export const metadata: Metadata = { title: 'Mesocycle Builder', description: 'Hypertrophy mesocycle and schedule builder' };
 
 // Full-height app shell: the page itself never scrolls; each screen fits the window.
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const session = await auth();
+  const user = session?.user;
   return (
     <html lang="en">
       <body className="flex h-dvh flex-col overflow-hidden text-graphite-50 antialiased">
@@ -25,10 +28,18 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
               </span>
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/mesocycles" className="text-sm text-graphite-300 hover:text-graphite-50">
-                My mesocycles
-              </Link>
-              <LoginButton />
+              {user?.id ? (
+                <>
+                  <Link href="/mesocycles" className="text-sm text-graphite-300 hover:text-graphite-50">
+                    My mesocycles
+                  </Link>
+                  <AccountMenu label={user.name ?? user.email ?? 'Account'} />
+                </>
+              ) : (
+                <Link href="/login" className="rounded-lg border border-graphite-700 px-2.5 py-1 text-sm font-medium text-graphite-100 hover:bg-graphite-800">
+                  Log in
+                </Link>
+              )}
             </div>
           </div>
         </header>

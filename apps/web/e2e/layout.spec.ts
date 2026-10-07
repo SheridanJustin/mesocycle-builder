@@ -93,21 +93,3 @@ test('Review explains the deload week on hover and Lock in opens a confirmation'
   await page.getByRole('dialog', { name: 'Lock in mesocycle' }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toBeHidden();
 });
-
-test('Log in opens an email and password form (placeholder, sends nothing)', async ({ page }) => {
-  await page.goto('/mesocycles');
-  await expect(page.getByRole('button', { name: 'New mesocycle' })).toBeVisible();
-  await page.waitForLoadState('networkidle');
-  // Anything that would send data (the list page itself only reads).
-  const sent: string[] = [];
-  page.on('request', (req) => {
-    if (req.method() !== 'GET') sent.push(`${req.method()} ${req.url()}`);
-  });
-  await page.getByRole('button', { name: 'Log in' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Log in' });
-  await dialog.getByLabel('Email').fill('lifter@example.com');
-  await dialog.getByLabel('Password').fill('not-a-real-password');
-  await dialog.getByRole('button', { name: 'Log in' }).click();
-  await expect(dialog.getByRole('status')).toContainText('Accounts are coming soon');
-  expect(sent).toEqual([]);
-});

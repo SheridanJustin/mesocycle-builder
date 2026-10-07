@@ -151,3 +151,4 @@ test-results/
 Thumbs.db
 # Playwright e2e dev server build dir
 .next-e2e
+apps/web/e2e/.auth/
