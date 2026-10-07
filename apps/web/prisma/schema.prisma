@@ -49,6 +49,7 @@ enum MesocycleStatus {
   active
   completed
   dropped
+  paused
 }
 
 enum ScheduleMode {
@@ -104,6 +105,8 @@ model MuscleLandmark {
   @@map("muscle_landmarks")
 }
 
+// At most one active mesocycle per user: enforced by the partial unique index
+// "mesocycles_one_active_per_user" (migration 20261013010000_one_active), which Prisma cannot express.
 model Mesocycle {
   id String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid @map("user_id")

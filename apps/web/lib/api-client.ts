@@ -84,6 +84,7 @@ export const api = {
   reorderMesocycles: (ids: string[]) => request('/mesocycles/order', json('PUT', { ids }), MesocycleListSchema),
   putSchedule: (id: string, body: ScheduleBody) =>
     request(`/mesocycles/${id}/schedule`, json('PUT', body), MesocycleDetailSchema),
+  resumeMesocycle: (id: string) => request(`/mesocycles/${id}/resume`, json('POST', {}), MesocycleDetailSchema),
   dropMesocycle: (id: string) => request(`/mesocycles/${id}/drop`, json('POST', {}), MesocycleDetailSchema),
   updateSession: (id: string, status: UpdateSession['status']) =>
     request(`/sessions/${id}`, json('PATCH', { status }), MesocycleDetailSchema),

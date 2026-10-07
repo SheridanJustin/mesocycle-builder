@@ -45,8 +45,8 @@ export function DELETE(_request: Request, { params }: Context) {
     const user = await getCurrentUser();
     const { id } = await params;
     const mesocycle = await findOwnedMesocycle(id, user.id);
-    if (mesocycle.status === 'active') {
-      throw new ApiRouteError('CONFLICT', 'An active mesocycle cannot be deleted; drop it first');
+    if (mesocycle.status === 'active' || mesocycle.status === 'paused') {
+      throw new ApiRouteError('CONFLICT', `An ${mesocycle.status} mesocycle cannot be deleted; drop it first`);
     }
     await prisma.mesocycle.delete({ where: { id } });
     return new NextResponse(null, { status: 204 });

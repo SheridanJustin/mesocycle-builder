@@ -19,7 +19,7 @@ export const MUSCLES = [
 export const EQUIPMENT_TYPES = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight'] as const;
 export const MOVEMENT_TYPES = ['compound', 'isolation'] as const;
 export const PRIORITIES = ['focus', 'normal', 'maintenance'] as const;
-export const MESOCYCLE_STATUSES = ['draft', 'active', 'completed', 'dropped'] as const;
+export const MESOCYCLE_STATUSES = ['draft', 'active', 'completed', 'dropped', 'paused'] as const;
 // Finished mesocycles live in the archive.
 export const ARCHIVED_STATUSES = ['completed', 'dropped'] as const;
 export const SCHEDULE_MODES = ['calendar', 'relative'] as const;

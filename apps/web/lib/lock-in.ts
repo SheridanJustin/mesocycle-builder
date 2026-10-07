@@ -118,6 +118,8 @@ export async function lockMesocycle(
   }
 
   await prisma.$transaction(async (tx) => {
+    // Only one mesocycle runs at a time: the one in progress is paused (it can be resumed later).
+    await tx.mesocycle.updateMany({ where: { userId, status: 'active', NOT: { id } }, data: { status: 'paused' } });
     // Re-checked inside the transaction so two concurrent lock requests cannot both succeed.
     const updated = await tx.mesocycle.updateMany({
       where: { id, userId, status: 'draft' },
