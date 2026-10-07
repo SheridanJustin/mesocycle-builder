@@ -138,4 +138,10 @@ test('a rest day shows its whole name', async ({ page, request }) => {
     await expect(input).toHaveValue(name);
     expect(await input.evaluate((el) => el.scrollWidth <= el.clientWidth), name).toBe(true);
   }
+  // Every day name sits on the same line, and a short name keeps the rest day narrower than a training day.
+  const tops = await Promise.all(['Day 1', 'Wednesday', 'Day 10'].map(async (n) => (await column(page, n).getByRole('textbox', { name: `Day name for ${n}` }).boundingBox())!.y));
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(2);
+  const widths = await Promise.all(['Day 10', 'Wednesday'].map(async (n) => (await column(page, n).boundingBox())!.width));
+  expect(widths[0]).toBeLessThan(widths[1]!);
+  expect(widths[1]).toBeLessThan(224);
 });
