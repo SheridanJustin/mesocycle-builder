@@ -81,3 +81,31 @@ test('RIR can be switched off: it disappears from cards, the plan and the deload
   await (await openAccount(page)).getByText('Show RIR', { exact: true }).click();
   await expect(page.getByTestId('session-exercise').first()).toContainText('RIR 2');
 });
+
+test('appearance: a palette and light or dark mode apply at once and are saved to the account', async ({ page }) => {
+  await freshAccount(page, 'Jordan');
+  const html = page.locator('html');
+  await expect(html).toHaveAttribute('data-palette', 'graphite');
+  await expect(html).toHaveAttribute('data-mode', 'dark');
+  const pageBackground = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-graphite-950').trim());
+  const darkBackground = await pageBackground();
+
+  const panel = await openAccount(page);
+  await expect(panel.getByRole('radiogroup', { name: 'Color palette' }).getByRole('radio')).toHaveCount(6);
+  // Frost was designed light, so picking it switches to light mode.
+  await panel.getByTestId('palette-frost').click();
+  await expect(html).toHaveAttribute('data-palette', 'frost');
+  await expect(html).toHaveAttribute('data-mode', 'light');
+  await expect(panel.getByTestId('palette-frost')).toHaveAttribute('aria-checked', 'true');
+  expect(await pageBackground()).not.toBe(darkBackground);
+
+  // Any palette also has the other mode.
+  await panel.getByRole('radiogroup', { name: 'Mode' }).getByRole('radio', { name: 'Dark' }).click();
+  await expect(html).toHaveAttribute('data-mode', 'dark');
+  await expect(panel.getByTestId('stat-workouts')).toBeVisible();
+
+  // Saved: the server renders the chosen theme after a reload (no flash of the default).
+  await page.reload();
+  await expect(html).toHaveAttribute('data-palette', 'frost');
+  await expect(html).toHaveAttribute('data-mode', 'dark');
+});

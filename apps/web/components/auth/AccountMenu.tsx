@@ -4,7 +4,7 @@ import type { Me } from '@mesocycle/shared';
 import { signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api-client';
-import { usePreferences } from '../preferences/PreferencesContext';
+import { usePreferences, type Appearance } from '../preferences/PreferencesContext';
 import { AccountPanel } from './AccountPanel';
 
 type Props = { name: string | null; email: string };
@@ -23,7 +23,7 @@ export function AccountMenu({ name, email }: Props) {
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { showRir, setShowRir } = usePreferences();
+  const { showRir, setShowRir, appearance, setAppearance } = usePreferences();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,6 +58,24 @@ export function AccountMenu({ name, email }: Props) {
     }
   }
 
+  // Applies at once; saved to the account so it follows you to other devices.
+  async function changeAppearance(value: Partial<Appearance>) {
+    const previous = appearance;
+    setAppearance(value);
+    setError(null);
+    try {
+      setMe(
+        await api.updateMe({
+          ...(value.palette ? { palette: value.palette } : {}),
+          ...(value.colorMode ? { color_mode: value.colorMode } : {}),
+        }),
+      );
+    } catch (e) {
+      setAppearance(previous);
+      setError(e instanceof Error ? `Could not save the appearance: ${e.message}` : 'Could not save the appearance');
+    }
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -76,7 +94,7 @@ export function AccountMenu({ name, email }: Props) {
         <div
           role="dialog"
           aria-label="Account"
-          className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-graphite-700 bg-graphite-900 p-4 shadow-2xl shadow-black/60"
+          className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-4rem)] w-80 overflow-y-auto rounded-2xl border border-graphite-700 bg-graphite-900 p-4 shadow-2xl shadow-black/60"
         >
           <AccountPanel
             me={me}
@@ -85,6 +103,8 @@ export function AccountMenu({ name, email }: Props) {
             error={error}
             showRir={showRir}
             onToggleRir={(value) => void toggleRir(value)}
+            appearance={appearance}
+            onChangeAppearance={(value) => void changeAppearance(value)}
             onSignOut={() => void signOut({ redirectTo: '/login' })}
             onNavigate={() => setOpen(false)}
           />

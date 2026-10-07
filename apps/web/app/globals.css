@@ -1,8 +1,10 @@
 @import 'tailwindcss';
+/* Other palettes and the light mode re-define the scales below (SPEC 10.12). */
+@import './themes.css';
 
 @theme {
-  /* Brand palette (dark theme). graphite = neutrals, aqua = primary accent, verdigris/shamrock = positive,
-     snow = destructive. */
+  /* Default palette ("Graphite & Aqua", dark). graphite = neutrals, aqua = primary accent,
+     verdigris/shamrock = positive, snow = destructive. app/themes.css swaps these per palette and mode. */
   --color-graphite-50: #f3f2f3;
   --color-graphite-100: #e6e4e7;
   --color-graphite-200: #cdcace;
@@ -105,8 +107,8 @@ body {
 body {
   overflow-x: clip;
   background:
-    radial-gradient(900px 420px at 0% -10%, rgb(0 229 255 / 0.07), transparent 70%),
-    radial-gradient(700px 380px at 100% -5%, rgb(32 223 201 / 0.05), transparent 70%),
+    radial-gradient(900px 420px at 0% -10%, color-mix(in srgb, var(--color-aqua-500) 7%, transparent), transparent 70%),
+    radial-gradient(700px 380px at 100% -5%, color-mix(in srgb, var(--color-verdigris-500) 5%, transparent), transparent 70%),
     var(--color-graphite-950);
   background-attachment: fixed;
 }

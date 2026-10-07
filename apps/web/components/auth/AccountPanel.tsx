@@ -1,6 +1,8 @@
 import type { Me } from '@mesocycle/shared';
 import Link from 'next/link';
+import type { Appearance } from '../preferences/PreferencesContext';
 import { Button } from '../ui/Button';
+import { AppearancePicker } from './AppearancePicker';
 
 type Props = {
   // Null while the stats are loading.
@@ -10,6 +12,8 @@ type Props = {
   error: string | null;
   showRir: boolean;
   onToggleRir: (value: boolean) => void;
+  appearance: Appearance;
+  onChangeAppearance: (value: Partial<Appearance>) => void;
   onSignOut: () => void;
   onNavigate: () => void;
 };
@@ -33,7 +37,7 @@ function signInMethods(me: Me): string {
 }
 
 // The account panel: who is signed in, a few totals, display preferences and Sign out.
-export function AccountPanel({ me, fallbackName, email, error, showRir, onToggleRir, onSignOut, onNavigate }: Props) {
+export function AccountPanel({ me, fallbackName, email, error, showRir, onToggleRir, appearance, onChangeAppearance, onSignOut, onNavigate }: Props) {
   const name = me?.name ?? fallbackName;
   const initial = (name || email).trim().charAt(0).toUpperCase() || '?';
   return (
@@ -122,6 +126,11 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
             className="relative mt-0.5 h-5 w-9 shrink-0 rounded-full bg-graphite-700 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-graphite-200 after:transition-transform peer-checked:bg-aqua-600 peer-checked:after:translate-x-4 peer-checked:after:bg-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-aqua-400"
           />
         </label>
+      </section>
+
+      <section aria-label="Appearance">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-graphite-400">Appearance</h3>
+        <AppearancePicker appearance={appearance} onChange={onChangeAppearance} />
       </section>
 
       <Button className="w-full" onClick={onSignOut}>

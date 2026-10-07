@@ -5,6 +5,8 @@ import { AccountMenu } from '../components/auth/AccountMenu';
 import { PreferencesProvider } from '../components/preferences/PreferencesContext';
 import { auth } from '../lib/auth';
 import { prisma } from '../lib/db';
+import { toPalette } from '../lib/me';
+import { DEFAULT_PALETTE } from '@mesocycle/shared';
 import './globals.css';
 
 export const metadata: Metadata = { title: 'Mesocycle Builder', description: 'Hypertrophy mesocycle and schedule builder' };
@@ -14,13 +16,21 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const session = await auth();
   // The account row (not just the session) so the name and preferences are current.
   const user = session?.user?.id
-    ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true, showRir: true } })
+    ? await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true, showRir: true, palette: true, colorMode: true },
+      })
     : null;
+  // Rendered on the server, so the page never flashes the default colors first.
+  const appearance = {
+    palette: toPalette(user?.palette ?? DEFAULT_PALETTE),
+    colorMode: user?.colorMode === 'light' ? ('light' as const) : ('dark' as const),
+  };
   return (
-    <html lang="en">
+    <html lang="en" data-palette={appearance.palette} data-mode={appearance.colorMode}>
       <body className="flex h-dvh flex-col overflow-hidden text-graphite-50 antialiased">
         {/* Wraps the header too: the account menu changes the preferences the pages read. */}
-        <PreferencesProvider initialShowRir={user?.showRir ?? true}>
+        <PreferencesProvider initialShowRir={user?.showRir ?? true} initialAppearance={appearance}>
           <header className="relative z-40 shrink-0 border-b border-graphite-800/80 bg-graphite-950/70 backdrop-blur">
             <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-4">
               <Link href="/mesocycles" className="flex items-center gap-2 font-semibold tracking-tight">

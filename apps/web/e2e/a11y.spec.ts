@@ -56,6 +56,22 @@ test('the list, the plan and the account panel have no accessibility violations'
   await audit(page, 'Template picker');
 });
 
+test('a light palette is accessible too', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, { name: 'A11y Light', days: week });
+  expect((await request.patch('/api/v1/me', { data: { palette: 'plum', color_mode: 'light' } })).ok()).toBe(true);
+  try {
+    await page.goto(`/mesocycles/${id}/build`);
+    await expect(page.locator('html')).toHaveAttribute('data-mode', 'light');
+    await expect(page.getByTestId('day-column').first()).toBeVisible();
+    await audit(page, 'Build (light)');
+    await gotoTab(page, 'Review');
+    await expect(page.getByTestId('stat-weekly-sets')).toBeVisible();
+    await audit(page, 'Review (light)');
+  } finally {
+    await request.patch('/api/v1/me', { data: { palette: 'graphite', color_mode: 'dark' } });
+  }
+});
+
 test.describe('signed out', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
