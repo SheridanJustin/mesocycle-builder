@@ -35,7 +35,9 @@ email (on `/login`, Create account) to keep them.
 ## Using the app
 
 Open <http://localhost:3000>. You'll be asked to sign in: **Create account** (email and password) or **Continue with Google**.
-The header shows who is signed in and **Sign out**. Each account sees only its own mesocycles.
+The person icon in the header opens your account: name, email, training stats (workouts and sets done, mesocycles
+finished, the active mesocycle's progress), the **Show RIR** switch (turn it off if you don't train by RIR) and **Sign out**.
+Each account sees only its own mesocycles.
 
 On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to reorder; drafts and archived mesocycles have a **Delete** button.
 

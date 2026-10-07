@@ -15,7 +15,7 @@ A web app where a lifter builds a 3–10 week hypertrophy training block (a **me
 
 The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
 
-*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1).
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1). *Revision R6:* an account menu in the header (profile, training stats, preferences, Sign out) and a "Show RIR" preference (decision 16).
 
 ### Glossary
 
@@ -59,6 +59,7 @@ The original requirements left several things open. These are the decisions made
 13. **Duration and wording:** a mesocycle lasts 3–10 weeks. User-facing text says "mesocycle"; "block" remains only as an internal word in code (e.g. block volume = totals over the whole mesocycle).
 14. **List order and lock-in details:** the user's own order on the list page is stored in `mesocycles.position` (new mesocycles go first; reordering does not change `updated_at`). A Mon–Sun mesocycle locks in with a start date that is a **Monday**, so every week lines up with Mon–Sun. Lock-in warnings use the major muscle groups the builder shows (7.6), not individual muscles.
 15. **Tracking without logging:** on an active mesocycle each generated workout can be marked **completed** or **skipped** (and undone). That records whether it happened, not what was lifted: entering reps and weights stays a non-goal. A week is complete when all its workouts are completed or skipped; the mesocycle becomes `completed` when all of its are (undoing one reopens it). An active mesocycle can be **dropped** (stopped early). Completed and dropped mesocycles form the **archive**; drafts and archived ones can be deleted, an active one must be dropped first. "Export week as PNG" draws the plan as one plain week on a canvas in the browser (no new dependency, nothing sent to the server).
+16. **Account menu and RIR preference:** a person icon in the header opens the account panel: name, email, sign-in methods, member-since date, training stats (workouts done and skipped, sets done = target sets of completed workouts, mesocycles completed, and the active mesocycle with its progress), the **Show RIR** switch, and **Sign out**. Show RIR (`users.show_rir`, on by default) only changes the display: RIR disappears from exercise cards, the drag preview, the plan, the lock-in and deload explanations and the PNG export. RIR values are still stored and still ramp at lock-in, so switching it back on shows them again.
 
 ---
 
@@ -119,6 +120,7 @@ users
   password_hash TEXT NULL                  -- scrypt; NULL for Google-only accounts
   google_id TEXT NULL UNIQUE               -- Google "sub", set on Google sign-in
   weight_unit TEXT NOT NULL DEFAULT 'lb'   -- 'kg' | 'lb'
+  show_rir BOOLEAN NOT NULL DEFAULT TRUE   -- display preference (decision 16)
 
 exercises
   id UUID PK
@@ -258,6 +260,8 @@ Response: `{ "items": [Exercise], "next_cursor": string | null }`
 Body: `{ name, primary_muscle, secondary_muscles[], equipment_type, movement_type }`. `409` if the name already exists for this user.
 
 **`POST /auth/register`** — create an email/password account. Body `{ "email", "password", "name"? }` (email trimmed and lower-cased; password 8–200 characters). Returns `{ id, email, name }` (`201`); `409` if the email already has an account. It does not sign in: the browser then signs in through Auth.js (`/api/auth/*`, outside `/api/v1`), which also handles Google, the session and sign-out. Every other endpoint needs a session (`401` without one).
+
+**`GET /me`** — the signed-in user: `id`, `email`, `name`, `created_at`, `sign_in` (`password`, `google`), `preferences` (`show_rir`) and `stats` (`workouts_completed`, `workouts_skipped`, `sets_completed`, `mesocycles_completed`, `mesocycles_total`, `active` = `{ id, name, done, total }` or null). **`PATCH /me`** — `{ "show_rir"?, "name"? }`; returns the same.
 
 **`GET /muscle-landmarks`**
 Returns all landmark rows. The client caches these.
@@ -499,7 +503,7 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 
 ### 10.1 Pages
 
-- `/login` — **Sign in** and **Create account** tabs (name optional, email, password with "at least 8 characters"), and **Continue with Google** when configured. Errors appear inline ("Email or password is incorrect.", "An account with this email already exists."). Signed-in visitors are sent on. The header shows **Log in** when signed out, and the user's name (or email) with **Sign out** when signed in.
+- `/login` — **Sign in** and **Create account** tabs (name optional, email, password with "at least 8 characters"), and **Continue with Google** when configured. Errors appear inline ("Email or password is incorrect.", "An account with this email already exists."). Signed-in visitors are sent on. The header shows **Log in** when signed out; when signed in it shows a **person icon** that opens the account panel (decision 16), which also holds **Sign out**.
 
 - `/mesocycles` — list of mesocycles with status badges and "New mesocycle". "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens its builder (no form). Each card has a ⠿ grip: drag it (or focus it, press Space, use the arrow keys, Space) to reorder the list; the order is saved. Two tabs: **Current** (drafts and active) and **Archive** (completed and dropped, showing when they ended); each tab is reordered on its own. Drafts and archived mesocycles have a clearly visible red-outlined **Delete** button (with confirmation); active ones don't. Drafts open the builder; locked mesocycles open their plan.
 - `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
@@ -604,6 +608,7 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 11. Drop an active mesocycle; confirm it is archived and can then be deleted.
 12. Export the week as a PNG from Review and from the plan page.
 13. Sign-up, sign-out and sign-in; signed-out visitors are redirected to `/login` (and back afterwards) and the API answers `401`; each account sees only its own mesocycles.
+14. The account panel shows the user and stats that follow completed workouts; switching Show RIR off hides RIR on the board, the plan and the deload text, and stays off after a reload.
 
 ---
 
