@@ -1,6 +1,6 @@
 'use client';
 
-import type { MesocycleSummary, MesocycleTemplate } from '@mesocycle/shared';
+import { ARCHIVED_STATUSES, type MesocycleSummary, type MesocycleTemplate } from '@mesocycle/shared';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fetchExerciseCatalog } from '../../lib/api-client';
@@ -18,6 +18,7 @@ export function MesocycleListContainer() {
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<MesocycleSummary | null>(null);
   const [pickingTemplate, setPickingTemplate] = useState(false);
+  const [view, setView] = useState<'current' | 'archive'>('current');
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [templateError, setTemplateError] = useState<string | null>(null);
 
@@ -59,6 +60,15 @@ export function MesocycleListContainer() {
       setError(e instanceof Error ? e.message : 'Could not create the mesocycle');
       setCreating(false);
     }
+  }
+
+  const isArchived = (item: MesocycleSummary) => (ARCHIVED_STATUSES as readonly string[]).includes(item.status);
+  const current = items?.filter((item) => !isArchived(item)) ?? [];
+  const archived = items?.filter(isArchived) ?? [];
+
+  // Each tab reorders its own cards; the saved order keeps current mesocycles before archived ones.
+  function reorderSection(ids: string[]) {
+    reorder(view === 'current' ? [...ids, ...archived.map((i) => i.id)] : [...current.map((i) => i.id), ...ids]);
   }
 
   // Optimistic: the list shows the new order at once. Saves run one after another so a slow
@@ -110,7 +120,46 @@ export function MesocycleListContainer() {
         </p>
       )}
       {items === null && !error && <p className="text-graphite-400">Loading…</p>}
-      {items && <MesocycleList items={items} onDelete={setPendingDelete} onReorder={reorder} />}
+      {items && (
+        <>
+          <div role="tablist" aria-label="Mesocycle lists" className="mb-4 inline-flex rounded-xl border border-graphite-800 bg-graphite-900 p-0.5">
+            {(
+              [
+                ['current', `Current (${current.length})`],
+                ['archive', `Archive (${archived.length})`],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={view === id}
+                onClick={() => setView(id)}
+                className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                  view === id ? 'bg-aqua-500 text-graphite-950 shadow' : 'text-graphite-300 hover:text-graphite-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === 'current' ? (
+            <MesocycleList
+              items={current}
+              empty={{ title: 'No mesocycles yet', text: 'Create your first mesocycle, or start from a template.' }}
+              onDelete={setPendingDelete}
+              onReorder={reorderSection}
+            />
+          ) : (
+            <MesocycleList
+              items={archived}
+              empty={{ title: 'The archive is empty', text: 'Completed and dropped mesocycles are kept here.' }}
+              onDelete={setPendingDelete}
+              onReorder={reorderSection}
+            />
+          )}
+        </>
+      )}
       <TemplatePicker
         open={pickingTemplate}
         onClose={() => setPickingTemplate(false)}
@@ -121,7 +170,7 @@ export function MesocycleListContainer() {
       <ConfirmDialog
         open={pendingDelete !== null}
         title="Delete mesocycle?"
-        message={`“${pendingDelete?.name ?? ''}” and its schedule will be permanently deleted.`}
+        message={`“${pendingDelete?.name ?? ''}” and its ${pendingDelete?.status === 'draft' ? 'schedule' : 'workouts'} will be permanently deleted.`}
         confirmLabel="Delete"
         onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}

@@ -14,15 +14,12 @@ import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useS
 import { CSS } from '@dnd-kit/utilities';
 import type { MesocycleSummary } from '@mesocycle/shared';
 import Link from 'next/link';
-
-const BADGE: Record<MesocycleSummary['status'], string> = {
-  draft: 'bg-graphite-800 text-graphite-200 ring-graphite-700',
-  active: 'bg-shamrock-950 text-shamrock-300 ring-shamrock-800',
-  completed: 'bg-aqua-950 text-aqua-300 ring-aqua-800',
-};
+import { StatusBadge } from '../ui/StatusBadge';
 
 type Props = {
   items: MesocycleSummary[];
+  // Shown when the list is empty.
+  empty: { title: string; text: string };
   onDelete: (item: MesocycleSummary) => void;
   // The full list of ids in the new order.
   onReorder: (ids: string[]) => void;
@@ -80,9 +77,7 @@ function MesocycleCard({ item, onDelete }: { item: MesocycleSummary; onDelete: (
         <Link href={mesocycleHref(item)} className="min-w-0 flex-1 text-base font-semibold text-graphite-50 after:absolute after:inset-0 hover:text-aqua-300">
           {item.name}
         </Link>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ${BADGE[item.status]}`}>
-          {item.status}
-        </span>
+        <StatusBadge status={item.status} />
       </div>
       <dl className="flex gap-4 text-sm">
         <div>
@@ -101,8 +96,11 @@ function MesocycleCard({ item, onDelete }: { item: MesocycleSummary; onDelete: (
         )}
       </dl>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-graphite-500">Edited {dateFormat.format(new Date(item.updated_at))}</span>
-        {item.status === 'draft' && (
+        <span className="text-xs text-graphite-500">
+          {item.ended_at ? `${item.status === 'dropped' ? 'Dropped' : 'Completed'} ${dateFormat.format(new Date(item.ended_at))}` : `Edited ${dateFormat.format(new Date(item.updated_at))}`}
+        </span>
+        {/* An active mesocycle must be dropped (on its page) before it can be deleted. */}
+        {item.status !== 'active' && (
           <button
             type="button"
             aria-label={`Delete ${item.name}`}
@@ -120,7 +118,7 @@ function MesocycleCard({ item, onDelete }: { item: MesocycleSummary; onDelete: (
 
 // The user's mesocycles as cards. Drag a card by its grip (or focus the grip, press Space and use
 // the arrow keys) to reorder; the container saves the order.
-export function MesocycleList({ items, onDelete, onReorder }: Props) {
+export function MesocycleList({ items, empty, onDelete, onReorder }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -129,8 +127,8 @@ export function MesocycleList({ items, onDelete, onReorder }: Props) {
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-graphite-700 bg-graphite-900/50 p-10 text-center">
-        <p className="text-lg font-medium">No mesocycles yet</p>
-        <p className="mt-1 text-sm text-graphite-400">Create your first mesocycle, or start from a template.</p>
+        <p className="text-lg font-medium">{empty.title}</p>
+        <p className="mt-1 text-sm text-graphite-400">{empty.text}</p>
       </div>
     );
   }

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ApiClientError } from '../../lib/api-client';
 import { computeReviewStats } from '../../lib/builder/review-stats';
+import { downloadWeekPng } from '../../lib/export/week-png';
 import { useBuilder } from '../../lib/builder/use-builder';
 import { computeBuilderBlockVolume, contributionsFor } from '../../lib/builder/volume';
 import { AddExercisesPanel } from '../board/AddExercisesPanel';
@@ -185,6 +186,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
             block={block}
             onSettingsChange={(patch) => void builder.updateSettings(patch)}
             mode={state.mode}
+            onExportWeek={() => void downloadWeekPng(state, meta.name)}
             lock={{ busy: locking, error: lockError, onConfirm: (body) => void lockIn(body), onOpen: () => setLockError(null) }}
           />
         )}

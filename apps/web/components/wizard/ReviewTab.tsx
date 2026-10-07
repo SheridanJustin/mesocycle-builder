@@ -29,13 +29,15 @@ type Props = {
   onSettingsChange: (patch: Partial<MesocycleSettings>) => void;
   mode: ScheduleMode;
   lock: { busy: boolean; error: string | null; onConfirm: (body: LockMesocycle) => void; onOpen: () => void };
+  // Downloads the schedule as one plain week (PNG), without the mesocycle progression.
+  onExportWeek: () => void;
 };
 
 // Review: overall volume per major muscle group (weekly and over the whole mesocycle) and the
 // mesocycle settings. The review dashboard's lock-in arrives in M8.
 const WEEK_OPTIONS = Array.from({ length: MAX_DURATION_WEEKS - MIN_DURATION_WEEKS + 1 }, (_, i) => MIN_DURATION_WEEKS + i);
 
-export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mode, lock }: Props) {
+export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mode, lock, onExportWeek }: Props) {
   const [lockInOpen, setLockInOpen] = useState(false);
   const warnings = lockWarnings(volume);
   // Computed once per visit: this week's Monday and the seven after it.
@@ -130,6 +132,12 @@ export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mo
           <p className="text-xs text-graphite-500">
             {stats.trainingDays.length === 0 ? 'Add at least one exercise to lock in.' : 'Your draft saves automatically.'}
           </p>
+          <div className="border-t border-graphite-800 pt-3">
+            <Button className="w-full" disabled={stats.trainingDays.length === 0} onClick={onExportWeek}>
+              Export week as PNG
+            </Button>
+            <p className="mt-1.5 text-xs text-graphite-500">Just want a guide? Save your week as an image, without the mesocycle progression.</p>
+          </div>
         </div>
       </div>
 

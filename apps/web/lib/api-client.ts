@@ -13,6 +13,7 @@ import {
   type Exercise,
   type ListExercisesQuery,
   type PatchMesocycle,
+  type UpdateSession,
 } from '@mesocycle/shared';
 import type { z, ZodTypeAny } from 'zod';
 import type { ScheduleBody } from './builder/mappers';
@@ -71,6 +72,9 @@ export const api = {
   reorderMesocycles: (ids: string[]) => request('/mesocycles/order', json('PUT', { ids }), MesocycleListSchema),
   putSchedule: (id: string, body: ScheduleBody) =>
     request(`/mesocycles/${id}/schedule`, json('PUT', body), MesocycleDetailSchema),
+  dropMesocycle: (id: string) => request(`/mesocycles/${id}/drop`, json('POST', {}), MesocycleDetailSchema),
+  updateSession: (id: string, status: UpdateSession['status']) =>
+    request(`/sessions/${id}`, json('PATCH', { status }), MesocycleDetailSchema),
   lockMesocycle: (id: string, body: Partial<LockMesocycle>) =>
     request(`/mesocycles/${id}/lock`, json('POST', body), MesocycleDetailSchema),
   duplicateDay: (id: string, body: DuplicateDay) =>

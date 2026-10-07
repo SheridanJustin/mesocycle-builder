@@ -158,7 +158,7 @@ test('the delete button on a draft is clearly visible', async ({ page, request }
   await expect(button).toHaveText('Delete');
 });
 
-test('the landmark info explains that values differ per muscle, and the ticks stand out', async ({ page, request }) => {
+test('the landmark info explains that values differ per muscle, and the ticks stand out in grey', async ({ page, request }) => {
   const id = await createPopulatedDraft(request, { name: 'Ticks', days: week([{ exercise: 'Barbell Bench Press', sets: 5 }], []) });
   await page.goto(`/mesocycles/${id}/build`);
   await page.getByTestId('volume-bar').getByRole('button', { name: 'What do MV, MEV, MAV and MRV mean?' }).click();
@@ -168,5 +168,6 @@ test('the landmark info explains that values differ per muscle, and the ticks st
   const tick = page.getByTestId('volume-chip-chest').locator('[data-mark]').first();
   const box = await tick.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(2);
-  await expect(tick).toHaveCSS('background-color', /rgb\((2[0-5]\d), (2[0-5]\d), (2[0-5]\d)\)/);
+  // A mid grey (graphite-400): visible without being as harsh as white.
+  await expect(tick).toHaveCSS('background-color', 'rgb(156, 149, 157)');
 });
