@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
-export const ERROR_CODES = ['VALIDATION_ERROR', 'NOT_FOUND', 'CONFLICT', 'INTERNAL'] as const;
+export const ERROR_CODES = ['VALIDATION_ERROR', 'UNAUTHORIZED', 'NOT_FOUND', 'CONFLICT', 'INTERNAL'] as const;
 export const ErrorCodeSchema = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 
 export const ERROR_STATUS: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,
+  UNAUTHORIZED: 401,
   NOT_FOUND: 404,
   CONFLICT: 409,
   INTERNAL: 500,

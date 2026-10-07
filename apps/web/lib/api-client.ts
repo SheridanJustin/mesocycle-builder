@@ -1,4 +1,5 @@
 import {
+  AccountSchema,
   ApiErrorSchema,
   ExerciseListSchema,
   ExerciseSchema,
@@ -7,6 +8,7 @@ import {
   MesocycleListSchema,
   MuscleLandmarkListSchema,
   type CreateExercise,
+  type Register,
   type CreateMesocycle,
   type DuplicateDay,
   type LockMesocycle,
@@ -47,6 +49,11 @@ async function request(path: string, init: RequestInit, schema?: ZodTypeAny): Pr
     throw new ApiClientError(0, 'NETWORK', 'Could not reach the server');
   }
 
+  // The session expired or the user signed out elsewhere: go to the login page and come back after.
+  if (response.status === 401 && typeof window !== 'undefined' && !path.startsWith('/auth/')) {
+    window.location.assign(`/login?callbackUrl=${encodeURIComponent(window.location.pathname)}`);
+  }
+
   if (!response.ok) {
     const parsed = ApiErrorSchema.safeParse(await response.json().catch(() => null));
     if (parsed.success) {
@@ -62,6 +69,7 @@ async function request(path: string, init: RequestInit, schema?: ZodTypeAny): Pr
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
 
 export const api = {
+  register: (body: Register) => request('/auth/register', json('POST', body), AccountSchema),
   listMesocycles: () => request('/mesocycles', { method: 'GET' }, MesocycleListSchema),
   createMesocycle: (body: CreateMesocycle | Record<string, unknown>) =>
     request('/mesocycles', json('POST', body), MesocycleDetailSchema),
