@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "dotenv --no-override -e ../../.env -- playwright test",
-    "prisma:migrate": "dotenv --no-override -e ../../.env -- prisma migrate deploy",
+    "prisma:migrate": "dotenv --no-override -e ../../.env -- prisma migrate deploy && prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:seed": "dotenv --no-override -e ../../.env -- prisma db seed",
     "test:integration": "dotenv --no-override -e ../../.env -- vitest run --config vitest.integration.config.ts"

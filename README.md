@@ -16,7 +16,7 @@ that updates live against MV / MEV / MAV / MRV landmarks, plus a Review screen a
 ```powershell
 Copy-Item .env.example .env      # then edit the passwords/database names and set AUTH_SECRET (see below)
 pnpm install
-pnpm db:migrate                  # creates the database if it is missing, then applies migrations
+pnpm db:migrate                  # creates the database if missing, applies migrations, regenerates the Prisma client
 pnpm db:seed                     # dev user, muscle landmarks and ~100 exercises (safe to re-run)
 pnpm dev                         # http://localhost:3000
 ```
