@@ -21,12 +21,14 @@ type Props = {
   mondays: string[];
   busy: boolean;
   error: string | null;
+  // The mesocycle currently running, which locking in will pause.
+  activeName: string | null;
   onConfirm: (body: LockMesocycle) => void;
 };
 
 // Confirms lock-in (SPEC 10.6): what will be created, the start Monday for Mon-Sun weeks, and an
 // "I understand" checkbox when muscle groups are below MV or above MRV.
-export function LockInDialog({ open, onClose, mode, weeks, deloadFinalWeek, trainingDays, warnings, mondays, busy, error, onConfirm }: Props) {
+export function LockInDialog({ open, onClose, mode, weeks, deloadFinalWeek, trainingDays, warnings, mondays, busy, error, activeName, onConfirm }: Props) {
   const [startDate, setStartDate] = useState(mondays[0] ?? '');
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -61,6 +63,12 @@ export function LockInDialog({ open, onClose, mode, weeks, deloadFinalWeek, trai
           </li>
           {deloadFinalWeek && <li>Week {weeks} is a deload: half the sets{showRir ? ', back to the Week 1 RIR' : ''}.</li>}
         </ul>
+
+        {activeName && (
+          <p data-testid="lock-pauses" className="rounded-xl border border-verdigris-800 bg-verdigris-950 p-3 text-verdigris-200">
+            Only one mesocycle runs at a time: <strong>{activeName}</strong> will be paused. You can resume it later.
+          </p>
+        )}
 
         {calendar && (
           <label className="grid gap-1 font-medium text-graphite-300">

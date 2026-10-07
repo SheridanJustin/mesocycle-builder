@@ -137,3 +137,32 @@ test('quick clicks on several workouts are all saved', async ({ page, request })
   await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('✓ Completed');
   await expect(card(page, 'Thu').getByTestId('session-status')).toHaveText('Skipped');
 });
+
+test('only one mesocycle runs at a time: locking in pauses the running one, which can be resumed', async ({ page, request }) => {
+  const firstName = unique('First');
+  const first = await lockedMesocycle(request, firstName);
+
+  // Locking in a second one through the UI warns that the first will be paused.
+  const secondName = unique('Second');
+  const second = await createPopulatedDraft(request, { name: secondName, days: week });
+  await page.goto(`/mesocycles/${second}/build`);
+  await gotoTab(page, 'Review');
+  await page.getByRole('button', { name: 'Lock in mesocycle' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Lock in mesocycle' });
+  await expect(dialog.getByTestId('lock-pauses')).toContainText(`${firstName} will be paused`);
+  await dialog.getByRole('button', { name: 'Lock in', exact: true }).click();
+  await page.waitForURL(new RegExp(`/mesocycles/${second}$`));
+
+  await page.goto(`/mesocycles/${first}`);
+  await expect(page.getByTestId('status-badge')).toHaveText('paused');
+  await expect(page.getByRole('status').filter({ hasText: 'Paused' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Complete' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Resume mesocycle' }).click();
+  await expect(page.getByTestId('status-badge')).toHaveText('active');
+  await expect(page.getByRole('button', { name: 'Complete' }).first()).toBeVisible();
+
+  await page.goto('/mesocycles');
+  const secondCard = page.getByTestId('mesocycle-card').filter({ hasText: secondName });
+  await expect(secondCard).toContainText('paused');
+  await expect(secondCard.getByRole('button', { name: `Delete ${secondName}` })).toHaveCount(0);
+});

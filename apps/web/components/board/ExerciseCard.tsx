@@ -29,7 +29,7 @@ export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
       <div className="flex items-start gap-2">
         <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${GROUP_DOT[group]}`} />
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-semibold leading-snug">{exercise.name}</h4>
+          <h3 className="text-sm font-semibold leading-snug">{exercise.name}</h3>
           <p className="text-[11px] text-graphite-400">
             <span data-testid="muscle-tag" className="font-medium text-graphite-200">
               {groupLabel(group)}
@@ -42,7 +42,7 @@ export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
           type="button"
           aria-label={`Delete ${exercise.name}`}
           onClick={onRemove}
-          className="-mr-1 -mt-1 rounded-md px-1.5 py-0.5 text-graphite-500 hover:bg-snow-900 hover:text-snow-200"
+          className="-mr-1 -mt-1 rounded-md px-1.5 py-0.5 text-graphite-400 hover:bg-snow-900 hover:text-snow-200"
         >
           ✕
         </button>

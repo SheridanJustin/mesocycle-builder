@@ -21,7 +21,7 @@ function Stat({ label, value, testId, align = 'left', children }: StatProps) {
       triggerClassName="block w-full cursor-help rounded-2xl border border-graphite-800 bg-graphite-900/80 px-4 py-2 text-left transition-colors hover:border-aqua-700 focus-visible:border-aqua-500"
       trigger={
         <>
-          <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-graphite-500">
+          <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-graphite-400">
             {label}
             <span aria-hidden="true" className="grid h-4 w-4 place-items-center rounded-full border border-graphite-700 text-[9px] normal-case">
               i

@@ -95,3 +95,19 @@ test('Review explains the deload week on hover and Lock in opens a confirmation'
   await page.getByRole('dialog', { name: 'Lock in mesocycle' }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toBeHidden();
 });
+
+test('unknown pages show a friendly 404 with a way back', async ({ page }) => {
+  const response = await page.goto('/this-page-does-not-exist');
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await page.getByRole('link', { name: 'Go to my mesocycles' }).click();
+  await page.waitForURL(/\/mesocycles$/);
+});
+
+test('a mesocycle that does not exist shows a clear message on both of its pages', async ({ page }) => {
+  for (const path of ['/mesocycles/00000000-0000-4000-8000-000000000000', '/mesocycles/00000000-0000-4000-8000-000000000000/build']) {
+    await page.goto(path);
+    await expect(page.getByRole('alert').filter({ hasText: 'Mesocycle not found.' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to mesocycles' })).toBeVisible();
+  }
+});

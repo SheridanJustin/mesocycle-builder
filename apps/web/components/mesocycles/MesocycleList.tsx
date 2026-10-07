@@ -70,7 +70,7 @@ function MesocycleCard({ item, onDelete }: { item: MesocycleSummary; onDelete: (
           {...listeners}
           aria-label={`Move ${item.name}`}
           title="Drag to reorder"
-          className="relative z-10 -ml-1 mt-0.5 grid h-6 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-graphite-500 hover:bg-graphite-800 hover:text-graphite-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 active:cursor-grabbing"
+          className="relative z-10 -ml-1 mt-0.5 grid h-6 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-graphite-400 hover:bg-graphite-800 hover:text-graphite-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 active:cursor-grabbing"
         >
           <GripIcon />
         </span>
@@ -81,26 +81,26 @@ function MesocycleCard({ item, onDelete }: { item: MesocycleSummary; onDelete: (
       </div>
       <dl className="flex gap-4 text-sm">
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-graphite-500">Length</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-graphite-400">Length</dt>
           <dd className="font-medium">{item.duration_weeks} weeks</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-wide text-graphite-500">Cycle</dt>
+          <dt className="text-[11px] uppercase tracking-wide text-graphite-400">Cycle</dt>
           <dd className="font-medium">{item.day_count}-day {item.schedule_mode === 'calendar' ? 'week (Mon–Sun)' : 'cycle'}</dd>
         </div>
         {item.start_date && (
           <div>
-            <dt className="text-[11px] uppercase tracking-wide text-graphite-500">Starts</dt>
+            <dt className="text-[11px] uppercase tracking-wide text-graphite-400">Starts</dt>
             <dd className="font-medium">{dateFormat.format(new Date(`${item.start_date}T00:00:00`))}</dd>
           </div>
         )}
       </dl>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-graphite-500">
+        <span className="text-xs text-graphite-400">
           {item.ended_at ? `${item.status === 'dropped' ? 'Dropped' : 'Completed'} ${dateFormat.format(new Date(item.ended_at))}` : `Edited ${dateFormat.format(new Date(item.updated_at))}`}
         </span>
-        {/* An active mesocycle must be dropped (on its page) before it can be deleted. */}
-        {item.status !== 'active' && (
+        {/* A mesocycle in progress (active or paused) must be dropped on its page before it can be deleted. */}
+        {item.status !== 'active' && item.status !== 'paused' && (
           <button
             type="button"
             aria-label={`Delete ${item.name}`}

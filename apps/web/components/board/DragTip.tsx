@@ -36,9 +36,13 @@ export function DragTip() {
       <span aria-hidden="true" className="text-sm">
         ✋
       </span>
-      <span>
+      <span className="hidden sm:inline">
         <strong className="font-semibold">Tip:</strong> press and hold an exercise to drag it, within a day or to another day. Drag a day&apos;s
         header to reorder days.
+      </span>
+      {/* Phones get the short version, so the board keeps its space. */}
+      <span className="sm:hidden">
+        <strong className="font-semibold">Tip:</strong> press and hold exercises or day headers to drag them.
       </span>
       <button
         type="button"

@@ -5,6 +5,7 @@ const STYLE: Record<MesocycleStatus, string> = {
   active: 'bg-shamrock-950 text-shamrock-300 ring-shamrock-800',
   completed: 'bg-aqua-950 text-aqua-300 ring-aqua-800',
   dropped: 'bg-snow-950 text-snow-300 ring-snow-800',
+  paused: 'bg-verdigris-950 text-verdigris-300 ring-verdigris-800',
 };
 
 export function StatusBadge({ status }: { status: MesocycleStatus }) {

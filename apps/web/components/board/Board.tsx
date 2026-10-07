@@ -202,6 +202,7 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <h2 className="sr-only">Training days</h2>
       <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 pt-3 text-sm">
         <label className="inline-flex cursor-pointer items-center gap-2 text-graphite-200">
           <input
@@ -236,7 +237,7 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
         >
           Templates
         </button>
-        <span className="text-xs text-graphite-500">
+        <span className={`text-xs text-graphite-400 ${numbered && state.days.length !== WEEK_DAYS ? '' : 'hidden sm:inline'}`}>
           {numbered && state.days.length !== WEEK_DAYS ? `Weekday names need exactly ${WEEK_DAYS} days.` : 'Empty days are rest days'}
         </span>
         <DragTip />

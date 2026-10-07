@@ -27,7 +27,7 @@ export function Dialog({ open, title, onClose, children, side = false, wide = fa
 
   const placement = side
     ? 'ml-auto mr-0 h-dvh max-h-dvh w-full max-w-md rounded-none'
-    : `m-auto w-full ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-lg`;
+    : `m-auto w-[calc(100%-2rem)] ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-lg`;
 
   return (
     <dialog

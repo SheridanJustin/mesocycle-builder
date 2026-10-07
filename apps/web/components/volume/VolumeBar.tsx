@@ -25,12 +25,13 @@ export function VolumeBar({ volume, contributionsFor }: Props) {
   return (
     <div role="region" aria-label="Weekly volume by muscle group" data-testid="volume-bar" className="flex items-center gap-2 py-1.5">
       {entries.length === 0 ? (
-        <p className="flex-1 py-1 text-xs text-graphite-500">Weekly sets per muscle group appear here as you add exercises.</p>
+        <p className="flex-1 py-1 text-xs text-graphite-400">Weekly sets per muscle group appear here as you add exercises.</p>
       ) : (
-        // Ten groups at most, so they always fit: no horizontal scrolling.
-        <ul className="grid flex-1 grid-cols-5 gap-1.5 lg:grid-cols-10">
+        // Ten groups at most: a grid that always fits from tablet width up. On a phone the chips
+        // keep a readable width in one row that scrolls sideways (the page itself never does).
+        <ul className="-my-1 flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto py-1 sm:my-0 sm:grid sm:grid-cols-5 sm:overflow-visible sm:py-0 lg:grid-cols-10">
           {entries.map(([group, entry]) => (
-            <li key={group} className="min-w-0">
+            <li key={group} className="w-[6.75rem] shrink-0 snap-start sm:w-auto sm:min-w-0">
               <VolumeChip
                 group={group}
                 entry={entry}

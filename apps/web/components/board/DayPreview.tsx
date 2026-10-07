@@ -15,7 +15,7 @@ export function DayPreview({ day }: { day: BuilderDay }) {
               {slot.exercise.name}
             </li>
           ))}
-          {day.slots.length > shown.length && <li className="text-graphite-500">+{day.slots.length - shown.length} more</li>}
+          {day.slots.length > shown.length && <li className="text-graphite-400">+{day.slots.length - shown.length} more</li>}
         </ul>
       )}
     </div>

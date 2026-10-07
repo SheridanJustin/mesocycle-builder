@@ -4,7 +4,7 @@ import { type Exercise, type LockMesocycle, type MesocycleTemplate } from '@meso
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ApiClientError } from '../../lib/api-client';
+import { api, ApiClientError } from '../../lib/api-client';
 import { computeReviewStats } from '../../lib/builder/review-stats';
 import { downloadWeekPng } from '../../lib/export/week-png';
 import { useBuilder } from '../../lib/builder/use-builder';
@@ -40,6 +40,8 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [locking, setLocking] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
+  // The mesocycle running now (if any): locking in pauses it, and the dialog says so.
+  const [activeName, setActiveName] = useState<string | null>(null);
   const router = useRouter();
 
   // A locked mesocycle is read-only: show its plan instead of the builder (SPEC 9.4).
@@ -128,7 +130,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const cycleLabel = state.mode === 'calendar' ? 'Mon–Sun week' : `${state.days.length}-day cycle`;
 
   return (
-    <div className="flex h-full flex-col">
+    <main className="flex h-full flex-col">
       <div className="relative z-30 shrink-0 border-b border-graphite-800/80 bg-graphite-950/85 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 pt-2.5">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -189,7 +191,19 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
             onSettingsChange={(patch) => void builder.updateSettings(patch)}
             mode={state.mode}
             onExportWeek={() => void downloadWeekPng(state, meta.name, { showRir })}
-            lock={{ busy: locking, error: lockError, onConfirm: (body) => void lockIn(body), onOpen: () => setLockError(null) }}
+            lock={{
+              busy: locking,
+              error: lockError,
+              activeName,
+              onConfirm: (body) => void lockIn(body),
+              onOpen: () => {
+                setLockError(null);
+                api
+                  .getMe()
+                  .then((me) => setActiveName(me.stats.active?.name ?? null))
+                  .catch(() => setActiveName(null));
+              },
+            }}
           />
         )}
       </div>
@@ -211,6 +225,6 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
         onCancel={() => setPendingTemplate(null)}
       />
       <AddExercisesPanel dayName={addingToDay?.name ?? null} onAdd={addExercises} onClose={() => setAddingToDayId(null)} />
-    </div>
+    </main>
   );
 }

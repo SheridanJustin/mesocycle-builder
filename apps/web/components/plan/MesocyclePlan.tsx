@@ -26,6 +26,7 @@ type Props = {
   error: string | null;
   onSetStatus: (sessionId: string, status: UpdateSession['status']) => void;
   onDrop: () => void;
+  onResume: () => void;
   onExport: () => void;
 };
 
@@ -80,13 +81,13 @@ function DayCard({ day, today, editable, pendingSessionIds, onSetStatus }: { day
       <li data-testid="rest-card" className={`rounded-xl border border-dashed border-graphite-700 bg-graphite-900/40 p-3 ${ring}`}>
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="font-semibold text-graphite-300">{day.name}</h3>
-          <span className="text-xs text-graphite-500">
+          <span className="text-xs text-graphite-400">
             {isToday ? 'Today · ' : ''}
             {dateLabel}
           </span>
         </div>
-        <p className="mt-2 text-xs font-medium uppercase tracking-wider text-graphite-500">Rest day</p>
-        <p className="mt-1 text-xs text-graphite-500">No workout: recover.</p>
+        <p className="mt-2 text-xs font-medium uppercase tracking-wider text-graphite-400">Rest day</p>
+        <p className="mt-1 text-xs text-graphite-400">No workout: recover.</p>
       </li>
     );
   }
@@ -125,7 +126,7 @@ function DayCard({ day, today, editable, pendingSessionIds, onSetStatus }: { day
 
 // The view of a locked mesocycle (SPEC 10.1, 10.6): summary, every week day by day (workouts you can
 // complete or skip, and rest days), and the volume per muscle group. Active ones can be dropped.
-export function MesocyclePlan({ detail, stats, volume, block, today, pendingSessionIds, error, onSetStatus, onDrop, onExport }: Props) {
+export function MesocyclePlan({ detail, stats, volume, block, today, pendingSessionIds, error, onSetStatus, onDrop, onResume, onExport }: Props) {
   const [weekNumber, setWeekNumber] = useState(() => initialWeek(detail, today));
   const [confirmingDrop, setConfirmingDrop] = useState(false);
   const week = detail.weeks.find((w) => w.week_number === weekNumber) ?? detail.weeks[0];
@@ -155,7 +156,12 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={onExport}>Export week as PNG</Button>
-          {detail.status === 'active' && (
+          {detail.status === 'paused' && (
+            <Button variant="primary" onClick={onResume}>
+              Resume mesocycle
+            </Button>
+          )}
+          {(detail.status === 'active' || detail.status === 'paused') && (
             <button
               type="button"
               onClick={() => setConfirmingDrop(true)}
@@ -179,6 +185,11 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
       {detail.status === 'completed' && (
         <p role="status" className="mt-3 rounded-xl border border-shamrock-800 bg-shamrock-950 p-3 text-sm text-shamrock-200">
           Mesocycle complete — every workout is done or skipped. It&apos;s now in your archive.
+        </p>
+      )}
+      {detail.status === 'paused' && (
+        <p role="status" className="mt-3 rounded-xl border border-verdigris-800 bg-verdigris-950 p-3 text-sm text-verdigris-200">
+          Paused: another mesocycle is running. Resume this one to keep tracking its workouts (the other one will be paused).
         </p>
       )}
       {detail.status === 'dropped' && (

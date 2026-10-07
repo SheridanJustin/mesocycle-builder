@@ -25,7 +25,7 @@ export function VolumeTable({ volume, block, durationWeeks, deloadFinalWeek, emp
         <h3 className="flex items-center gap-2 font-semibold">
           Volume by muscle group <LandmarkInfo align="left" />
         </h3>
-        <p className="text-xs text-graphite-500">
+        <p className="text-xs text-graphite-400">
           Weekly sets against MV · MEV · MAV · MRV, and total sets over {durationWeeks} weeks
           {deloadFinalWeek ? ' (final week deloaded)' : ''}
         </p>
@@ -36,7 +36,7 @@ export function VolumeTable({ volume, block, durationWeeks, deloadFinalWeek, emp
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-graphite-500">
+            <tr className="text-left text-[11px] uppercase tracking-wider text-graphite-400">
               <th scope="col" className="px-4 py-1.5 font-semibold">
                 Group
               </th>
@@ -59,7 +59,7 @@ export function VolumeTable({ volume, block, durationWeeks, deloadFinalWeek, emp
                 <tr key={group} data-testid={`review-row-${group}`} className="border-t border-graphite-800/80">
                   <th scope="row" className="px-4 py-1.5 text-left font-medium">
                     {groupLabel(group)}
-                    <span className="ml-1.5 text-[11px] font-normal text-graphite-500">{entry.weekly_frequency}×/wk</span>
+                    <span className="ml-1.5 text-[11px] font-normal text-graphite-400">{entry.weekly_frequency}×/wk</span>
                   </th>
                   <td className="whitespace-nowrap px-2 py-1.5 text-right">
                     <span className="text-base font-semibold tabular-nums" data-testid={`review-weekly-${group}`}>
@@ -86,7 +86,7 @@ export function VolumeTable({ volume, block, durationWeeks, deloadFinalWeek, emp
       )}
 
       {trained.length > 0 && untrained.length > 0 && (
-        <p className="border-t border-graphite-800 px-4 py-2 text-xs text-graphite-500" data-testid="review-untrained">
+        <p className="border-t border-graphite-800 px-4 py-2 text-xs text-graphite-400" data-testid="review-untrained">
           Not trained: {untrained.map(groupLabel).join(', ')}
         </p>
       )}

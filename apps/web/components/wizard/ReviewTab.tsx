@@ -29,7 +29,7 @@ type Props = {
   block: BlockVolume;
   onSettingsChange: (patch: Partial<MesocycleSettings>) => void;
   mode: ScheduleMode;
-  lock: { busy: boolean; error: string | null; onConfirm: (body: LockMesocycle) => void; onOpen: () => void };
+  lock: { busy: boolean; error: string | null; activeName: string | null; onConfirm: (body: LockMesocycle) => void; onOpen: () => void };
   // Downloads the schedule as one plain week (PNG), without the mesocycle progression.
   onExportWeek: () => void;
 };
@@ -67,7 +67,7 @@ export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mo
           <h3 className="font-semibold">Mesocycle settings</h3>
           <fieldset className="min-w-0">
             <legend className="text-sm font-medium text-graphite-300">
-              Duration <span className="text-graphite-500">· {settings.durationWeeks} weeks</span>
+              Duration <span className="text-graphite-400">· {settings.durationWeeks} weeks</span>
             </legend>
             {/* One radio per length; the row scrolls sideways when it does not fit. Arrow keys move between them. */}
             <div className="mt-1.5 flex snap-x gap-1.5 overflow-x-auto pb-1" data-testid="duration-options">
@@ -137,14 +137,14 @@ export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mo
           >
             Lock in mesocycle
           </Button>
-          <p className="text-xs text-graphite-500">
+          <p className="text-xs text-graphite-400">
             {stats.trainingDays.length === 0 ? 'Add at least one exercise to lock in.' : 'Your draft saves automatically.'}
           </p>
           <div className="border-t border-graphite-800 pt-3">
             <Button className="w-full" disabled={stats.trainingDays.length === 0} onClick={onExportWeek}>
               Export week as PNG
             </Button>
-            <p className="mt-1.5 text-xs text-graphite-500">Just want a guide? Save your week as an image, without the mesocycle progression.</p>
+            <p className="mt-1.5 text-xs text-graphite-400">Just want a guide? Save your week as an image, without the mesocycle progression.</p>
           </div>
         </div>
       </div>
@@ -160,6 +160,7 @@ export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mo
         mondays={mondays}
         busy={lock.busy}
         error={lock.error}
+        activeName={lock.activeName}
         onConfirm={lock.onConfirm}
       />
     </section>

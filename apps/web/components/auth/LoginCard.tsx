@@ -93,7 +93,7 @@ export function LoginCard({ googleEnabled, callbackUrl, initialError = null }: P
       <form onSubmit={(e) => void submit(e)} className="mt-4 grid gap-3" aria-label={mode === 'signin' ? 'Sign in' : 'Create account'}>
         {mode === 'register' && (
           <label className="block text-sm font-medium text-graphite-200">
-            Name <span className="font-normal text-graphite-500">(optional)</span>
+            Name <span className="font-normal text-graphite-400">(optional)</span>
             <input name="name" autoComplete="name" maxLength={100} className={field} />
           </label>
         )}
@@ -111,7 +111,7 @@ export function LoginCard({ googleEnabled, callbackUrl, initialError = null }: P
             required
             className={field}
           />
-          {mode === 'register' && <span className="mt-1 block text-xs font-normal text-graphite-500">At least {MIN_PASSWORD_LENGTH} characters.</span>}
+          {mode === 'register' && <span className="mt-1 block text-xs font-normal text-graphite-400">At least {MIN_PASSWORD_LENGTH} characters.</span>}
         </label>
         {error && (
           <p role="alert" className="rounded-lg border border-snow-700 bg-snow-900 p-2 text-sm text-snow-100">
@@ -125,7 +125,7 @@ export function LoginCard({ googleEnabled, callbackUrl, initialError = null }: P
 
       {googleEnabled && (
         <>
-          <div className="my-4 flex items-center gap-3 text-xs text-graphite-500" aria-hidden="true">
+          <div className="my-4 flex items-center gap-3 text-xs text-graphite-400" aria-hidden="true">
             <span className="h-px flex-1 bg-graphite-800" />
             or
             <span className="h-px flex-1 bg-graphite-800" />

@@ -75,6 +75,16 @@ export function MesocyclePlanContainer({ mesocycleId }: { mesocycleId: string })
     });
   }
 
+  async function resume() {
+    setActionError(null);
+    try {
+      const detail = await api.resumeMesocycle(mesocycleId);
+      setLoaded((current) => (current ? { ...current, detail } : current));
+    } catch (e) {
+      setActionError(`Could not resume the mesocycle: ${message(e, 'unknown error')}`);
+    }
+  }
+
   async function drop() {
     setActionError(null);
     try {
@@ -109,6 +119,7 @@ export function MesocyclePlanContainer({ mesocycleId }: { mesocycleId: string })
       error={actionError}
       onSetStatus={setStatus}
       onDrop={() => void drop()}
+      onResume={() => void resume()}
       onExport={() => void downloadWeekPng(view.state, loaded.detail.name, { showRir })}
     />
   );

@@ -73,7 +73,7 @@ export function DayColumn({
       aria-label={`${day.name} column`}
       data-testid="day-column"
       style={drag?.style}
-      className={`relative flex ${drag?.isDragging ? 'z-10 opacity-40' : ''} max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[14rem] max-w-72 flex-1 basis-0'} ${
+      className={`relative flex ${drag?.isDragging ? 'z-10 opacity-40' : ''} max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[calc(100vw-4.5rem)] max-w-72 flex-1 basis-0 sm:min-w-[14rem]'} ${
         isRestDay ? 'bg-graphite-900/40' : 'bg-graphite-900/90 shadow-lg shadow-black/30'
       } ${isDropTarget ? 'border-aqua-400 ring-2 ring-aqua-700' : isRestDay ? 'border-graphite-800/70 border-dashed' : 'border-graphite-800'}`}
     >
@@ -120,7 +120,7 @@ export function DayColumn({
         </div>
         <div className="mt-1 flex flex-wrap gap-1 px-2">
           {isRestDay ? (
-            <span data-testid="rest-day" className="rounded-full px-0.5 text-[11px] font-medium uppercase tracking-wider text-graphite-500">
+            <span data-testid="rest-day" className="rounded-full px-0.5 text-[11px] font-medium uppercase tracking-wider text-graphite-400">
               Rest day
             </span>
           ) : (
@@ -150,7 +150,7 @@ export function DayColumn({
               : 'border-graphite-700 py-2 text-sm text-graphite-300 hover:border-aqua-500 hover:bg-aqua-950/40 hover:text-aqua-300'
           }`}
         >
-          + Add exercise
+          <span aria-hidden="true">+</span> Add exercises
         </button>
       </footer>
       <ConfirmDialog

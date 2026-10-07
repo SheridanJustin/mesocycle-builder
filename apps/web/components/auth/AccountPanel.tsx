@@ -19,7 +19,7 @@ const monthYear = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numer
 function Stat({ label, value, testId }: { label: string; value: number | string; testId: string }) {
   return (
     <div className="rounded-xl border border-graphite-800 bg-graphite-950/60 px-3 py-2">
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-graphite-500">{label}</dt>
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-graphite-400">{label}</dt>
       <dd className="text-lg font-semibold tabular-nums text-graphite-50" data-testid={testId}>
         {value}
       </dd>
@@ -50,7 +50,7 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
             {email}
           </p>
           {me && (
-            <p className="text-xs text-graphite-500">
+            <p className="text-xs text-graphite-400">
               {signInMethods(me)} · member since {monthYear.format(new Date(me.created_at))}
             </p>
           )}
@@ -94,7 +94,7 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
                 </span>
               </Link>
             ) : (
-              <p className="mt-2 text-xs text-graphite-500">No active mesocycle. Lock one in to start tracking workouts.</p>
+              <p className="mt-2 text-xs text-graphite-400">No active mesocycle. Lock one in to start tracking workouts.</p>
             )}
           </>
         ) : (
@@ -107,7 +107,7 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
         <label className="flex cursor-pointer items-start justify-between gap-3">
           <span>
             <span className="block text-sm font-medium text-graphite-100">Show RIR</span>
-            <span className="block text-xs text-graphite-500">Reps in reserve on cards, plans and exports. Turn off if you don&apos;t train by RIR.</span>
+            <span className="block text-xs text-graphite-400">Reps in reserve on cards, plans and exports. Turn off if you don&apos;t train by RIR.</span>
           </span>
           <input
             type="checkbox"

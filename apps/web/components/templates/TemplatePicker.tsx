@@ -55,14 +55,14 @@ export function TemplatePicker({ open, onClose, onPick, note, busyId = null, err
                     <span
                       key={index}
                       className={`flex-1 rounded-md py-1 text-center text-[10px] font-semibold ${
-                        day.length > 0 ? 'bg-aqua-500/20 text-aqua-200 ring-1 ring-aqua-700' : 'bg-graphite-800/60 text-graphite-500'
+                        day.length > 0 ? 'bg-aqua-500/20 text-aqua-200 ring-1 ring-aqua-700' : 'bg-graphite-800/60 text-graphite-400'
                       }`}
                     >
                       {dayLabel(template, index)}
                     </span>
                   ))}
                 </span>
-                <span className="text-[11px] text-graphite-500">
+                <span className="text-[11px] text-graphite-400">
                   {exercises} exercises · {sets} sets per week
                 </span>
               </button>
@@ -70,7 +70,7 @@ export function TemplatePicker({ open, onClose, onPick, note, busyId = null, err
           );
         })}
       </ul>
-      <p className="mt-3 text-xs text-graphite-500">Everything stays editable after you pick: move, add or remove exercises and days.</p>
+      <p className="mt-3 text-xs text-graphite-400">Everything stays editable after you pick: move, add or remove exercises and days.</p>
     </Dialog>
   );
 }
