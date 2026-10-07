@@ -144,21 +144,32 @@ export function useBuilder(mesocycleId: string) {
     [dispatch, state.days],
   );
 
+  // Settings saves run one after another, so quick changes (3 weeks, then 6) reach the server in
+  // order; only the response to the last pending save updates the screen.
+  const settingsQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingSettings = useRef(0);
   const updateSettings = useCallback(
-    async (patch: Partial<Pick<BuilderMeta, 'name' | 'durationWeeks' | 'deloadFinalWeek'>>) => {
+    (patch: Partial<Pick<BuilderMeta, 'name' | 'durationWeeks' | 'deloadFinalWeek'>>): Promise<void> => {
       setNotice(null);
       setMeta((current) => (current ? { ...current, ...patch } : current));
-      try {
-        const detail = await api.patchMesocycle(mesocycleId, {
-          ...(patch.name !== undefined ? { name: patch.name } : {}),
-          ...(patch.durationWeeks !== undefined ? { duration_weeks: patch.durationWeeks } : {}),
-          ...(patch.deloadFinalWeek !== undefined ? { deload_final_week: patch.deloadFinalWeek } : {}),
-        });
-        setMeta(metaFrom(detail));
-      } catch (error) {
-        setNotice(error instanceof Error ? `Could not save settings: ${error.message}` : 'Could not save settings.');
-        if (lastDetail.current) setMeta(metaFrom(lastDetail.current));
-      }
+      pendingSettings.current += 1;
+      const run = settingsQueue.current.then(async () => {
+        try {
+          const detail = await api.patchMesocycle(mesocycleId, {
+            ...(patch.name !== undefined ? { name: patch.name } : {}),
+            ...(patch.durationWeeks !== undefined ? { duration_weeks: patch.durationWeeks } : {}),
+            ...(patch.deloadFinalWeek !== undefined ? { deload_final_week: patch.deloadFinalWeek } : {}),
+          });
+          if (pendingSettings.current === 1) setMeta(metaFrom(detail));
+        } catch (error) {
+          setNotice(error instanceof Error ? `Could not save settings: ${error.message}` : 'Could not save settings.');
+          if (lastDetail.current) setMeta(metaFrom(lastDetail.current));
+        } finally {
+          pendingSettings.current -= 1;
+        }
+      });
+      settingsQueue.current = run;
+      return run;
     },
     [mesocycleId],
   );
