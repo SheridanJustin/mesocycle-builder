@@ -96,3 +96,9 @@ export const MUSCLE_GROUP_OF = {
   calves: 'calves',
   abs: 'abs',
 } as const satisfies Record<(typeof MUSCLES)[number], (typeof MUSCLE_GROUPS)[number]>;
+
+// Appearance (SPEC 10.12): a color palette and a light or dark mode, saved per user.
+export const THEME_PALETTES = ['graphite', 'ocean', 'indigo', 'rose', 'plum', 'frost'] as const;
+export const COLOR_MODES = ['dark', 'light'] as const;
+export const DEFAULT_PALETTE = 'graphite';
+export const DEFAULT_COLOR_MODE = 'dark';

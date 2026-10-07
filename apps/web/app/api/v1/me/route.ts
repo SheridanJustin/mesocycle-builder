@@ -18,7 +18,12 @@ export function PATCH(request: Request) {
     const body = await parseJsonBody(request, UpdateMeSchema);
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { showRir: body.show_rir, ...(body.name !== undefined ? { name: body.name } : {}) },
+      data: {
+        showRir: body.show_rir,
+        palette: body.palette,
+        colorMode: body.color_mode,
+        ...(body.name !== undefined ? { name: body.name } : {}),
+      },
     });
     return jsonResponse(MeSchema, await loadMe(updated));
   });

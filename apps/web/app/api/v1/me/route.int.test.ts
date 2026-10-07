@@ -9,7 +9,7 @@ import { GET, PATCH } from './route';
 
 beforeEach(async () => {
   await cleanCustomData();
-  await prisma.user.update({ where: { email: 'integration-dev@example.com' }, data: { showRir: true, name: null } });
+  await prisma.user.update({ where: { email: 'integration-dev@example.com' }, data: { showRir: true, name: null, palette: 'graphite', colorMode: 'dark' } });
 });
 afterAll(async () => {
   await cleanCustomData();
@@ -27,7 +27,7 @@ describe('GET /api/v1/me', () => {
       email: 'integration-dev@example.com',
       name: null,
       sign_in: { password: false, google: false },
-      preferences: { show_rir: true },
+      preferences: { show_rir: true, palette: 'graphite', color_mode: 'dark' },
       stats: { workouts_completed: 0, workouts_skipped: 0, sets_completed: 0, mesocycles_completed: 0, mesocycles_total: 0, active: null },
     });
   });
@@ -65,7 +65,13 @@ describe('PATCH /api/v1/me', () => {
     expect([renamed.preferences.show_rir, renamed.name]).toEqual([true, 'Sam']);
   });
 
-  it.each([{}, { show_rir: 'no' }, { name: '' }])('returns 400 for %j', async (body) => {
+  it('saves the palette and the light or dark mode', async () => {
+    const body = MeSchema.parse(await (await patch({ palette: 'frost', color_mode: 'light' })).json());
+    expect(body.preferences).toEqual({ show_rir: true, palette: 'frost', color_mode: 'light' });
+    expect((await me()).preferences.palette).toBe('frost');
+  });
+
+  it.each([{}, { show_rir: 'no' }, { name: '' }, { palette: 'neon' }, { color_mode: 'sepia' }])('returns 400 for %j', async (body) => {
     expect((await patch(body)).status).toBe(400);
   });
 

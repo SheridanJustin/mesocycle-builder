@@ -68,6 +68,9 @@ model User {
   weightUnit String @default("lb") @map("weight_unit")
   // Show RIR targets in the UI (some lifters do not use RIR). The plan still stores them.
   showRir Boolean @default(true) @map("show_rir")
+  // Appearance: one of THEME_PALETTES (packages/shared) and 'dark' | 'light'.
+  palette String @default("graphite") @db.VarChar(32)
+  colorMode String @default("dark") @map("color_mode") @db.VarChar(8)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   exercises Exercise[]

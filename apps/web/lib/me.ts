@@ -1,6 +1,11 @@
-import type { Me } from '@mesocycle/shared';
+import { DEFAULT_PALETTE, THEME_PALETTES, type Me } from '@mesocycle/shared';
 import type { User } from '@prisma/client';
 import { prisma } from './db';
+
+// Stored as text; anything unknown falls back to the default palette.
+export function toPalette(value: string): Me['preferences']['palette'] {
+  return (THEME_PALETTES as readonly string[]).includes(value) ? (value as Me['preferences']['palette']) : DEFAULT_PALETTE;
+}
 
 const RESOLVED = ['completed', 'skipped'];
 
@@ -32,7 +37,7 @@ export async function loadMe(user: User): Promise<Me> {
     name: user.name,
     created_at: user.createdAt.toISOString(),
     sign_in: { password: user.passwordHash !== null, google: user.googleId !== null },
-    preferences: { show_rir: user.showRir },
+    preferences: { show_rir: user.showRir, palette: toPalette(user.palette), color_mode: user.colorMode === 'light' ? 'light' : 'dark' },
     stats: {
       workouts_completed: completed,
       workouts_skipped: skipped,
