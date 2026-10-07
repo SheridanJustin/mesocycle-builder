@@ -15,7 +15,7 @@ A web app where a lifter builds a 3–10 week hypertrophy training block (a **me
 
 The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
 
-*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1). *Revision R6:* an account menu in the header (profile, training stats, preferences, Sign out) and a "Show RIR" preference (decision 16). *Revision R7 (M9):* only one mesocycle runs at a time (decision 17), plus the hardening pass: phone layout, accessibility audit, 404 and error pages (10.11).
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1). *Revision R6:* an account menu in the header (profile, training stats, preferences, Sign out) and a "Show RIR" preference (decision 16). *Revision R7 (M9):* only one mesocycle runs at a time (decision 17), plus the hardening pass: phone layout, accessibility audit, 404 and error pages (10.11). *Revision R8:* six color palettes, each with a dark and a light mode (10.12); weekly numbers and the landmark terms carry the status colors.
 
 ### Glossary
 
@@ -61,6 +61,7 @@ The original requirements left several things open. These are the decisions made
 15. **Tracking without logging:** on an active mesocycle each generated workout can be marked **completed** or **skipped** (and undone). That records whether it happened, not what was lifted: entering reps and weights stays a non-goal. A week is complete when all its workouts are completed or skipped; the mesocycle becomes `completed` when all of its are (undoing one reopens it). An active mesocycle can be **dropped** (stopped early). Completed and dropped mesocycles form the **archive**; drafts and archived ones can be deleted, an active one must be dropped first. "Export week as PNG" draws the plan as one plain week on a canvas in the browser (no new dependency, nothing sent to the server).
 16. **Account menu and RIR preference:** a person icon in the header opens the account panel: name, email, sign-in methods, member-since date, training stats (workouts done and skipped, sets done = target sets of completed workouts, mesocycles completed, and the active mesocycle with its progress), the **Show RIR** switch, and **Sign out**. Show RIR (`users.show_rir`, on by default) only changes the display: RIR disappears from exercise cards, the drag preview, the plan, the lock-in and deload explanations and the PNG export. RIR values are still stored and still ramp at lock-in, so switching it back on shows them again.
 17. **One mesocycle at a time:** a user has at most one `active` mesocycle (a partial unique index enforces it). Locking in a new one **pauses** the active one (`paused`), in the same transaction; the lock-in dialog names it. A paused mesocycle keeps its workouts but cannot track them until **Resume**, which pauses whichever one is active then. Paused ones stay on the Current tab, can be dropped, and cannot be deleted (drop first). Undoing a workout of a completed mesocycle while another one is active reopens it as `paused`.
+18. **Appearance:** six palettes (Graphite & Aqua, the original; Ocean; Indigo Night; Rose; Plum & Sand; Frost), each with a **dark** and a **light** mode, chosen in the account panel and saved per user (`users.palette`, `users.color_mode`). Components keep using the token scales (graphite, aqua, verdigris, shamrock, snow); each palette and mode redefines them in `app/themes.css`, generated from `lib/themes/palettes.ts` (OKLCH lightness steps, mirrored for light mode). A unit test checks WCAG AA contrast for every palette and mode. The volume status colors keep their five hues in both modes (7.4).
 
 ---
 
@@ -122,6 +123,8 @@ users
   google_id TEXT NULL UNIQUE               -- Google "sub", set on Google sign-in
   weight_unit TEXT NOT NULL DEFAULT 'lb'   -- 'kg' | 'lb'
   show_rir BOOLEAN NOT NULL DEFAULT TRUE   -- display preference (decision 16)
+  palette VARCHAR(32) NOT NULL DEFAULT 'graphite'  -- appearance (decision 18)
+  color_mode VARCHAR(8) NOT NULL DEFAULT 'dark' CHECK (color_mode IN ('dark', 'light'))
 
 exercises
   id UUID PK
@@ -262,7 +265,7 @@ Body: `{ name, primary_muscle, secondary_muscles[], equipment_type, movement_typ
 
 **`POST /auth/register`** — create an email/password account. Body `{ "email", "password", "name"? }` (email trimmed and lower-cased; password 8–200 characters). Returns `{ id, email, name }` (`201`); `409` if the email already has an account. It does not sign in: the browser then signs in through Auth.js (`/api/auth/*`, outside `/api/v1`), which also handles Google, the session and sign-out. Every other endpoint needs a session (`401` without one).
 
-**`GET /me`** — the signed-in user: `id`, `email`, `name`, `created_at`, `sign_in` (`password`, `google`), `preferences` (`show_rir`) and `stats` (`workouts_completed`, `workouts_skipped`, `sets_completed`, `mesocycles_completed`, `mesocycles_total`, `active` = `{ id, name, done, total }` or null). **`PATCH /me`** — `{ "show_rir"?, "name"? }`; returns the same.
+**`GET /me`** — the signed-in user: `id`, `email`, `name`, `created_at`, `sign_in` (`password`, `google`), `preferences` (`show_rir`, `palette`, `color_mode`) and `stats` (`workouts_completed`, `workouts_skipped`, `sets_completed`, `mesocycles_completed`, `mesocycles_total`, `active` = `{ id, name, done, total }` or null). **`PATCH /me`** — `{ "show_rir"?, "palette"?, "color_mode"?, "name"? }`; returns the same.
 
 **`GET /muscle-landmarks`**
 Returns all landmark rows. The client caches these.
@@ -398,7 +401,7 @@ Let `t` = total weekly sets for a muscle.
 | `mav_high < t <= mrv` | `HIGH` | `orange` | Approaching the ceiling |
 | `t > mrv` | `EXCEEDS_MRV` | `red` | Hard warning |
 
-The five color names are fixed. The app uses a dark theme, so each is rendered as a dark tint, a vivid border/bar and light text (see `apps/web/app/globals.css`): amber `#f59e0b`, lightgreen `#a3e635`, green `#22c55e`, orange `#f97316`, red `#ef4444` (border colors).
+The five color names are fixed. In dark mode each is rendered as a dark tint, a vivid border/bar and light text (see `apps/web/app/globals.css`): amber `#f59e0b`, lightgreen `#a3e635`, green `#22c55e`, orange `#f97316`, red `#ef4444` (border colors). Light mode (10.12) uses the same five hues as a light tint, a slightly deeper border and dark text (`lib/themes/palettes.ts`). Besides the chips, the colors mark the weekly number in Review's volume table (so phones, which hide the status badge and range bar, still show the status) and the MV/MEV/MAV/MRV terms in the ⓘ explanation (MV amber, MEV lightgreen, MAV green, MRV red), which also lists the five zones in order.
 
 Boundary rule: when `mv == mev` (e.g. both 0 for low-need muscles), `t = mv` is treated as `ABOVE_MEV` or better, never `MAINTENANCE`. Write a test for this.
 
@@ -594,6 +597,11 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 - At phone width (390 px) every screen fits the width; the page never scrolls sideways. On the board a training day is nearly the full width (one day at a time, the next one peeking in, snap scrolling); rest days stay narrow. The volume chips keep readable labels in one row that scrolls sideways (from 640 px up they form the fitting grid). The drag tip is shortened and the "Empty days are rest days" hint is hidden. Dialogs keep a 16 px margin.
 - Unknown URLs show a **Page not found** page with a link to the list; an unexpected crash shows **Something went wrong** with **Try again**. A mesocycle that does not exist (or belongs to someone else) shows "Mesocycle not found." with a link back.
 
+### 10.12 Appearance
+
+- The account panel has an **Appearance** section: a Dark / Light switch and a grid of the six palettes, each with a swatch strip (page, surface, accent, secondary, text) and "Dark first" / "Light first". Picking a palette applies it at once in the mode it was designed for; the switch then flips modes for any palette. The choice is saved to the account and rendered by the server (`<html data-palette data-mode>`), so pages never flash the default colors. Signed-out pages use the default.
+- Light mode mirrors the token scales: the lightest step becomes the darkest, so the same classes stay readable. The week PNG export keeps its own dark design.
+
 ---
 
 ## 11. Testing requirements
@@ -619,6 +627,7 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 14. The account panel shows the user and stats that follow completed workouts; switching Show RIR off hides RIR on the board, the plan and the deload text, and stays off after a reload.
 15. One active mesocycle: locking in a second pauses the first (the dialog says so); a paused one cannot track workouts until resumed.
 16. Phone width (390 px): every screen fits, the board and the volume chips scroll sideways; the accessibility audit reports no violations.
+17. Appearance: picking a palette and mode applies at once and survives a reload; a light palette passes the accessibility audit; weekly numbers carry their status color on a phone.
 
 ---
 

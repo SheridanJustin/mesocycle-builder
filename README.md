@@ -36,7 +36,8 @@ email (on `/login`, Create account) to keep them.
 
 Open <http://localhost:3000>. You'll be asked to sign in: **Create account** (email and password) or **Continue with Google**.
 The person icon in the header opens your account: name, email, training stats (workouts and sets done, mesocycles
-finished, the active mesocycle's progress), the **Show RIR** switch (turn it off if you don't train by RIR) and **Sign out**.
+finished, the active mesocycle's progress), the **Show RIR** switch (turn it off if you don't train by RIR), **Appearance** (six color palettes, each in dark and light
+mode) and **Sign out**.
 Each account sees only its own mesocycles.
 
 On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to reorder; drafts and archived mesocycles have a **Delete** button.
@@ -67,6 +68,11 @@ On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to r
    deleted; active ones can't be edited or deleted. Only one mesocycle runs at a time: locking in a new one **pauses** the
    current one, and **Resume mesocycle** on a paused one switches back (pausing the other).
 9. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
+
+## Color palettes
+
+Palettes live in `apps/web/lib/themes/palettes.ts`. After editing one, regenerate the CSS with
+`pnpm --filter @mesocycle/web themes` (a unit test fails if `app/themes.css` is out of date, and another checks contrast).
 
 ## Commands
 
