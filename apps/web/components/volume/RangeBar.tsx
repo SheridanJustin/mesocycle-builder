@@ -24,11 +24,17 @@ export function RangeBar({ entry, size = 'sm', showLabels = false, className = '
         <div className="absolute inset-y-0 bg-status-green-bar/15" style={{ left: `${mark('mav_low')}%`, width: `${mark('mav_high') - mark('mav_low')}%` }} />
         <div className={`absolute inset-y-0 left-0 rounded-full ${BAR_COLOR[entry.color]}`} style={{ width: `${g.valuePct}%` }} />
         {g.marks.map((m) => (
-          <div key={m.key} data-mark={m.key} className="absolute -inset-y-0.5 w-px bg-graphite-400/70" style={{ left: `${m.pct}%` }} />
+          // Bright, taller than the bar and outlined in dark so the marks read on any fill color.
+          <div
+            key={m.key}
+            data-mark={m.key}
+            className="absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-full bg-graphite-50 shadow-[0_0_0_1px_rgb(0_0_0/0.55)]"
+            style={{ left: `${m.pct}%` }}
+          />
         ))}
       </div>
       {showLabels && (
-        <div className="relative mt-1 h-3 text-[10px] text-graphite-500">
+        <div className="relative mt-1.5 h-3 text-[10px] text-graphite-400">
           {rangeLabels(g.marks).map((label) => (
             <span
               key={label.text}

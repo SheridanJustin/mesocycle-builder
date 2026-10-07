@@ -22,6 +22,9 @@ export function LandmarkInfo({ align = 'right' }: { align?: 'left' | 'right' }) 
           </span>
         ))}
       </span>
+      <span className="mt-2 block text-graphite-300" data-testid="landmark-info-varies">
+        Values differ per muscle: muscles worked hard by compound lifts (shoulders, abs, glutes) need little or no direct work to maintain.
+      </span>
       <span className="mt-2 block text-graphite-400">Volume means hard working sets per muscle group per week.</span>
     </InfoPopover>
   );

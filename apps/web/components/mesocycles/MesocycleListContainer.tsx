@@ -2,7 +2,7 @@
 
 import type { MesocycleSummary, MesocycleTemplate } from '@mesocycle/shared';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fetchExerciseCatalog } from '../../lib/api-client';
 import { stateToSchedule } from '../../lib/builder/mappers';
 import { templateToState } from '../../lib/builder/templates';
@@ -61,6 +61,21 @@ export function MesocycleListContainer() {
     }
   }
 
+  // Optimistic: the list shows the new order at once. Saves run one after another so a slow
+  // response can never undo a newer drag; on failure the saved order is reloaded.
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  function reorder(ids: string[]) {
+    setItems((current) => (current ? ids.flatMap((id) => current.filter((item) => item.id === id)) : current));
+    saving.current = saving.current.then(async () => {
+      try {
+        await api.reorderMesocycles(ids);
+      } catch (e) {
+        setError(e instanceof Error ? `Could not save the new order: ${e.message}` : 'Could not save the new order');
+        await load();
+      }
+    });
+  }
+
   async function confirmDelete() {
     if (!pendingDelete) return;
     try {
@@ -78,7 +93,7 @@ export function MesocycleListContainer() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Mesocycles</h1>
-          <p className="text-sm text-graphite-400">Plan a 3–10 week hypertrophy mesocycle, one week at a time.</p>
+          <p className="text-sm text-graphite-400">Plan a 3–10 week hypertrophy mesocycle, one week at a time. Drag a card by its ⠿ grip to reorder.</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setPickingTemplate(true)} disabled={creating}>
@@ -95,7 +110,7 @@ export function MesocycleListContainer() {
         </p>
       )}
       {items === null && !error && <p className="text-graphite-400">Loading…</p>}
-      {items && <MesocycleList items={items} onDelete={setPendingDelete} />}
+      {items && <MesocycleList items={items} onDelete={setPendingDelete} onReorder={reorder} />}
       <TemplatePicker
         open={pickingTemplate}
         onClose={() => setPickingTemplate(false)}

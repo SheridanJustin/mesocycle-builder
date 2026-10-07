@@ -1,6 +1,13 @@
 'use client';
 
-import { DEFAULT_MESOCYCLE_NAME, PutScheduleSchema, type Exercise, type MesocycleDetail, type MesocycleTemplate } from '@mesocycle/shared';
+import {
+  DEFAULT_MESOCYCLE_NAME,
+  PutScheduleSchema,
+  type Exercise,
+  type LockMesocycle,
+  type MesocycleDetail,
+  type MesocycleTemplate,
+} from '@mesocycle/shared';
 import type { Landmarks } from '@mesocycle/volume-engine';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { api, ApiClientError, fetchExerciseCatalog } from '../api-client';
@@ -168,6 +175,16 @@ export function useBuilder(mesocycleId: string) {
     [dispatch, meta?.name, updateSettings],
   );
 
+  // Saves any pending edits first, so the plan that gets locked is exactly what is on screen.
+  const lockIn = useCallback(
+    async (body: LockMesocycle): Promise<MesocycleDetail> => {
+      const saved = (await controller.current?.flush()) ?? true;
+      if (!saved) throw new Error('Your latest changes could not be saved. Retry saving, then lock in.');
+      return api.lockMesocycle(mesocycleId, body);
+    },
+    [mesocycleId],
+  );
+
   return {
     load,
     meta,
@@ -179,6 +196,7 @@ export function useBuilder(mesocycleId: string) {
     updateSettings,
     copyDay,
     applyTemplate,
+    lockIn,
     retrySave: () => controller.current?.retry(),
   };
 }

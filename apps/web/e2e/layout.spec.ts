@@ -73,7 +73,7 @@ test('an info button explains MV, MEV, MAV and MRV in plain language', async ({ 
   await expect(info).toHaveCount(0);
 });
 
-test('Review explains the deload week on hover and has a Lock in button', async ({ page, request }) => {
+test('Review explains the deload week on hover and Lock in opens a confirmation', async ({ page, request }) => {
   const id = await createPopulatedDraft(request, { name: 'Deload Block', days: week });
   await page.goto(`/mesocycles/${id}/build`);
   await gotoTab(page, 'Review');
@@ -89,8 +89,8 @@ test('Review explains the deload week on hover and has a Lock in button', async 
   await expect(tip).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Lock in mesocycle' }).click();
-  await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toContainText('Lock-in is coming soon');
-  await page.getByRole('dialog', { name: 'Lock in mesocycle' }).getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toContainText('freezes this plan');
+  await page.getByRole('dialog', { name: 'Lock in mesocycle' }).getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Lock in mesocycle' })).toBeHidden();
 });
 

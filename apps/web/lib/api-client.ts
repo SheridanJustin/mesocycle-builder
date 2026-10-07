@@ -9,6 +9,7 @@ import {
   type CreateExercise,
   type CreateMesocycle,
   type DuplicateDay,
+  type LockMesocycle,
   type Exercise,
   type ListExercisesQuery,
   type PatchMesocycle,
@@ -67,8 +68,11 @@ export const api = {
   patchMesocycle: (id: string, body: PatchMesocycle) =>
     request(`/mesocycles/${id}`, json('PATCH', body), MesocycleDetailSchema),
   deleteMesocycle: (id: string) => request(`/mesocycles/${id}`, { method: 'DELETE' }),
+  reorderMesocycles: (ids: string[]) => request('/mesocycles/order', json('PUT', { ids }), MesocycleListSchema),
   putSchedule: (id: string, body: ScheduleBody) =>
     request(`/mesocycles/${id}/schedule`, json('PUT', body), MesocycleDetailSchema),
+  lockMesocycle: (id: string, body: Partial<LockMesocycle>) =>
+    request(`/mesocycles/${id}/lock`, json('POST', body), MesocycleDetailSchema),
   duplicateDay: (id: string, body: DuplicateDay) =>
     request(`/mesocycles/${id}/duplicate-day`, json('POST', body), MesocycleDetailSchema),
   getLandmarks: () => request('/muscle-landmarks', { method: 'GET' }, MuscleLandmarkListSchema),

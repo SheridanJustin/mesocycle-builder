@@ -1,9 +1,11 @@
 'use client';
 
-import { estimateSessionMinutes, type Exercise, type MesocycleTemplate } from '@mesocycle/shared';
-import { deloadSets } from '@mesocycle/volume-engine';
+import { type Exercise, type LockMesocycle, type MesocycleTemplate } from '@mesocycle/shared';
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ApiClientError } from '../../lib/api-client';
+import { computeReviewStats } from '../../lib/builder/review-stats';
 import { useBuilder } from '../../lib/builder/use-builder';
 import { computeBuilderBlockVolume, contributionsFor } from '../../lib/builder/volume';
 import { AddExercisesPanel } from '../board/AddExercisesPanel';
@@ -14,7 +16,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { InlineText } from '../ui/InlineText';
 import { SaveIndicator } from '../ui/SaveIndicator';
 import { VolumeBar } from '../volume/VolumeBar';
-import { ReviewTab, type ReviewDay, type ReviewStats } from './ReviewTab';
+import { ReviewTab } from './ReviewTab';
 
 type Tab = 'build' | 'review';
 const TABS: { id: Tab; label: string }[] = [
@@ -33,6 +35,28 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const [pendingTemplate, setPendingTemplate] = useState<MesocycleTemplate | null>(null);
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [templateError, setTemplateError] = useState<string | null>(null);
+  const [locking, setLocking] = useState(false);
+  const [lockError, setLockError] = useState<string | null>(null);
+  const router = useRouter();
+
+  // A locked mesocycle is read-only: show its plan instead of the builder (SPEC 9.4).
+  const status = meta?.status;
+  useEffect(() => {
+    if (status && status !== 'draft') router.replace(`/mesocycles/${mesocycleId}`);
+  }, [status, mesocycleId, router]);
+
+  async function lockIn(body: LockMesocycle) {
+    setLocking(true);
+    setLockError(null);
+    try {
+      await builder.lockIn(body);
+      router.replace(`/mesocycles/${mesocycleId}`);
+    } catch (error) {
+      const details = error instanceof ApiClientError ? error.details.map((d) => d.issue).join('; ') : '';
+      setLockError(error instanceof Error ? `${error.message}${details ? ` (${details})` : ''}` : 'Could not lock in.');
+      setLocking(false);
+    }
+  }
 
   const handlers: BoardHandlers = {
     onSetNumbered: actions.setNumbered,
@@ -96,22 +120,8 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
     );
   }
 
-  const training = state.days.filter((d) => d.slots.length > 0);
-  const trainingDays: ReviewDay[] = training.map((day) => ({
-    name: day.name,
-    exercises: day.slots.length,
-    sets: day.slots.reduce((sum, slot) => sum + slot.sets, 0),
-    minutes: estimateSessionMinutes(day.slots.map((slot) => ({ sets: slot.sets, movementType: slot.exercise.movement_type }))),
-  }));
-  const stats: ReviewStats = {
-    trainingDays,
-    restDays: state.days.filter((d) => d.slots.length === 0).map((d) => d.name),
-    weeklySets: trainingDays.reduce((sum, day) => sum + day.sets, 0),
-    deloadWeekSets: training.reduce((sum, day) => sum + day.slots.reduce((s, slot) => s + deloadSets(slot.sets), 0), 0),
-    averageMinutes: trainingDays.length
-      ? Math.round(trainingDays.reduce((sum, day) => sum + day.minutes, 0) / trainingDays.length / 5) * 5
-      : 0,
-  };
+  const stats = computeReviewStats(state);
+  const trainingDays = stats.trainingDays;
   const cycleLabel = state.mode === 'calendar' ? 'Mon–Sun week' : `${state.days.length}-day cycle`;
 
   return (
@@ -174,6 +184,8 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
             volume={volume}
             block={block}
             onSettingsChange={(patch) => void builder.updateSettings(patch)}
+            mode={state.mode}
+            lock={{ busy: locking, error: lockError, onConfirm: (body) => void lockIn(body), onOpen: () => setLockError(null) }}
           />
         )}
       </div>
