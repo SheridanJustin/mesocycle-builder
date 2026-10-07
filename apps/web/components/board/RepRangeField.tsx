@@ -5,7 +5,7 @@ import { matchingPreset, presetLabel, repRangeError, REP_PRESETS } from '../../l
 
 type Props = { idPrefix: string; min: number; max: number; onChange: (min: number, max: number) => void };
 
-const input = 'h-7 w-11 rounded-md border border-graphite-700 bg-graphite-950 px-1.5 text-sm text-graphite-50';
+const input = 'h-7 w-full min-w-0 rounded-md border border-graphite-700 bg-graphite-950 px-1 text-center text-sm text-graphite-50';
 
 // Preset dropdown with a "Custom" option that reveals min/max inputs. Invalid custom values stay
 // in the local draft (with an inline error) and are never committed to the schedule.
@@ -30,7 +30,8 @@ export function RepRangeField({ idPrefix, min, max, onChange }: Props) {
 
   return (
     <div
-      className="grid min-w-0 gap-0.5"
+      // A fixed width (fits "10–15" and "Custom"), so the field does not stretch with the column.
+      className="grid w-[4.75rem] gap-0.5"
       // Drafts survive moving between the min and max inputs; they reset once focus leaves the group.
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDraft({});
@@ -39,26 +40,37 @@ export function RepRangeField({ idPrefix, min, max, onChange }: Props) {
       <label htmlFor={`${idPrefix}-reps`} className="text-[10px] font-semibold uppercase tracking-wider text-graphite-400">
         Reps
       </label>
-      <select
-        id={`${idPrefix}-reps`}
-        className="h-7 w-full min-w-0 rounded-md border border-graphite-700 bg-graphite-950 px-1 text-sm text-graphite-50"
-        value={custom ? 'custom' : presetLabel({ min, max })}
-        onChange={(e) => {
-          if (e.target.value === 'custom') return setForceCustom(true);
-          const preset = REP_PRESETS.find((p) => presetLabel(p) === e.target.value);
-          if (!preset) return;
-          setForceCustom(false);
-          setDraft({});
-          onChange(preset.min, preset.max);
-        }}
-      >
-        {REP_PRESETS.map((preset) => (
-          <option key={presetLabel(preset)} value={presetLabel(preset)}>
-            {presetLabel(preset)}
-          </option>
-        ))}
-        <option value="custom">Custom</option>
-      </select>
+      <span className="relative block">
+        <select
+          id={`${idPrefix}-reps`}
+          // The browser's arrow is replaced by a slimmer one so "Custom" fits the fixed width.
+          className="h-7 w-full appearance-none rounded-md border border-graphite-700 bg-graphite-950 py-0 pl-1.5 pr-4 text-sm text-graphite-50"
+          value={custom ? 'custom' : presetLabel({ min, max })}
+          onChange={(e) => {
+            if (e.target.value === 'custom') return setForceCustom(true);
+            const preset = REP_PRESETS.find((p) => presetLabel(p) === e.target.value);
+            if (!preset) return;
+            setForceCustom(false);
+            setDraft({});
+            onChange(preset.min, preset.max);
+          }}
+        >
+          {REP_PRESETS.map((preset) => (
+            <option key={presetLabel(preset)} value={presetLabel(preset)}>
+              {presetLabel(preset)}
+            </option>
+          ))}
+          <option value="custom">Custom</option>
+        </select>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 10 6"
+          className="pointer-events-none absolute right-1.5 top-1/2 h-1.5 w-2.5 -translate-y-1/2 fill-none stroke-graphite-300"
+          strokeWidth="1.6"
+        >
+          <path d="M1 1l4 4 4-4" />
+        </svg>
+      </span>
       {custom && (
         <div className="flex items-center gap-1">
           <input

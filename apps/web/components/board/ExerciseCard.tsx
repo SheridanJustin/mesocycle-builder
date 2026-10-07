@@ -48,7 +48,8 @@ export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
         </button>
       </div>
 
-      <div className={`mt-2 grid items-start gap-x-1.5 ${showRir ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_1fr]'}`}>
+      {/* Fields keep their own width whatever the column width; extra space goes between them. */}
+      <div className={`mt-2 grid items-start justify-between gap-x-1.5 ${showRir ? 'grid-cols-[auto_auto_auto]' : 'grid-cols-[auto_auto]'}`}>
         <div className="grid gap-0.5">
           <span className={fieldLabel}>Sets</span>
           <NumberStepper label="Sets" value={slot.sets} min={MIN_SETS} max={MAX_SETS} onChange={(sets) => onUpdate({ sets })} />
