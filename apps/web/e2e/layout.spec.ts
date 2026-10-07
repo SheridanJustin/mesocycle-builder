@@ -115,3 +115,17 @@ test('a mesocycle that does not exist shows a clear message on both of its pages
     await expect(page.getByRole('link', { name: 'Back to mesocycles' })).toBeVisible();
   }
 });
+
+test('training-day columns keep a fixed width whatever the window size', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, { name: 'Width Block', days: [week[0]!, week[1]!, week[3]!] });
+  for (const [width, expected] of [
+    [600, 320],
+    [1024, 224],
+    [1920, 224],
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/mesocycles/${id}/build`);
+    const box = await column(page, 'Day 1').boundingBox();
+    expect(Math.round(box!.width), `at ${width}px`).toBe(expected);
+  }
+});

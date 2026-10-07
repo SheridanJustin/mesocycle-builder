@@ -527,7 +527,7 @@ The app uses a dark theme built from the product owner's palette (graphite neutr
 
 ### 10.3 The horizontal board (core requirement)
 
-- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day, with `scroll-snap-align:start`. Training-day columns share the available width (≈ 224–288 px each), rest days are narrow (≈ 112 px), and the row is **centered** (safe centering: when the days cannot fit, the row starts at the left edge and the board scrolls sideways). A Mon–Sun week with up to five training days fits a 1440 px window without scrolling.
+- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day, with `scroll-snap-align:start`. Training-day columns have a fixed width (224 px; on screens narrower than 640 px, the viewport minus 72 px, at most 320 px) so they never stretch with the window, rest days are narrow (112 px), and the row is **centered** (safe centering: when the days cannot fit, the row starts at the left edge and the board scrolls sideways). A Mon–Sun week with up to five training days fits a 1440 px window without scrolling.
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
 - Above the board: a **"Number the days"** switch (Mon–Sun ↔ Day 1…N, see decision 8), locked on while the cycle does not have exactly 7 days, the **+ Add day** button (up to 10 days; in a Mon–Sun week it switches to numbered days), the **Templates** button (10.10), and a visible **drag tip** ("press and hold an exercise to drag it … Drag a day's header to reorder days") that can be dismissed; the dismissal is remembered in that browser only.
 - **DayColumn header:** a grip icon (the header is the day's drag handle, 10.4), editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
@@ -594,7 +594,7 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 
 ### 10.11 Phones and error pages (M9)
 
-- At phone width (390 px) every screen fits the width; the page never scrolls sideways. On the board a training day is nearly the full width (one day at a time, the next one peeking in, snap scrolling); rest days stay narrow. The volume chips keep readable labels in one row that scrolls sideways (from 640 px up they form the fitting grid). The drag tip is shortened and the "Empty days are rest days" hint is hidden. Dialogs keep a 16 px margin.
+- At phone width (390 px) every screen fits the width; the page never scrolls sideways. On the board a training day is nearly the full width, capped at 320 px (one day at a time, the next one peeking in, snap scrolling); rest days stay narrow. The volume chips keep readable labels in one row that scrolls sideways (from 640 px up they form the fitting grid). The drag tip is shortened and the "Empty days are rest days" hint is hidden. Dialogs keep a 16 px margin.
 - Unknown URLs show a **Page not found** page with a link to the list; an unexpected crash shows **Something went wrong** with **Try again**. A mesocycle that does not exist (or belongs to someone else) shows "Mesocycle not found." with a link back.
 
 ### 10.12 Appearance

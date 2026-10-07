@@ -73,7 +73,7 @@ export function DayColumn({
       aria-label={`${day.name} column`}
       data-testid="day-column"
       style={drag?.style}
-      className={`relative flex ${drag?.isDragging ? 'z-10 opacity-40' : ''} max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'min-w-[calc(100vw-4.5rem)] max-w-72 flex-1 basis-0 sm:min-w-[14rem]'} ${
+      className={`relative flex ${drag?.isDragging ? 'z-10 opacity-40' : ''} max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-28 shrink-0' : 'w-[min(calc(100vw-4.5rem),20rem)] shrink-0 sm:w-56'} ${
         isRestDay ? 'bg-graphite-900/40' : 'bg-graphite-900/90 shadow-lg shadow-black/30'
       } ${isDropTarget ? 'border-aqua-400 ring-2 ring-aqua-700' : isRestDay ? 'border-graphite-800/70 border-dashed' : 'border-graphite-800'}`}
     >
