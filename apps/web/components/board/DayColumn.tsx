@@ -84,18 +84,26 @@ export function DayColumn({
         {...drag?.handleProps}
         aria-label={drag ? `Move ${day.name}` : undefined}
         title={drag ? 'Press and hold to move this day' : undefined}
-        className={`rounded-t-2xl px-2.5 pb-2 pt-2 ${drag ? 'cursor-grab touch-manipulation active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aqua-400' : ''}`}
+        className={`rounded-t-2xl px-2.5 pb-2 pt-2 ${drag ? 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aqua-400' : ''}`}
       >
         <div className="flex items-center gap-1">
           {drag && (
-            <svg aria-hidden="true" viewBox="0 0 8 14" className="h-3.5 w-2 shrink-0 fill-graphite-500" data-testid="day-grip">
-              <circle cx="2" cy="2" r="1.2" />
-              <circle cx="6" cy="2" r="1.2" />
-              <circle cx="2" cy="7" r="1.2" />
-              <circle cx="6" cy="7" r="1.2" />
-              <circle cx="2" cy="12" r="1.2" />
-              <circle cx="6" cy="12" r="1.2" />
-            </svg>
+            // A finger-sized handle (phones snap a touch to the nearest control, so a tiny grip next
+            // to the name field would focus the field instead of picking the day up).
+            <span
+              aria-hidden="true"
+              data-testid="day-grip"
+              className="-my-1 -ml-1.5 grid h-8 w-7 shrink-0 place-items-center rounded-md text-graphite-400 hover:bg-graphite-800 hover:text-graphite-200"
+            >
+              <svg viewBox="0 0 8 14" className="h-3.5 w-2 fill-current">
+                <circle cx="2" cy="2" r="1.2" />
+                <circle cx="6" cy="2" r="1.2" />
+                <circle cx="2" cy="7" r="1.2" />
+                <circle cx="6" cy="7" r="1.2" />
+                <circle cx="2" cy="12" r="1.2" />
+                <circle cx="6" cy="12" r="1.2" />
+              </svg>
+            </span>
           )}
           <InlineText
             id={nameId}

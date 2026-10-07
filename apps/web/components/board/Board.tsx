@@ -31,7 +31,7 @@ import {
 } from '../../lib/builder/drop';
 import { columnKeyboardTarget, keyboardTarget, type ArrowKey } from '../../lib/builder/keyboard-targets';
 import { findSlot } from '../../lib/builder/reducer';
-import { CardKeyboardSensor, CardPointerSensor } from '../../lib/builder/sensors';
+import { CardKeyboardSensor, CardMouseSensor, CardTouchSensor } from '../../lib/builder/sensors';
 import type { BuilderDay, BuilderState } from '../../lib/builder/types';
 import { CardPreview } from './CardPreview';
 import { DayPreview } from './DayPreview';
@@ -115,7 +115,9 @@ export function Board({ state, handlers, focusDayId, onFocusHandled }: Props) {
 
   const sensors = useSensors(
     // Press and hold a card for a moment to pick it up; a quick click or a scroll does not.
-    useSensor(CardPointerSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(CardMouseSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    // A slightly longer hold on touch screens, so scrolling with a finger never picks a card up by accident.
+    useSensor(CardTouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(CardKeyboardSensor, { coordinateGetter: keyboardCoordinates }),
   );
 

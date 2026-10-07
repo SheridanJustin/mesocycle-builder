@@ -22,7 +22,7 @@ export function SortableExerciseCard(props: CardProps) {
       aria-label={`Move ${props.slot.exercise.name}`}
       title="Press and hold to drag"
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`cursor-grab touch-manipulation rounded-xl active:cursor-grabbing ${isDragging ? 'opacity-30' : ''}`}
+      className={`cursor-grab touch-manipulation select-none rounded-xl [-webkit-touch-callout:none] active:cursor-grabbing ${isDragging ? 'opacity-30' : ''}`}
     >
       <ExerciseCard {...props} />
     </div>

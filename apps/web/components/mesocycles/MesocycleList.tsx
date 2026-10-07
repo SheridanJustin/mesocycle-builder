@@ -70,7 +70,7 @@ function MesocycleCard({ item, onDelete }: { item: MesocycleSummary; onDelete: (
           {...listeners}
           aria-label={`Move ${item.name}`}
           title="Drag to reorder"
-          className="relative z-10 -ml-1 mt-0.5 grid h-6 w-5 shrink-0 cursor-grab touch-none place-items-center rounded text-graphite-400 hover:bg-graphite-800 hover:text-graphite-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 active:cursor-grabbing"
+          className="relative z-10 -my-1 -ml-2 grid h-8 w-7 shrink-0 cursor-grab touch-none select-none place-items-center rounded-md text-graphite-400 hover:bg-graphite-800 hover:text-graphite-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 active:cursor-grabbing"
         >
           <GripIcon />
         </span>
