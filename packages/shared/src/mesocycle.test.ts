@@ -204,7 +204,7 @@ describe('response schemas', () => {
   it('accepts a summary and a detail with empty days', () => {
     expect(MesocycleSummarySchema.safeParse({ ...summary, day_count: 4 }).success).toBe(true);
     expect(
-      MesocycleDetailSchema.safeParse({ ...summary, days: [], priorities: [], volume_summary: { summary: {} } }).success,
+      MesocycleDetailSchema.safeParse({ ...summary, days: [], weeks: [], priorities: [], volume_summary: { summary: {} } }).success,
     ).toBe(true);
   });
 

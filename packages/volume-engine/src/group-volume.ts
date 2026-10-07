@@ -122,3 +122,15 @@ export function computeBlockVolume(
   }
   return result;
 }
+
+export type LockWarning = { group: MuscleGroup; status: 'BELOW_MV' | 'EXCEEDS_MRV'; totalSets: number };
+
+// Groups that lock-in asks the user to acknowledge (SPEC 6.2): trained below MV or above MRV.
+// Untrained groups are not listed (they have no entry in the summary).
+export function lockWarnings(volume: GroupVolumeSummary): LockWarning[] {
+  return MUSCLE_GROUPS.flatMap((group): LockWarning[] => {
+    const entry = volume.summary[group];
+    if (!entry || (entry.status !== 'BELOW_MV' && entry.status !== 'EXCEEDS_MRV')) return [];
+    return [{ group, status: entry.status, totalSets: entry.total_sets }];
+  });
+}

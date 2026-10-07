@@ -192,6 +192,12 @@ export const LockMesocycleSchema = z.object({
 });
 export type LockMesocycle = z.infer<typeof LockMesocycleSchema>;
 
+// The user's full list of mesocycle ids in the new order (every id exactly once).
+export const ReorderMesocyclesSchema = z
+  .object({ ids: z.array(z.string().uuid()).min(1) })
+  .refine((value) => new Set(value.ids).size === value.ids.length, { message: 'Ids must be unique', path: ['ids'] });
+export type ReorderMesocycles = z.infer<typeof ReorderMesocyclesSchema>;
+
 // ---- Responses ----
 
 export const MesocycleSummarySchema = z.object({
@@ -239,8 +245,44 @@ export const DayDetailSchema = z.object({
 });
 export type DayDetail = z.infer<typeof DayDetailSchema>;
 
+// Generated at lock-in (SPEC 5.3, 9): snapshots of the plan, one workout per training day per week.
+export const SessionExerciseDetailSchema = z.object({
+  id: z.string().uuid(),
+  exercise: ExerciseSchema,
+  sort_order: z.number().int(),
+  target_sets: z.number().int(),
+  rep_range_min: z.number().int(),
+  rep_range_max: z.number().int(),
+  target_rir: z.number().int(),
+  target_weight: z.number().nullable(),
+});
+export type SessionExerciseDetail = z.infer<typeof SessionExerciseDetailSchema>;
+
+export const SESSION_STATUSES = ['planned', 'in_progress', 'completed', 'skipped'] as const;
+
+export const SessionDetailSchema = z.object({
+  id: z.string().uuid(),
+  day_id: z.string().uuid(),
+  day_name: z.string(),
+  // Only for Mon-Sun (calendar) mesocycles.
+  scheduled_date: isoDate.nullable(),
+  status: z.enum(SESSION_STATUSES),
+  exercises: z.array(SessionExerciseDetailSchema),
+});
+export type SessionDetail = z.infer<typeof SessionDetailSchema>;
+
+export const WeekDetailSchema = z.object({
+  id: z.string().uuid(),
+  week_number: z.number().int(),
+  is_deload: z.boolean(),
+  sessions: z.array(SessionDetailSchema),
+});
+export type WeekDetail = z.infer<typeof WeekDetailSchema>;
+
 export const MesocycleDetailSchema = MesocycleSummarySchema.omit({ day_count: true }).extend({
   days: z.array(DayDetailSchema),
+  // Empty for drafts; filled at lock-in.
+  weeks: z.array(WeekDetailSchema),
   // Only muscles with a stored priority; every other muscle is 'normal'.
   priorities: z.array(z.object({ muscle: MuscleSchema, priority: PrioritySchema })),
   volume_summary: VolumeSummarySchema,

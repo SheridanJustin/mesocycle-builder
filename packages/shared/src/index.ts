@@ -7,3 +7,4 @@ export * from './landmarks';
 export * from './mesocycle';
 export * from './volume';
 export * from './templates';
+export * from './progression';

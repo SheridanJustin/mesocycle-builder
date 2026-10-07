@@ -101,6 +101,7 @@ describe('detailToState', () => {
             : [],
       })),
       priorities: [{ muscle: 'chest', priority: 'focus' }],
+      weeks: [],
       volume_summary: { summary: {} },
     });
   }

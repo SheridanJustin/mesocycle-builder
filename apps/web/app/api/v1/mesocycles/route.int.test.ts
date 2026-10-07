@@ -70,7 +70,7 @@ describe('POST /api/v1/mesocycles', () => {
 });
 
 describe('GET /api/v1/mesocycles', () => {
-  it('lists only the current user mesocycles as summaries, newest activity first', async () => {
+  it('lists only the current user mesocycles as summaries, newest first', async () => {
     await create({ name: 'First', days_per_week: 3, schedule_mode: 'relative' });
     await create({ name: 'Second', days_per_week: 5, schedule_mode: 'relative' });
     await prisma.mesocycle.create({

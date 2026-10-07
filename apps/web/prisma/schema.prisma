@@ -107,6 +107,8 @@ model Mesocycle {
   startDate DateTime? @db.Date @map("start_date")
   lockedAt DateTime? @map("locked_at")
   deloadFinalWeek Boolean @default(false) @map("deload_final_week")
+  // The user's own order on the list page (drag to reorder); lower comes first.
+  position Int @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   user User @relation(fields: [userId], references: [id])
@@ -189,7 +191,8 @@ model WorkoutSession {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   week MesocycleWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
-  day MesocycleDay @relation(fields: [dayId], references: [id])
+  // Cascade so deleting a mesocycle (days and weeks together) never trips over its workouts.
+  day MesocycleDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
   exercises SessionExercise[]
   @@map("workout_sessions")
 }

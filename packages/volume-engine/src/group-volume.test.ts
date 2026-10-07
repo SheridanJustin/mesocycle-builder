@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeBlockVolume, computeGroupVolume, deloadSets, groupLandmarks } from './group-volume';
+import { computeBlockVolume, computeGroupVolume, deloadSets, groupLandmarks, lockWarnings } from './group-volume';
 import { LANDMARKS } from './test-fixtures';
 import type { ExerciseInfo } from './types';
 
@@ -149,5 +149,29 @@ describe('computeBlockVolume', () => {
   it('returns nothing for no slots and rejects a bad week count', () => {
     expect(computeBlockVolume([], EX, { weeks: 4, deloadFinalWeek: true })).toEqual({});
     expect(() => computeBlockVolume(slots, EX, { weeks: 0, deloadFinalWeek: false })).toThrow(RangeError);
+  });
+});
+
+describe('lockWarnings', () => {
+  it('lists trained groups below MV or above MRV, in group order', () => {
+    const volume = computeGroupVolume(
+      [
+        { exerciseId: 'squat', sets: 30, dayId: 'a' },
+        { exerciseId: 'bench', sets: 2, dayId: 'a' },
+        { exerciseId: 'lateral', sets: 12, dayId: 'a' },
+      ],
+      EX,
+      LANDMARKS,
+    );
+    expect(lockWarnings(volume)).toEqual([
+      { group: 'chest', status: 'BELOW_MV', totalSets: 2 },
+      { group: 'triceps', status: 'BELOW_MV', totalSets: 1 },
+      { group: 'quads', status: 'EXCEEDS_MRV', totalSets: 30 },
+    ]);
+  });
+
+  it('is empty for a balanced or empty week', () => {
+    expect(lockWarnings({ summary: {} })).toEqual([]);
+    expect(lockWarnings(computeGroupVolume([{ exerciseId: 'bench', sets: 12, dayId: 'a' }], EX, LANDMARKS))).toEqual([]);
   });
 });
