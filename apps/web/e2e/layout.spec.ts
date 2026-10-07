@@ -129,3 +129,13 @@ test('training-day columns keep a fixed width whatever the window size', async (
     expect(Math.round(box!.width), `at ${width}px`).toBe(expected);
   }
 });
+
+test('a rest day shows its whole name', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, { name: 'Rest Names', days: [week[0]!, { name: 'Wednesday' }, { name: 'Day 10' }], numbered: true });
+  await page.goto(`/mesocycles/${id}/build`);
+  for (const name of ['Wednesday', 'Day 10']) {
+    const input = column(page, name).getByRole('textbox', { name: `Day name for ${name}` });
+    await expect(input).toHaveValue(name);
+    expect(await input.evaluate((el) => el.scrollWidth <= el.clientWidth), name).toBe(true);
+  }
+});

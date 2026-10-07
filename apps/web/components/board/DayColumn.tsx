@@ -84,9 +84,10 @@ export function DayColumn({
         {...drag?.handleProps}
         aria-label={drag ? `Move ${day.name}` : undefined}
         title={drag ? 'Press and hold to move this day' : undefined}
-        className={`rounded-t-2xl px-2.5 pb-2 pt-2 ${drag ? 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aqua-400' : ''}`}
+        className={`rounded-t-2xl pb-2 pt-2 ${isRestDay ? 'px-1.5' : 'px-2.5'} ${drag ? 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aqua-400' : ''}`}
       >
-        <div className="flex items-center gap-1">
+        {/* A rest-day column is narrow, so its name gets a row of its own below the grip and menu. */}
+        <div className={`flex items-center gap-1 ${isRestDay ? 'flex-wrap justify-between' : ''}`}>
           {drag && (
             // A finger-sized handle (phones snap a touch to the nearest control, so a tiny grip next
             // to the name field would focus the field instead of picking the day up).
@@ -111,7 +112,8 @@ export function DayColumn({
             value={day.name}
             maxLength={MAX_DAY_NAME_LENGTH}
             onCommit={(name) => handlers.onRenameDay(day.id, name)}
-            className={`min-w-0 flex-1 text-[15px] font-semibold ${isRestDay ? 'text-graphite-300' : ''}`}
+            title={day.name}
+            className={`min-w-0 flex-1 font-semibold ${isRestDay ? 'order-last basis-full px-1! text-sm text-graphite-300' : 'text-[15px]'}`}
           />
           <DayMenu
             dayName={day.name}
@@ -126,7 +128,7 @@ export function DayColumn({
             onRemove={() => (isRestDay ? handlers.onRemoveDay(day.id) : setConfirming('remove'))}
           />
         </div>
-        <div className="mt-1 flex flex-wrap gap-1 px-2">
+        <div className={`mt-1 flex flex-wrap gap-1 ${isRestDay ? 'px-0.5' : 'px-2'}`}>
           {isRestDay ? (
             <span data-testid="rest-day" className="rounded-full px-0.5 text-[11px] font-medium uppercase tracking-wider text-graphite-400">
               Rest day
