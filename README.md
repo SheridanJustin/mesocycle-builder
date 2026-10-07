@@ -28,7 +28,7 @@ pnpm dev                         # http://localhost:3000
 
 Open <http://localhost:3000> (it redirects to the mesocycle list).
 
-On the list, drag a card by its ⠿ grip to reorder your mesocycles; drafts have a **Delete** button.
+On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to reorder; drafts and archived mesocycles have a **Delete** button.
 
 1. **New mesocycle** opens the board right away: an untitled 4-week mesocycle with a Mon–Sun week of rest days.
    **Start from a template** (or **Templates** on the board) fills the week with a prebuilt split: Full Body, Upper / Lower,
@@ -48,9 +48,14 @@ On the list, drag a card by its ⠿ grip to reorder your mesocycles; drafts have
    hover for details, the duration (3–10 weeks) and deload (hover the ⓘ for what a deload does).
 7. **Lock in mesocycle** (on Review) freezes the plan. Pick the Monday your first week starts, tick "I understand" if any
    muscle group is below MV or above MRV, and confirm. Every week's workouts are created (RIR drops by 1 each week; a final
-   deload week halves the sets) and the read-only plan opens, week by week. Locked mesocycles can't be edited or deleted.
-8. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
-9. **Log in** (top right) is a placeholder form; accounts are not part of v1.
+   deload week halves the sets) and the plan opens, week by week.
+   **Export week as PNG** (on Review, or on the plan) saves the week as an image if you just want a guide.
+8. **Train with the plan**: each week shows every day, rest days included. Press **Complete** or **Skip** on a workout
+   (**Undo** if you slip). A week is complete when all its workouts are; the mesocycle completes after the last one and moves
+   to the **Archive** tab on the list. **Drop mesocycle** stops an active one early (also archived). Archived mesocycles can be
+   deleted; active ones can't be edited or deleted.
+9. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
+10. **Log in** (top right) is a placeholder form; accounts are not part of v1.
 
 ## Commands
 
@@ -74,7 +79,8 @@ All under `/api/v1` (see SPEC section 6).
 
 - `GET /exercises`, `POST /exercises`, `GET /muscle-landmarks`
 - `GET`/`POST /mesocycles`, `GET`/`PATCH`/`DELETE /mesocycles/{id}`, `PUT /mesocycles/order` (list order)
-- `POST /mesocycles/{id}/lock` (lock-in: generates weeks, workouts and targets)
+- `POST /mesocycles/{id}/lock` (lock-in: generates weeks, workouts and targets), `POST /mesocycles/{id}/drop`
+- `PATCH /sessions/{id}` (mark a workout completed, skipped or planned)
 - `PUT /mesocycles/{id}/schedule` (replace the whole schedule; used by autosave)
 - `POST /mesocycles/{id}/duplicate-day`, `POST /mesocycles/validate-volume`
 - `GET /api/health`
