@@ -3,7 +3,7 @@
 Hypertrophy mesocycle and schedule builder. Full spec: [`docs/SPEC.md`](docs/SPEC.md).
 
 Build a 3–10 week hypertrophy mesocycle on a horizontal board of day columns (dark theme), with a sticky weekly-volume bar
-that updates live against MV / MEV / MAV / MRV landmarks, plus a Review screen. Lock-in (milestone M8) is not built yet.
+that updates live against MV / MEV / MAV / MRV landmarks, plus a Review screen and lock-in, which freezes the plan and creates every week's workouts.
 
 ## Prerequisites
 
@@ -28,6 +28,8 @@ pnpm dev                         # http://localhost:3000
 
 Open <http://localhost:3000> (it redirects to the mesocycle list).
 
+On the list, drag a card by its ⠿ grip to reorder your mesocycles; drafts have a **Delete** button.
+
 1. **New mesocycle** opens the board right away: an untitled 4-week mesocycle with a Mon–Sun week of rest days.
    **Start from a template** (or **Templates** on the board) fills the week with a prebuilt split: Full Body, Upper / Lower,
    Push / Pull / Legs + Upper / Lower, or Push / Pull / Legs. Everything stays editable.
@@ -43,10 +45,12 @@ Open <http://localhost:3000> (it redirects to the mesocycle list).
    to a card (or a day's header), press Space, use the arrow keys (Left/Right jumps to the next day), press Space again. A day's **⋯ menu** has Rename, Duplicate as
    new day, Copy exercises to another day, Clear (make rest day) and Remove day.
 6. **Review** shows overall volume per muscle group (weekly, and total sets for the whole mesocycle), summary tiles you can
-   hover for details, the duration (3–10 weeks) and deload (hover the ⓘ for what a deload does). **Lock in mesocycle** is a
-   placeholder until M8.
-7. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
-8. **Log in** (top right) is a placeholder form; accounts are not part of v1.
+   hover for details, the duration (3–10 weeks) and deload (hover the ⓘ for what a deload does).
+7. **Lock in mesocycle** (on Review) freezes the plan. Pick the Monday your first week starts, tick "I understand" if any
+   muscle group is below MV or above MRV, and confirm. Every week's workouts are created (RIR drops by 1 each week; a final
+   deload week halves the sets) and the read-only plan opens, week by week. Locked mesocycles can't be edited or deleted.
+8. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
+9. **Log in** (top right) is a placeholder form; accounts are not part of v1.
 
 ## Commands
 
@@ -66,10 +70,11 @@ To use a Chromium you already have, set `PW_CHROMIUM_EXECUTABLE` to its path.
 
 ## API
 
-All under `/api/v1` (see SPEC section 6). Mesocycle locking (`POST /mesocycles/{id}/lock`) arrives in M8.
+All under `/api/v1` (see SPEC section 6).
 
 - `GET /exercises`, `POST /exercises`, `GET /muscle-landmarks`
-- `GET`/`POST /mesocycles`, `GET`/`PATCH`/`DELETE /mesocycles/{id}`
+- `GET`/`POST /mesocycles`, `GET`/`PATCH`/`DELETE /mesocycles/{id}`, `PUT /mesocycles/order` (list order)
+- `POST /mesocycles/{id}/lock` (lock-in: generates weeks, workouts and targets)
 - `PUT /mesocycles/{id}/schedule` (replace the whole schedule; used by autosave)
 - `POST /mesocycles/{id}/duplicate-day`, `POST /mesocycles/validate-volume`
 - `GET /api/health`
