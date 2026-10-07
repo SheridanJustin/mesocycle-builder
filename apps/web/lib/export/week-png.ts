@@ -8,13 +8,13 @@ import type { BuilderState } from '../builder/types';
 export type WeekImageDay = { name: string; minutes: number; exercises: { name: string; detail: string }[] };
 export type Measure = (text: string, font: string) => number;
 
-export function weekImageDays(state: BuilderState): WeekImageDay[] {
+export function weekImageDays(state: BuilderState, opts: { showRir: boolean } = { showRir: true }): WeekImageDay[] {
   return state.days.map((day) => ({
     name: day.name,
     minutes: estimateSessionMinutes(day.slots.map((slot) => ({ sets: slot.sets, movementType: slot.exercise.movement_type }))),
     exercises: day.slots.map((slot) => ({
       name: slot.exercise.name,
-      detail: `${slot.sets} sets × ${slot.repMin}–${slot.repMax} reps · RIR ${slot.rir}`,
+      detail: `${slot.sets} sets × ${slot.repMin}–${slot.repMax} reps${opts.showRir ? ` · RIR ${slot.rir}` : ''}`,
     })),
   }));
 }
@@ -156,8 +156,8 @@ export function fileNameFor(title: string): string {
 }
 
 // Draws the week at 2x for crisp text and downloads it as a PNG.
-export async function downloadWeekPng(state: BuilderState, title: string): Promise<void> {
-  const days = weekImageDays(state);
+export async function downloadWeekPng(state: BuilderState, title: string, opts: { showRir: boolean } = { showRir: true }): Promise<void> {
+  const days = weekImageDays(state, opts);
   const training = days.filter((d) => d.exercises.length > 0).length;
   const subtitle = `Weekly schedule · ${training} training day${training === 1 ? '' : 's'} · ${days.length - training} rest day${days.length - training === 1 ? '' : 's'}`;
   const canvas = document.createElement('canvas');

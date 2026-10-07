@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createPopulatedDraft, type DaySpec } from './api-helpers';
-import { addExercises, card, center, column, columnNames, createMesocycleViaUi, dragTo, durationRadio, gotoTab, setDuration, waitForSaved } from './helpers';
+import { addExercises, card, center, column, columnNames, createMesocycleViaUi, dragTo, durationRadio, gotoTab, setDuration, settingsSaved, waitForSaved } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
@@ -159,7 +159,9 @@ test('Review tiles explain themselves on hover, and duration is a 3-10 week radi
   await expect(page.getByTestId('duration-options').getByRole('radio')).toHaveCount(8);
   await expect(durationRadio(page, 4)).toBeChecked();
   await setDuration(page, 10);
+  const saved = settingsSaved(page, 'duration_weeks');
   await setDuration(page, 3);
+  await saved;
   await expect(page.getByText(/^3 weeks · Mon–Sun week/)).toBeVisible();
   await waitForSaved(page);
   await page.reload();

@@ -1,6 +1,7 @@
 import {
   AccountSchema,
   ApiErrorSchema,
+  MeSchema,
   ExerciseListSchema,
   ExerciseSchema,
   MAX_EXERCISE_PAGE_SIZE,
@@ -9,6 +10,7 @@ import {
   MuscleLandmarkListSchema,
   type CreateExercise,
   type Register,
+  type UpdateMe,
   type CreateMesocycle,
   type DuplicateDay,
   type LockMesocycle,
@@ -70,6 +72,8 @@ const json = (method: string, body: unknown): RequestInit => ({ method, body: JS
 
 export const api = {
   register: (body: Register) => request('/auth/register', json('POST', body), AccountSchema),
+  getMe: () => request('/me', { method: 'GET' }, MeSchema),
+  updateMe: (body: UpdateMe) => request('/me', json('PATCH', body), MeSchema),
   listMesocycles: () => request('/mesocycles', { method: 'GET' }, MesocycleListSchema),
   createMesocycle: (body: CreateMesocycle | Record<string, unknown>) =>
     request('/mesocycles', json('POST', body), MesocycleDetailSchema),

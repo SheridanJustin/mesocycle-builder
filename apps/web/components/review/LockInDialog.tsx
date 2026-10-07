@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { formatIsoDate } from '../../lib/dates';
 import { groupLabel, STATUS_LABEL } from '../../lib/labels';
 import { Button } from '../ui/Button';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { Dialog } from '../ui/Dialog';
 
 type Props = {
@@ -37,6 +38,7 @@ export function LockInDialog({ open, onClose, mode, weeks, deloadFinalWeek, trai
   }, [open, mondays]);
 
   const calendar = mode === 'calendar';
+  const { showRir } = usePreferences();
   const workouts = weeks * trainingDays;
   const blocked = trainingDays === 0 || (warnings.length > 0 && !acknowledged) || (calendar && !startDate);
 
@@ -54,8 +56,10 @@ export function LockInDialog({ open, onClose, mode, weeks, deloadFinalWeek, trai
               {weeks} weeks × {trainingDays} workout{trainingDays === 1 ? '' : 's'} = {workouts} workouts
             </strong>
           </li>
-          <li>Each exercise&apos;s RIR drops by 1 every week (never below 0); sets and reps stay as planned.</li>
-          {deloadFinalWeek && <li>Week {weeks} is a deload: half the sets, back to the Week 1 RIR.</li>}
+          <li>
+            {showRir ? "Each exercise's RIR drops by 1 every week (never below 0); sets and reps stay as planned." : 'Sets and reps stay as planned every week.'}
+          </li>
+          {deloadFinalWeek && <li>Week {weeks} is a deload: half the sets{showRir ? ', back to the Week 1 RIR' : ''}.</li>}
         </ul>
 
         {calendar && (

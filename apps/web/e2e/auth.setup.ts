@@ -9,6 +9,6 @@ setup('sign in', async ({ page }) => {
   await page.getByLabel('Password').fill(E2E_PASSWORD);
   await page.getByRole('form', { name: 'Sign in' }).getByRole('button', { name: 'Sign in' }).click();
   await page.waitForURL(/\/mesocycles$/);
-  await expect(page.getByTestId('account-label')).toHaveText('E2E Tester');
+  await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
   await page.context().storageState({ path: AUTH_STATE });
 });

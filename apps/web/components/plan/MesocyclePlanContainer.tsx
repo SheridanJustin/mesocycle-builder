@@ -11,6 +11,7 @@ import { computeReviewStats } from '../../lib/builder/review-stats';
 import { computeBuilderBlockVolume, computeBuilderVolume, toEngineLandmarks } from '../../lib/builder/volume';
 import { todayIso } from '../../lib/dates';
 import { downloadWeekPng } from '../../lib/export/week-png';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { MesocyclePlan } from './MesocyclePlan';
 
 type Loaded = { detail: MesocycleDetail; landmarks: Landmarks };
@@ -20,6 +21,7 @@ const message = (e: unknown, fallback: string) => (e instanceof Error ? e.messag
 // Loads a locked mesocycle and saves workout progress. Drafts belong in the builder, so they are redirected there.
 export function MesocyclePlanContainer({ mesocycleId }: { mesocycleId: string }) {
   const router = useRouter();
+  const { showRir } = usePreferences();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function MesocyclePlanContainer({ mesocycleId }: { mesocycleId: string })
       error={actionError}
       onSetStatus={setStatus}
       onDrop={() => void drop()}
-      onExport={() => void downloadWeekPng(view.state, loaded.detail.name)}
+      onExport={() => void downloadWeekPng(view.state, loaded.detail.name, { showRir })}
     />
   );
 }

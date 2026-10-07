@@ -1,6 +1,7 @@
 import { MAX_RIR, MAX_SETS, MIN_RIR, MIN_SETS, MUSCLE_GROUP_OF } from '@mesocycle/shared';
 import type { BuilderSlot, SlotMetrics } from '../../lib/builder/types';
 import { equipmentLabel, groupLabel } from '../../lib/labels';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { NumberStepper } from '../ui/NumberStepper';
 import { GROUP_DOT } from './group-colors';
 import { RepRangeField } from './RepRangeField';
@@ -16,6 +17,8 @@ const fieldLabel = 'text-[10px] font-semibold uppercase tracking-wider text-grap
 export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
   const { exercise } = slot;
   const group = MUSCLE_GROUP_OF[slot.muscle];
+  // RIR can be switched off in the account menu; the value is kept, just not shown.
+  const { showRir } = usePreferences();
 
   return (
     <article
@@ -45,12 +48,13 @@ export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-[auto_1fr_auto] items-start gap-x-1.5">
+      <div className={`mt-2 grid items-start gap-x-1.5 ${showRir ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[auto_1fr]'}`}>
         <div className="grid gap-0.5">
           <span className={fieldLabel}>Sets</span>
           <NumberStepper label="Sets" value={slot.sets} min={MIN_SETS} max={MAX_SETS} onChange={(sets) => onUpdate({ sets })} />
         </div>
         <RepRangeField idPrefix={slot.id} min={slot.repMin} max={slot.repMax} onChange={(repMin, repMax) => onUpdate({ repMin, repMax })} />
+        {showRir && (
         <div className="grid gap-0.5">
           <label htmlFor={`${slot.id}-rir`} className={fieldLabel}>
             RIR
@@ -68,6 +72,7 @@ export function ExerciseCard({ slot, onUpdate, onRemove }: Props) {
             ))}
           </select>
         </div>
+        )}
       </div>
     </article>
   );

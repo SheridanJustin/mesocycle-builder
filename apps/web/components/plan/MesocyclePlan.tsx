@@ -7,6 +7,7 @@ import { useState } from 'react';
 import type { ReviewStats } from '../../lib/builder/review-stats';
 import { formatIsoDate } from '../../lib/dates';
 import { initialWeek, planDays, progress, type PlanDay } from '../../lib/plan';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { SummaryTiles } from '../review/SummaryTiles';
 import { VolumeTable } from '../review/VolumeTable';
 import { Button } from '../ui/Button';
@@ -69,6 +70,7 @@ function WorkoutActions({ session, editable, busy, onSetStatus }: { session: Ses
 }
 
 function DayCard({ day, today, editable, pendingSessionIds, onSetStatus }: { day: PlanDay; today: string; editable: boolean; pendingSessionIds: ReadonlySet<string>; onSetStatus: Props['onSetStatus'] }) {
+  const { showRir } = usePreferences();
   const isToday = day.date === today;
   const ring = isToday ? 'ring-2 ring-aqua-500' : '';
   const dateLabel = day.date ? formatIsoDate(day.date, 'short') : null;
@@ -110,7 +112,8 @@ function DayCard({ day, today, editable, pendingSessionIds, onSetStatus }: { day
           <li key={item.id} data-testid="session-exercise" className="flex items-baseline justify-between gap-2">
             <span className={`min-w-0 truncate ${session.status === 'skipped' ? 'text-graphite-400 line-through' : 'text-graphite-100'}`}>{item.exercise.name}</span>
             <span className="shrink-0 tabular-nums text-graphite-300">
-              {item.target_sets} × {item.rep_range_min}–{item.rep_range_max} · RIR {item.target_rir}
+              {item.target_sets} × {item.rep_range_min}–{item.rep_range_max}
+              {showRir ? ` · RIR ${item.target_rir}` : ''}
             </span>
           </li>
         ))}
@@ -130,6 +133,7 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
   // Workouts can be ticked off while active; a completed mesocycle can still undo its last ones.
   const editable = detail.status === 'active' || detail.status === 'completed';
   const { done, total } = progress(detail);
+  const { showRir } = usePreferences();
 
   return (
     <main className="mx-auto h-full max-w-7xl overflow-y-auto px-4 py-5">
@@ -233,7 +237,7 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
               </p>
             )}
             {week.is_deload && (
-              <p className="mb-3 text-xs text-graphite-400">Deload week: half the sets (rounded up) and back to the Week 1 RIR so you recover.</p>
+              <p className="mb-3 text-xs text-graphite-400">Deload week: half the sets (rounded up){showRir ? ' and back to the Week 1 RIR' : ''} so you recover.</p>
             )}
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
               {planDays(detail, week).map((day) => (

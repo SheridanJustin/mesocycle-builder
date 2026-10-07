@@ -17,6 +17,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { InlineText } from '../ui/InlineText';
 import { SaveIndicator } from '../ui/SaveIndicator';
 import { VolumeBar } from '../volume/VolumeBar';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { ReviewTab } from './ReviewTab';
 
 type Tab = 'build' | 'review';
@@ -27,6 +28,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
   const builder = useBuilder(mesocycleId);
+  const { showRir } = usePreferences();
   const [tab, setTab] = useState<Tab>('build');
   const [addingToDayId, setAddingToDayId] = useState<string | null>(null);
   const [focusDayId, setFocusDayId] = useState<string | null>(null);
@@ -186,7 +188,7 @@ export function BuilderPage({ mesocycleId }: { mesocycleId: string }) {
             block={block}
             onSettingsChange={(patch) => void builder.updateSettings(patch)}
             mode={state.mode}
-            onExportWeek={() => void downloadWeekPng(state, meta.name)}
+            onExportWeek={() => void downloadWeekPng(state, meta.name, { showRir })}
             lock={{ busy: locking, error: lockError, onConfirm: (body) => void lockIn(body), onOpen: () => setLockError(null) }}
           />
         )}

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createPopulatedDraft, type DaySpec } from './api-helpers';
-import { column, gotoTab } from './helpers';
+import { column, gotoTab, settingsSaved } from './helpers';
 
 const week: DaySpec[] = [
   { slots: [{ exercise: 'Barbell Bench Press', sets: 4 }, { exercise: 'Incline Dumbbell Press' }, { exercise: 'Cable Lateral Raise', sets: 4 }, { exercise: 'Cable Pushdown' }] },
@@ -53,8 +53,10 @@ test('the mesocycle name can be renamed right on the main screen', async ({ page
   const id = await createPopulatedDraft(request, { name: 'Untitled mesocycle', days: week });
   await page.goto(`/mesocycles/${id}/build`);
   const title = page.getByTestId('mesocycle-title');
+  const saved = settingsSaved(page, 'name');
   await title.fill('Summer Push Block');
   await title.press('Enter');
+  await saved;
   await expect(page.getByTestId('save-indicator')).toHaveText(/Saved|All changes saved/);
   await page.reload();
   await expect(page.getByTestId('mesocycle-title')).toHaveValue('Summer Push Block');

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fileNameFor, layoutWeekImage, wrap, type Measure, type WeekImageDay } from './week-png';
+import { createSlot } from '../builder/reducer';
+import { fileNameFor, layoutWeekImage, weekImageDays, wrap, type Measure, type WeekImageDay } from './week-png';
 
 // 7 px per character, whatever the font.
 const measure: Measure = (text) => text.length * 7;
@@ -53,5 +54,15 @@ describe('fileNameFor', () => {
   it('makes a safe file name', () => {
     expect(fileNameFor('Push / Pull / Legs')).toBe('push-pull-legs-week.png');
     expect(fileNameFor('???')).toBe('schedule-week.png');
+  });
+});
+
+describe('weekImageDays', () => {
+  const exercise = { id: 'e', name: 'Cable Fly', primary_muscle: 'chest' as const, secondary_muscles: [], equipment_type: 'cable' as const, movement_type: 'isolation' as const, is_custom: false };
+  const state = { mode: 'relative' as const, priorities: {}, days: [{ id: 'd', name: 'Day 1', weekday: null, slots: [createSlot(exercise, 's')] }] };
+
+  it('includes RIR unless it is switched off', () => {
+    expect(weekImageDays(state)[0]!.exercises[0]!.detail).toBe('3 sets × 8–12 reps · RIR 3');
+    expect(weekImageDays(state, { showRir: false })[0]!.exercises[0]!.detail).toBe('3 sets × 8–12 reps');
   });
 });

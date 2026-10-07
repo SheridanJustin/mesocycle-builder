@@ -4,6 +4,12 @@ import { E2E_EMAIL } from './global-setup';
 // Next.js adds its own empty role="alert" route announcer; match ours by text.
 const alert = (page: Page, text: string) => page.getByRole('alert').filter({ hasText: text });
 
+// Sign out lives in the account menu (the person icon in the header).
+async function signOutViaMenu(page: Page) {
+  await page.getByRole('button', { name: 'Account' }).click();
+  await page.getByRole('dialog', { name: 'Account' }).getByRole('button', { name: 'Sign out' }).click();
+}
+
 // These tests start signed out.
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -43,10 +49,13 @@ test('create an account, sign out, and sign back in', async ({ page }) => {
   const email = unique('new');
   await createAccount(page, email, 'my long password', 'Pat Lifter');
   await page.waitForURL(/\/mesocycles$/);
-  await expect(page.getByTestId('account-label')).toHaveText('Pat Lifter');
+  await page.getByRole('button', { name: 'Account' }).click();
+  await expect(page.getByTestId('account-name')).toHaveText('Pat Lifter');
+  await expect(page.getByTestId('account-email')).toHaveText(email);
+  await page.keyboard.press('Escape');
   await expect(page.getByText('No mesocycles yet')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOutViaMenu(page);
   await page.waitForURL(/\/login/);
   await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
 
@@ -54,7 +63,7 @@ test('create an account, sign out, and sign back in', async ({ page }) => {
   await expect(alert(page, 'Email or password is incorrect.')).toBeVisible();
   await signIn(page, email, 'my long password');
   await page.waitForURL(/\/mesocycles$/);
-  await expect(page.getByTestId('account-label')).toHaveText('Pat Lifter');
+  await expect(page.getByRole('button', { name: 'Account' })).toBeVisible();
 });
 
 test('an email that already has an account cannot be registered again', async ({ page }) => {
@@ -71,7 +80,7 @@ test('after signing in, the visitor returns to the page they asked for', async (
   await page.waitForURL(/\/build$/);
   const buildPath = new URL(page.url()).pathname;
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOutViaMenu(page);
   await page.waitForURL(/\/login/);
   await page.goto(buildPath);
   await expect(page).toHaveURL(new RegExp(`/login\\?callbackUrl=${encodeURIComponent(buildPath).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));

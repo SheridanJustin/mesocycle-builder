@@ -12,6 +12,7 @@ import { lockWarnings, type BlockVolume } from '@mesocycle/volume-engine';
 import { useMemo, useState } from 'react';
 import { todayIso } from '../../lib/dates';
 import { groupLabel, STATUS_LABEL } from '../../lib/labels';
+import { usePreferences } from '../preferences/PreferencesContext';
 import { LockInDialog } from '../review/LockInDialog';
 import type { ReviewStats } from '../../lib/builder/review-stats';
 import { SummaryTiles } from '../review/SummaryTiles';
@@ -40,6 +41,7 @@ const WEEK_OPTIONS = Array.from({ length: MAX_DURATION_WEEKS - MIN_DURATION_WEEK
 export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mode, lock, onExportWeek }: Props) {
   const [lockInOpen, setLockInOpen] = useState(false);
   const warnings = lockWarnings(volume);
+  const { showRir } = usePreferences();
   // Computed once per visit: this week's Monday and the seven after it.
   const mondays = useMemo(() => upcomingMondays(todayIso(), 8), []);
 
@@ -101,8 +103,14 @@ export function ReviewTab({ settings, stats, volume, block, onSettingsChange, mo
               <span className="mb-1 block text-sm font-semibold text-graphite-50">Deload week</span>
               <span className="block">
                 The last week of the mesocycle is lighter so you recover before the next one. Every exercise drops to <strong>half its sets</strong>{' '}
-                (rounded up, e.g. 3 → 2, 4 → 2), keeps the <strong>same rep range</strong>, and goes back to its{' '}
-                <strong>Week 1 RIR</strong> instead of pushing closer to failure.
+                (rounded up, e.g. 3 → 2, 4 → 2) and keeps the <strong>same rep range</strong>
+                {showRir ? (
+                  <>
+                    , and goes back to its <strong>Week 1 RIR</strong> instead of pushing closer to failure.
+                  </>
+                ) : (
+                  '.'
+                )}
               </span>
               <span className="mt-2 block text-graphite-300" data-testid="deload-example">
                 {stats.weeklySets > 0

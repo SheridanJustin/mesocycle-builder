@@ -88,3 +88,9 @@ export async function setDuration(page: Page, weeks: number) {
 export function durationRadio(page: Page, weeks: number) {
   return page.getByRole('radio', { name: `${weeks} weeks`, exact: true });
 }
+
+// Resolves when a mesocycle settings PATCH (name, duration or deload) carrying `field` has been saved.
+// Settings do not go through the schedule autosave, so waitForSaved does not cover them.
+export function settingsSaved(page: Page, field: 'name' | 'duration_weeks' | 'deload_final_week') {
+  return page.waitForResponse((r) => r.request().method() === 'PATCH' && (r.request().postData() ?? '').includes(`"${field}"`) && r.ok());
+}

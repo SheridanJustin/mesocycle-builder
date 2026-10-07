@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createPopulatedDraft } from './api-helpers';
-import { addExercises, card, column, columnNames, createMesocycleViaUi, durationRadio, gotoTab, openDayMenu, setDuration, waitForSaved } from './helpers';
+import { addExercises, card, column, columnNames, createMesocycleViaUi, durationRadio, gotoTab, openDayMenu, setDuration, settingsSaved, waitForSaved } from './helpers';
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const numberedToggle = (page: Page) => page.getByRole('switch', { name: 'Number the days (Day 1, Day 2, …)' });
@@ -105,11 +105,17 @@ test('Review holds the mesocycle settings: duration and deload', async ({ page }
   await expect(page.getByTestId('stat-rest-days')).toHaveText('6');
 
   // The name is edited right in the header.
+  let saved = settingsSaved(page, 'name');
   await page.getByLabel('Mesocycle name').fill('Fall Block');
   await page.getByLabel('Mesocycle name').press('Enter');
   await expect(page.getByTestId('mesocycle-title')).toHaveValue('Fall Block');
+  await saved;
+  saved = settingsSaved(page, 'duration_weeks');
   await setDuration(page, 6);
+  await saved;
+  saved = settingsSaved(page, 'deload_final_week');
   await page.getByLabel('Deload in the final week').check();
+  await saved;
   await waitForSaved(page);
 
   await page.reload();
