@@ -12,7 +12,8 @@ If code and spec disagree, ask or update the spec in the same change. Never sile
 - The developer works on **Windows (PowerShell)**. There is **no Docker and no WSL**.
 - PostgreSQL  runs natively at `localhost:5432`. Do not add Docker files or rely on Docker.
 - Database config comes only from `.env` in the repo root:
-  `DATABASE_URL` (dev), `TEST_DATABASE_URL` (integration tests), `DEV_USER_EMAIL` (seeded dev user).
+  `DATABASE_URL` (dev), `TEST_DATABASE_URL` (integration tests), `DEV_USER_EMAIL` (seeded dev user),
+  `AUTH_SECRET` (session signing), `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` (optional Google sign-in).
 - Use `.env.example` as the template. **Never create, edit, print, or commit `.env`.** If a new variable is needed, add it to `.env.example` and tell the human.
 - Scripts must work on Windows: no bash-only syntax (`export VAR=...`, `&&` chains that assume bash, `rm -rf`).
   Use Node scripts or cross-platform packages (e.g. `cross-env`, `dotenv-cli`) instead.

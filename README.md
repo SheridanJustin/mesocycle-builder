@@ -14,19 +14,28 @@ that updates live against MV / MEV / MAV / MRV landmarks, plus a Review screen a
 ## Setup (PowerShell)
 
 ```powershell
-Copy-Item .env.example .env      # then edit the passwords/database names for your local PostgreSQL
+Copy-Item .env.example .env      # then edit the passwords/database names and set AUTH_SECRET (see below)
 pnpm install
 pnpm db:migrate                  # creates the database if it is missing, then applies migrations
 pnpm db:seed                     # dev user, muscle landmarks and ~100 exercises (safe to re-run)
 pnpm dev                         # http://localhost:3000
 ```
 
-`.env` needs three values (see `.env.example`): `DATABASE_URL` (dev), `TEST_DATABASE_URL` (tests) and
-`DEV_USER_EMAIL`. Do not commit `.env`. Authentication is out of scope: everything runs as the seeded dev user.
+`.env` values (see `.env.example`): `DATABASE_URL` (dev), `TEST_DATABASE_URL` (tests), `DEV_USER_EMAIL`, and for accounts:
+
+- `AUTH_SECRET` (required): signs session cookies. Generate one with
+  `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+- `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` (optional): enable **Continue with Google**. In Google Cloud Console create an
+  OAuth client (APIs & Services > Credentials > Create credentials > OAuth client ID, type *Web application*) with the
+  authorized redirect URI `http://localhost:3000/api/auth/callback/google`. Leave them empty to hide the button.
+
+Do not commit `.env`. Your mesocycles from before accounts existed belong to `DEV_USER_EMAIL`: create an account with that
+email (on `/login`, Create account) to keep them.
 
 ## Using the app
 
-Open <http://localhost:3000> (it redirects to the mesocycle list).
+Open <http://localhost:3000>. You'll be asked to sign in: **Create account** (email and password) or **Continue with Google**.
+The header shows who is signed in and **Sign out**. Each account sees only its own mesocycles.
 
 On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to reorder; drafts and archived mesocycles have a **Delete** button.
 
@@ -55,7 +64,6 @@ On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to r
    to the **Archive** tab on the list. **Drop mesocycle** stops an active one early (also archived). Archived mesocycles can be
    deleted; active ones can't be edited or deleted.
 9. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
-10. **Log in** (top right) is a placeholder form; accounts are not part of v1.
 
 ## Commands
 

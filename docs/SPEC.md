@@ -15,7 +15,7 @@ A web app where a lifter builds a 3–10 week hypertrophy training block (a **me
 
 The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
 
-*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15).
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1).
 
 ### Glossary
 
@@ -44,7 +44,7 @@ The agent rules live in the repo-root `AGENTS.md`, which is the maintained copy 
 
 The original requirements left several things open. These are the decisions made so Codex does not guess. Change them here first if you disagree.
 
-1. **Auth:** Out of scope. Use a `getCurrentUser()` helper that returns a seeded dev user. Every query is scoped by `user_id` so real auth (e.g. Auth.js) can be dropped in later.
+1. **Auth (R5):** Auth.js (`next-auth` v5) with JWT sessions in an httpOnly signed cookie. Two ways in: an **email/password** account (created at `/login`, password ≥ 8 characters, hashed with Node's built-in scrypt, salted, compared in constant time) and **Continue with Google** (shown only when `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` are set). A Google sign-in is matched by its Google id, else linked to the account with the same email (only if Google reports the email verified), else a new account is created. `getCurrentUser()` reads the session; every query stays scoped by `user_id`, and an API call without a session gets `401`. Every app page sends signed-out visitors to `/login` and returns them afterwards. The seeded dev user (`DEV_USER_EMAIL`, no password) can be claimed by creating an account with that email outside production, so data from before accounts existed is kept. Not built: email verification, password reset, account settings and rate limiting (they need an email service or more infrastructure).
 2. **Weight units:** The user has a `weight_unit` preference (`kg` or `lb`, default `lb`). Weights are stored as entered, with no conversion.
 3. **Counting sets toward volume:** A set counts as **1.0** toward the exercise's primary muscle and **0.5** toward each secondary muscle. The `0.5` is a constant (`SECONDARY_MUSCLE_WEIGHT`) in `packages/shared`.
 4. **Landmark values** are seed data in a `muscle_landmarks` table, not hard-coded in UI. The seeded numbers in Section 8 are starting defaults. They are editable and not scientific absolutes.
@@ -64,7 +64,7 @@ The original requirements left several things open. These are the decisions made
 
 ## 3. Non-goals (do NOT build)
 
-- Authentication, billing, social features, or sharing. (A **Log in** button opens a placeholder email/password form that sends nothing; it exists only as a visual stand-in.)
+- Billing, social features, or sharing. (Accounts exist since R5: decision 1.)
 - Workout logging UI (entering actual reps and weights per set). Lock-in only **generates** empty logs. (Marking a whole workout completed or skipped is allowed; decision 15.)
 - Automatic set or load progression beyond the RIR ramp.
 - Mobile native apps. (The web UI must still be usable on a phone via horizontal snap scroll.)
@@ -114,7 +114,10 @@ Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `create
 ```sql
 users
   id UUID PK
-  email TEXT UNIQUE
+  email TEXT UNIQUE                        -- stored lower-case
+  name VARCHAR(100) NULL
+  password_hash TEXT NULL                  -- scrypt; NULL for Google-only accounts
+  google_id TEXT NULL UNIQUE               -- Google "sub", set on Google sign-in
   weight_unit TEXT NOT NULL DEFAULT 'lb'   -- 'kg' | 'lb'
 
 exercises
@@ -242,7 +245,7 @@ Base path `/api/v1`. JSON only. All inputs/outputs validated with Zod in `packag
 { "error": { "code": "VALIDATION_ERROR", "message": "Human readable", "details": [ { "path": "days[0].slots[1].target_sets", "issue": "Must be between 1 and 10" } ] } }
 ```
 
-Codes: `VALIDATION_ERROR (400)`, `NOT_FOUND (404)`, `CONFLICT (409)` (e.g. editing a locked mesocycle), `INTERNAL (500)`.
+Codes: `VALIDATION_ERROR (400)`, `UNAUTHORIZED (401)` (no session), `NOT_FOUND (404)`, `CONFLICT (409)` (e.g. editing a locked mesocycle), `INTERNAL (500)`.
 
 ### 6.2 Endpoints
 
@@ -253,6 +256,8 @@ Response: `{ "items": [Exercise], "next_cursor": string | null }`
 
 **`POST /exercises`** — create a custom exercise.
 Body: `{ name, primary_muscle, secondary_muscles[], equipment_type, movement_type }`. `409` if the name already exists for this user.
+
+**`POST /auth/register`** — create an email/password account. Body `{ "email", "password", "name"? }` (email trimmed and lower-cased; password 8–200 characters). Returns `{ id, email, name }` (`201`); `409` if the email already has an account. It does not sign in: the browser then signs in through Auth.js (`/api/auth/*`, outside `/api/v1`), which also handles Google, the session and sign-out. Every other endpoint needs a session (`401` without one).
 
 **`GET /muscle-landmarks`**
 Returns all landmark rows. The client caches these.
@@ -494,11 +499,13 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 
 ### 10.1 Pages
 
+- `/login` — **Sign in** and **Create account** tabs (name optional, email, password with "at least 8 characters"), and **Continue with Google** when configured. Errors appear inline ("Email or password is incorrect.", "An account with this email already exists."). Signed-in visitors are sent on. The header shows **Log in** when signed out, and the user's name (or email) with **Sign out** when signed in.
+
 - `/mesocycles` — list of mesocycles with status badges and "New mesocycle". "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens its builder (no form). Each card has a ⠿ grip: drag it (or focus it, press Space, use the arrow keys, Space) to reorder the list; the order is saved. Two tabs: **Current** (drafts and active) and **Archive** (completed and dropped, showing when they ended); each tab is reordered on its own. Drafts and archived mesocycles have a clearly visible red-outlined **Delete** button (with confirmation); active ones don't. Drafts open the builder; locked mesocycles open their plan.
 - `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
 - `/mesocycles/[id]` — the plan of a locked mesocycle: name, status, start date and lock date, a progress bar ("6 of 16 workouts done"), the Review summary tiles, **Workouts** by week (a tab per week, deload marked, ✓ when complete), and the volume table. A week shows **every day of the cycle**: workout cards (day, date, estimated length, every exercise as `sets × reps · RIR`, and **Complete** / **Skip** buttons, or the result with **Undo**) and dashed **Rest day** cards, so it is clear when to rest; today's card is outlined. A complete week shows "✓ Week N complete". It opens on the week with the next workout. Active mesocycles have **Drop mesocycle** (with confirmation); completed and dropped ones show a banner saying so. The plan is never editable (exercises, days), and a dropped one's workouts are frozen. **Export week as PNG** is offered here too. A draft opened here goes to the builder, and the builder sends a locked mesocycle here.
 
-The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name, "My mesocycles" and **Log in** (placeholder, see Section 3).
+The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name, "My mesocycles" and the account controls (10.1, `/login`).
 
 The app uses a dark theme built from the product owner's palette (graphite neutrals, electric-aqua accent, verdigris/shamrock positive, snow destructive); tokens live in `apps/web/app/globals.css`.
 
@@ -596,6 +603,7 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 10. Complete, skip and undo workouts; confirm a week and then the mesocycle complete, and that the mesocycle moves to the archive.
 11. Drop an active mesocycle; confirm it is archived and can then be deleted.
 12. Export the week as a PNG from Review and from the plan page.
+13. Sign-up, sign-out and sign-in; signed-out visitors are redirected to `/login` (and back afterwards) and the API answers `401`; each account sees only its own mesocycles.
 
 ---
 
