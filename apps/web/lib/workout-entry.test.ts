@@ -1,6 +1,6 @@
 import type { WorkoutExercise } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { formatSet, placeholders, resolveEntry, setRows, type Draft } from './workout-entry';
+import { emptySets, formatSet, placeholders, resolveEntry, setRows, weeksLabel, type Draft } from './workout-entry';
 
 function exercise(overrides: Partial<WorkoutExercise> = {}): WorkoutExercise {
   return {
@@ -39,36 +39,36 @@ const withPrevious = exercise({
 
 describe('setRows', () => {
   it('has a row per planned set with the previous workout matched by set number', () => {
-    const rows = setRows(withPrevious, 0);
+    const rows = setRows(withPrevious);
     expect(rows.map((r) => [r.setNumber, r.previous?.reps, r.removable])).toEqual([
-      [1, 8, false],
-      [2, 7, false],
-      [3, 7, false],
+      [1, 8, true],
+      [2, 7, true],
+      [3, 7, true],
     ]);
   });
 
-  it('keeps logged sets beyond the plan and adds removable extra rows', () => {
-    const rows = setRows(exercise({ sets: [{ set_number: 4, weight: 50, reps: 10, records: [] }] }), 1);
+  it('keeps logged sets beyond the plan; logged sets and a lone set cannot be removed', () => {
+    const rows = setRows(exercise({ sets: [{ set_number: 4, weight: 50, reps: 10, records: [] }] }));
     expect(rows.map((r) => [r.setNumber, r.logged !== null, r.removable])).toEqual([
-      [1, false, false],
-      [2, false, false],
-      [3, false, false],
+      [1, false, true],
+      [2, false, true],
+      [3, false, true],
       [4, true, false],
-      [5, false, true],
     ]);
+    expect(setRows(exercise({ target_sets: 1 }))[0]!.removable).toBe(false);
   });
 });
 
 describe('placeholders', () => {
   it('shows the previous numbers, else the planned weight and rep range', () => {
-    expect(placeholders(setRows(withPrevious, 0)[1]!, withPrevious)).toEqual({ weight: '100', reps: '7' });
+    expect(placeholders(setRows(withPrevious)[1]!, withPrevious)).toEqual({ weight: '100', reps: '7' });
     const planned = exercise({ target_weight: 62.5 });
-    expect(placeholders(setRows(planned, 0)[0]!, planned)).toEqual({ weight: '62.5', reps: '8–12' });
+    expect(placeholders(setRows(planned)[0]!, planned)).toEqual({ weight: '62.5', reps: '8–12' });
   });
 });
 
 describe('resolveEntry', () => {
-  const row = setRows(withPrevious, 0)[0]!;
+  const row = setRows(withPrevious)[0]!;
 
   it('uses the placeholders for empty fields (one tap repeats last workout)', () => {
     expect(resolveEntry(empty, row, withPrevious)).toEqual({ ok: true, value: { weight: 100, reps: 8 } });
@@ -81,8 +81,8 @@ describe('resolveEntry', () => {
 
   it('needs reps when there is no previous workout', () => {
     const first = exercise();
-    expect(resolveEntry(empty, setRows(first, 0)[0]!, first)).toMatchObject({ ok: false, field: 'reps' });
-    expect(resolveEntry({ weight: '', reps: '10' }, setRows(first, 0)[0]!, first)).toEqual({ ok: true, value: { weight: null, reps: 10 } });
+    expect(resolveEntry(empty, setRows(first)[0]!, first)).toMatchObject({ ok: false, field: 'reps' });
+    expect(resolveEntry({ weight: '', reps: '10' }, setRows(first)[0]!, first)).toEqual({ ok: true, value: { weight: null, reps: 10 } });
   });
 
   it.each([
@@ -100,5 +100,21 @@ describe('formatSet', () => {
   it('formats weighted and bodyweight sets', () => {
     expect(formatSet({ weight: 62.5, reps: 8 })).toBe('62.5 × 8');
     expect(formatSet({ weight: null, reps: 12 })).toBe('BW × 12');
+  });
+});
+
+describe('emptySets', () => {
+  it('counts sets that are not logged, and those with numbers typed but not ticked', () => {
+    const item = exercise({ sets: [{ set_number: 1, weight: 100, reps: 8, records: [] }] });
+    expect(emptySets([item], {})).toEqual({ empty: 2, typed: 0 });
+    expect(emptySets([item], { [`${item.id}:2`]: { weight: '100', reps: '' }, [`${item.id}:3`]: { weight: ' ', reps: '' } })).toEqual({ empty: 2, typed: 1 });
+  });
+});
+
+describe('weeksLabel', () => {
+  it('names one week, a run of weeks or a list', () => {
+    expect(weeksLabel([3])).toBe('Week 3');
+    expect(weeksLabel([2, 3, 4])).toBe('Weeks 2–4');
+    expect(weeksLabel([2, 4, 5])).toBe('Weeks 2, 4 and 5');
   });
 });

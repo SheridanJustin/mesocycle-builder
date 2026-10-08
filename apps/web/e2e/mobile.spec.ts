@@ -80,13 +80,15 @@ test('review, lock-in, the plan, the list, the account panel and login fit a pho
   await expectFitsWidth(page);
   await page.getByTestId('session-card').first().getByRole('link', { name: 'Start workout' }).click();
   await page.getByRole('button', { name: 'Finish workout' }).click();
+  // Nothing was logged: confirm finishing with empty sets.
+  await page.getByRole('dialog', { name: 'Some sets are empty' }).getByRole('button', { name: 'Finish anyway' }).click();
   await page.waitForURL(new RegExp(`/mesocycles/${id}$`));
   await page.getByTestId('week-tab-1').click();
   await expect(page.getByTestId('session-card').first().getByTestId('session-status')).toHaveText('✓ Completed');
 
   await page.getByRole('button', { name: 'Account' }).click();
   const panel = page.getByRole('dialog', { name: 'Account' });
-  await expect(panel.getByTestId('stat-workouts')).not.toHaveText('');
+  await expect(panel.getByTestId('account-name')).not.toHaveText('');
   const panelBox = await panel.boundingBox();
   expect(panelBox!.x).toBeGreaterThanOrEqual(0);
   await expectFitsWidth(page);
@@ -94,6 +96,10 @@ test('review, lock-in, the plan, the list, the account panel and login fit a pho
 
   await page.goto('/mesocycles');
   await expect(page.getByTestId('mesocycle-card').first()).toBeVisible();
+  await expectFitsWidth(page);
+
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await expectFitsWidth(page);
 });
 

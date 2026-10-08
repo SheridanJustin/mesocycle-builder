@@ -1,53 +1,30 @@
 import type { Me } from '@mesocycle/shared';
 import Link from 'next/link';
-import type { Appearance, WeightUnit } from '../preferences/PreferencesContext';
+import type { Profile } from '../preferences/PreferencesContext';
+import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
-import { AppearancePicker } from './AppearancePicker';
 
 type Props = {
-  // Null while the stats are loading.
+  // Null while loading.
   me: Me | null;
-  fallbackName: string;
+  profile: Profile;
   email: string;
   error: string | null;
-  showRir: boolean;
-  onToggleRir: (value: boolean) => void;
-  weightUnit: WeightUnit;
-  onChangeWeightUnit: (value: WeightUnit) => void;
-  appearance: Appearance;
-  onChangeAppearance: (value: Partial<Appearance>) => void;
   onSignOut: () => void;
   onNavigate: () => void;
 };
 
-const monthYear = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+const item = 'flex items-center justify-between rounded-lg px-2.5 py-2 text-sm font-medium text-graphite-100 hover:bg-graphite-800';
 
-function Stat({ label, value, testId }: { label: string; value: number | string; testId: string }) {
+// The account popup: who is signed in, the running mesocycle, and links. Everything else is on
+// the settings page (SPEC decision 22).
+export function AccountPanel({ me, profile, email, error, onSignOut, onNavigate }: Props) {
+  const name = profile.name ?? '';
+  const active = me?.stats.active ?? null;
   return (
-    <div className="rounded-xl border border-graphite-800 bg-graphite-950/60 px-3 py-2">
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-graphite-400">{label}</dt>
-      <dd className="text-lg font-semibold tabular-nums text-graphite-50" data-testid={testId}>
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function signInMethods(me: Me): string {
-  const methods = [me.sign_in.password && 'email and password', me.sign_in.google && 'Google'].filter(Boolean);
-  return methods.length ? `Signs in with ${methods.join(' and ')}` : 'No sign-in method yet';
-}
-
-// The account panel: who is signed in, a few totals, display preferences and Sign out.
-export function AccountPanel({ me, fallbackName, email, error, showRir, onToggleRir, weightUnit, onChangeWeightUnit, appearance, onChangeAppearance, onSignOut, onNavigate }: Props) {
-  const name = me?.name ?? fallbackName;
-  const initial = (name || email).trim().charAt(0).toUpperCase() || '?';
-  return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-aqua-400 to-verdigris-600 text-lg font-bold text-graphite-950">
-          {initial}
-        </span>
+        <Avatar icon={profile.avatar.icon} color={profile.avatar.color} name={name || email} />
         <div className="min-w-0">
           <p className="truncate font-semibold text-graphite-50" data-testid="account-name">
             {name || 'No name set'}
@@ -55,11 +32,6 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
           <p className="truncate text-sm text-graphite-400" data-testid="account-email">
             {email}
           </p>
-          {me && (
-            <p className="text-xs text-graphite-400">
-              {signInMethods(me)} · member since {monthYear.format(new Date(me.created_at))}
-            </p>
-          )}
         </div>
       </div>
 
@@ -69,90 +41,35 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
         </p>
       )}
 
-      <section aria-label="Your training">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-graphite-400">Your training</h3>
-        {me ? (
-          <>
-            <dl className="grid grid-cols-2 gap-2">
-              <Stat label="Workouts done" value={me.stats.workouts_completed} testId="stat-workouts" />
-              <Stat label="Sets done" value={me.stats.sets_completed} testId="stat-sets" />
-              <Stat label="Mesocycles done" value={me.stats.mesocycles_completed} testId="stat-mesocycles" />
-              <Stat label="Workouts skipped" value={me.stats.workouts_skipped} testId="stat-skipped" />
-            </dl>
-            {me.stats.active ? (
-              <Link
-                href={`/mesocycles/${me.stats.active.id}`}
-                onClick={onNavigate}
-                data-testid="account-active"
-                className="mt-2 block rounded-xl border border-graphite-800 bg-graphite-950/60 px-3 py-2 hover:border-aqua-700"
-              >
-                <span className="flex items-baseline justify-between gap-2 text-sm">
-                  <span className="truncate font-medium text-graphite-100">{me.stats.active.name}</span>
-                  <span className="shrink-0 text-xs text-graphite-400">
-                    {me.stats.active.done}/{me.stats.active.total} workouts
-                  </span>
-                </span>
-                <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-graphite-800" aria-hidden="true">
-                  <span
-                    className="block h-full rounded-full bg-shamrock-500"
-                    style={{ width: `${me.stats.active.total ? (me.stats.active.done / me.stats.active.total) * 100 : 0}%` }}
-                  />
-                </span>
-              </Link>
-            ) : (
-              <p className="mt-2 text-xs text-graphite-400">No active mesocycle. Lock one in to start tracking workouts.</p>
-            )}
-            <Link href="/records" onClick={onNavigate} className="mt-2 inline-block text-sm font-medium text-aqua-300 hover:underline">
-              Personal bests →
-            </Link>
-          </>
-        ) : (
-          <p className="text-sm text-graphite-400">Loading…</p>
-        )}
-      </section>
-
-      <section aria-label="Preferences">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-graphite-400">Preferences</h3>
-        <label className="flex cursor-pointer items-start justify-between gap-3">
-          <span>
-            <span className="block text-sm font-medium text-graphite-100">Show RIR</span>
-            <span className="block text-xs text-graphite-400">Reps in reserve on cards, plans and exports. Turn off if you don&apos;t train by RIR.</span>
+      {active ? (
+        <Link
+          href={`/mesocycles/${active.id}`}
+          onClick={onNavigate}
+          data-testid="account-active"
+          className="block rounded-xl border border-graphite-800 bg-graphite-950/60 px-3 py-2 hover:border-aqua-700"
+        >
+          <span className="flex items-baseline justify-between gap-2 text-sm">
+            <span className="truncate font-medium text-graphite-100">{active.name}</span>
+            <span className="shrink-0 text-xs text-graphite-400">
+              {active.done}/{active.total} workouts
+            </span>
           </span>
-          <input
-            type="checkbox"
-            role="switch"
-            className="peer sr-only"
-            checked={showRir}
-            onChange={(e) => onToggleRir(e.target.checked)}
-            aria-label="Show RIR"
-          />
-          <span
-            aria-hidden="true"
-            className="relative mt-0.5 h-5 w-9 shrink-0 rounded-full bg-graphite-700 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-graphite-200 after:transition-transform peer-checked:bg-aqua-600 peer-checked:after:translate-x-4 peer-checked:after:bg-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-aqua-400"
-          />
-        </label>
-        <fieldset className="mt-3 flex items-center justify-between gap-3">
-          <legend className="float-left text-sm font-medium text-graphite-100">Weight unit</legend>
-          <span className="flex rounded-lg border border-graphite-700 bg-graphite-950 p-0.5">
-            {(['kg', 'lb'] as const).map((unit) => (
-              <label
-                key={unit}
-                className={`cursor-pointer rounded-md px-3 py-0.5 text-sm font-medium has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-aqua-400 ${
-                  weightUnit === unit ? 'bg-aqua-500 text-graphite-950' : 'text-graphite-300 hover:text-graphite-50'
-                }`}
-              >
-                <input type="radio" name="weight-unit" value={unit} checked={weightUnit === unit} onChange={() => onChangeWeightUnit(unit)} className="sr-only" />
-                {unit}
-              </label>
-            ))}
+          <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-graphite-800" aria-hidden="true">
+            <span className="block h-full rounded-full bg-shamrock-500" style={{ width: `${active.total ? (active.done / active.total) * 100 : 0}%` }} />
           </span>
-        </fieldset>
-      </section>
+        </Link>
+      ) : (
+        me && <p className="text-xs text-graphite-400">No active mesocycle. Lock one in to start tracking workouts.</p>
+      )}
 
-      <section aria-label="Appearance">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-graphite-400">Appearance</h3>
-        <AppearancePicker appearance={appearance} onChange={onChangeAppearance} />
-      </section>
+      <nav aria-label="Account" className="grid border-t border-graphite-800 pt-2">
+        <Link href="/records" onClick={onNavigate} className={item}>
+          Personal bests <span aria-hidden="true">→</span>
+        </Link>
+        <Link href="/settings" onClick={onNavigate} className={item}>
+          Settings <span aria-hidden="true">→</span>
+        </Link>
+      </nav>
 
       <Button className="w-full" onClick={onSignOut}>
         Sign out

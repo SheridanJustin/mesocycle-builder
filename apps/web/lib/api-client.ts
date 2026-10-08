@@ -9,6 +9,9 @@ import {
   MesocycleListSchema,
   MuscleLandmarkListSchema,
   RecordsSchema,
+  ChangeSetsResultSchema,
+  type ChangeSets,
+  type ExtendMesocycle,
   WorkoutDetailSchema,
   type LogSet,
   type CreateExercise,
@@ -96,6 +99,9 @@ export const api = {
     request(`/session-exercises/${sessionExerciseId}/sets/${setNumber}`, json('PUT', body), WorkoutDetailSchema),
   deleteSet: (sessionExerciseId: string, setNumber: number) =>
     request(`/session-exercises/${sessionExerciseId}/sets/${setNumber}`, { method: 'DELETE' }, WorkoutDetailSchema),
+  changeSets: (sessionExerciseId: string, body: ChangeSets) =>
+    request(`/session-exercises/${sessionExerciseId}`, json('PATCH', body), ChangeSetsResultSchema),
+  extendMesocycle: (id: string, body: ExtendMesocycle) => request(`/mesocycles/${id}/extend`, json('POST', body), MesocycleDetailSchema),
   getRecords: () => request('/records', { method: 'GET' }, RecordsSchema),
   lockMesocycle: (id: string, body: Partial<LockMesocycle>) =>
     request(`/mesocycles/${id}/lock`, json('POST', body), MesocycleDetailSchema),

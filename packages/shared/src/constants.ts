@@ -102,3 +102,9 @@ export const THEME_PALETTES = ['graphite', 'ocean', 'indigo', 'rose', 'plum', 'f
 export const COLOR_MODES = ['dark', 'light'] as const;
 export const DEFAULT_PALETTE = 'graphite';
 export const DEFAULT_COLOR_MODE = 'dark';
+
+// Profile avatar (SPEC decision 22): an icon (or the name's initial) on a color.
+export const AVATAR_ICONS = ['initial', 'dumbbell', 'kettlebell', 'flame', 'bolt', 'heart', 'star', 'mountain', 'leaf', 'crown', 'trophy', 'sun', 'moon'] as const;
+export const AVATAR_COLORS = ['aqua', 'verdigris', 'shamrock', 'snow', 'graphite'] as const;
+export const DEFAULT_AVATAR_ICON = 'initial';
+export const DEFAULT_AVATAR_COLOR = 'aqua';

@@ -35,9 +35,10 @@ email (on `/login`, Create account) to keep them.
 ## Using the app
 
 Open <http://localhost:3000>. You'll be asked to sign in: **Create account** (email and password) or **Continue with Google**.
-The person icon in the header opens your account: name, email, training stats (workouts and sets done, mesocycles
-finished, the active mesocycle's progress), the **Show RIR** switch (turn it off if you don't train by RIR), the **Weight unit** (kg or lb), a link to **Personal bests**, **Appearance** (six color palettes, each in dark and light
-mode) and **Sign out**.
+Your avatar in the header opens a small account menu: name, email, the active mesocycle's progress, **Personal bests**,
+**Settings** and **Sign out**. **Settings** holds the rest: your name and avatar (pick an icon and a color), **Show RIR**
+(turn it off if you don't train by RIR), the **Weight unit** (kg or lb), **Appearance** (six color palettes, each in dark
+and light mode), your training stats and account details.
 Each account sees only its own mesocycles.
 
 On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to reorder; drafts and archived mesocycles have a **Delete** button.
@@ -64,11 +65,12 @@ On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to r
    **Export week as PNG** (on Review, or on the plan) saves the week as an image if you just want a guide.
 8. **Train with the plan**: each week shows every day, rest days included. **Start workout** opens the workout logger:
    a row per set with your previous numbers. Type weight and reps and tap ✓ (or press Enter), or tap ✓ on an empty row to
-   repeat last time's numbers (the grey placeholders). **+ Add set** adds extra sets. Beat your best and the set gets a
+   repeat last time's numbers (the grey placeholders). **+ Add set** and the ✕ on a set change the number of sets; the change also applies to that exercise in the
+   following weeks (a notice says which). Finishing with empty sets asks first: empty sets count as not done. Beat your best and the set gets a
    **PR** badge. **Finish workout** marks it done; leave halfway and it's "In progress" (**Continue workout**). **Skip** skips
    a workout (**Undo** if you slip). **Personal bests** (header) lists your best estimated 1RM, heaviest set and most
    bodyweight reps per exercise. A week is complete when all its workouts are; the mesocycle completes after the last one and moves
-   to the **Archive** tab on the list. **Drop mesocycle** stops an active one early (also archived). Archived mesocycles can be
+   to the **Archive** tab on the list. **Extend** adds weeks (up to 10 in total). **Drop mesocycle** stops an active one early (also archived). Archived mesocycles can be
    deleted; active ones can't be edited or deleted. Only one mesocycle runs at a time: locking in a new one **pauses** the
    current one, and **Resume mesocycle** on a paused one switches back (pausing the other).
 9. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
@@ -103,7 +105,8 @@ All under `/api/v1` (see SPEC section 6).
 - `GET`/`POST /mesocycles`, `GET`/`PATCH`/`DELETE /mesocycles/{id}`, `PUT /mesocycles/order` (list order)
 - `POST /mesocycles/{id}/lock` (lock-in: generates weeks, workouts and targets), `POST /mesocycles/{id}/drop`
 - `PATCH /sessions/{id}` (mark a workout completed, skipped or planned), `GET /sessions/{id}/workout` (the workout logger)
-- `PUT`/`DELETE /session-exercises/{id}/sets/{n}` (log, correct or un-log a set), `GET /records` (personal bests)
+- `PUT`/`DELETE /session-exercises/{id}/sets/{n}` (log, correct or un-log a set), `PATCH /session-exercises/{id}` (add or remove a set), `GET /records` (personal bests)
+- `POST /mesocycles/{id}/extend` (add weeks to a locked mesocycle), `GET`/`PATCH /me` (account, preferences, avatar)
 - `PUT /mesocycles/{id}/schedule` (replace the whole schedule; used by autosave)
 - `POST /mesocycles/{id}/duplicate-day`, `POST /mesocycles/validate-volume`
 - `GET /api/health`

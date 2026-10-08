@@ -2,16 +2,18 @@
 
 import type { WorkoutDetail, WorkoutExercise } from '@mesocycle/shared';
 import Link from 'next/link';
+import { useState } from 'react';
 import { formatIsoDate } from '../../lib/dates';
-import type { Draft, SetRow } from '../../lib/workout-entry';
+import { emptySets, type Draft, type SetRow } from '../../lib/workout-entry';
 import { Button } from '../ui/Button';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { ExerciseLog, type RowError } from './ExerciseLog';
 
 type Props = {
   workout: WorkoutDetail;
   unit: string;
   showRir: boolean;
-  extraRows: Readonly<Record<string, number>>;
+  notices: Readonly<Record<string, string>>;
   drafts: Readonly<Record<string, Draft>>;
   pending: ReadonlySet<string>;
   errors: Readonly<Record<string, RowError>>;
@@ -20,8 +22,8 @@ type Props = {
   onChange: (key: string, field: keyof Draft, value: string) => void;
   onToggle: (item: WorkoutExercise, row: SetRow) => void;
   onCommit: (item: WorkoutExercise, row: SetRow) => void;
-  onAddSet: (itemId: string) => void;
-  onRemoveSet: (itemId: string) => void;
+  onAddSet: (item: WorkoutExercise) => void;
+  onRemoveSet: (item: WorkoutExercise, row: SetRow) => void;
   onFinish: () => void;
 };
 
@@ -31,12 +33,20 @@ function lockedReason(workout: WorkoutDetail): string {
   return `This mesocycle is ${workout.mesocycle.status}; its workouts are read-only.`;
 }
 
-// The workout logger (SPEC decision 19): every exercise with a row per set. Placeholders are the
+// The workout logger (SPEC decisions 19, 20): every exercise with a row per set. Placeholders are the
 // previous workout's numbers, so ✓ on an empty row repeats them.
-export function WorkoutLogger({ workout, unit, showRir, extraRows, drafts, pending, errors, error, finishing, onFinish, ...handlers }: Props) {
+export function WorkoutLogger({ workout, unit, showRir, notices, drafts, pending, errors, error, finishing, onFinish, ...handlers }: Props) {
   const logged = workout.exercises.reduce((sum, item) => sum + item.sets.length, 0);
   const records = workout.exercises.reduce((sum, item) => sum + item.sets.filter((set) => set.records.length > 0).length, 0);
   const planHref = `/mesocycles/${workout.mesocycle.id}`;
+  const [confirming, setConfirming] = useState<{ empty: number; typed: number } | null>(null);
+
+  // Empty sets count as not done: finishing with some asks first.
+  function finish() {
+    const counts = emptySets(workout.exercises, drafts);
+    if (counts.empty > 0) setConfirming(counts);
+    else onFinish();
+  }
 
   return (
     <main className="h-full overflow-y-auto">
@@ -55,6 +65,11 @@ export function WorkoutLogger({ workout, unit, showRir, extraRows, drafts, pendi
         <p className="mt-1 text-sm text-graphite-400">
           Tap ✓ to log a set. Leave a field empty to repeat last workout&apos;s numbers (the grey placeholders).
         </p>
+        {workout.editable && (
+          <p className="mt-1 text-xs text-graphite-400" data-testid="carry-over-hint">
+            Adding or removing a set also changes that exercise in the following weeks{workout.is_deload ? ' (not in a deload week: changes here stay here)' : ''}.
+          </p>
+        )}
 
         {!workout.editable && (
           <p role="status" className="mt-3 rounded-xl border border-graphite-700 bg-graphite-900 p-3 text-sm text-graphite-200">
@@ -76,7 +91,7 @@ export function WorkoutLogger({ workout, unit, showRir, extraRows, drafts, pendi
               unit={unit}
               showRir={showRir}
               editable={workout.editable}
-              extraRows={extraRows[item.id] ?? 0}
+              notice={notices[item.id] ?? null}
               drafts={drafts}
               pending={pending}
               errors={errors}
@@ -103,13 +118,33 @@ export function WorkoutLogger({ workout, unit, showRir, extraRows, drafts, pendi
             </span>
           ) : (
             workout.editable && (
-              <Button variant="primary" disabled={finishing || pending.size > 0} onClick={onFinish}>
+              <Button variant="primary" disabled={finishing || pending.size > 0} onClick={finish}>
                 {finishing ? 'Finishing…' : 'Finish workout'}
               </Button>
             )
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title="Some sets are empty"
+        message={
+          confirming
+            ? `${confirming.empty} ${confirming.empty === 1 ? 'set is' : 'sets are'} not logged and will count as not done.${
+                confirming.typed > 0 ? ` ${confirming.typed} of them ${confirming.typed === 1 ? 'has' : 'have'} numbers you didn't tick: tap ✓ to save them.` : ''
+              } Finish anyway?`
+            : ''
+        }
+        confirmLabel="Finish anyway"
+        cancelLabel="Keep logging"
+        variant="primary"
+        onConfirm={() => {
+          setConfirming(null);
+          onFinish();
+        }}
+        onCancel={() => setConfirming(null)}
+      />
     </main>
   );
 }

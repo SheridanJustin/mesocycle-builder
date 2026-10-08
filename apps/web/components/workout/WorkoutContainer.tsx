@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiClientError } from '../../lib/api-client';
-import { resolveEntry, type Draft, type SetRow } from '../../lib/workout-entry';
+import { resolveEntry, weeksLabel, type Draft, type SetRow } from '../../lib/workout-entry';
 import { usePreferences } from '../preferences/PreferencesContext';
 import { rowKey, type RowError } from './ExerciseLog';
 import { WorkoutLogger } from './WorkoutLogger';
@@ -28,7 +28,7 @@ export function WorkoutContainer({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [errors, setErrors] = useState<Record<string, RowError>>({});
-  const [extraRows, setExtraRows] = useState<Record<string, number>>({});
+  const [notices, setNotices] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [finishing, setFinishing] = useState(false);
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -87,6 +87,42 @@ export function WorkoutContainer({ sessionId }: { sessionId: string }) {
     }
   }
 
+  // Adds or removes a planned set; the server carries the change over to the following weeks.
+  function changeSets(item: WorkoutExercise, change: { op: 'add_set' } | { op: 'remove_set'; set_number: number }) {
+    const key = `${item.id}:sets`;
+    setPending((current) => new Set(current).add(key));
+    setError(null);
+    queue.current = queue.current.then(async () => {
+      try {
+        const result = await api.changeSets(item.id, change);
+        setWorkout(result.workout);
+        // Rows after a removed one move up: drop their unsaved drafts and errors.
+        if (change.op === 'remove_set') {
+          const stale = (k: string) => k.startsWith(`${item.id}:`) && Number(k.split(':')[1]) >= change.set_number;
+          setDrafts((current) => Object.fromEntries(Object.entries(current).filter(([k]) => !stale(k))));
+          setErrors((current) => Object.fromEntries(Object.entries(current).filter(([k]) => !stale(k))));
+        }
+        const done = change.op === 'add_set' ? 'Set added' : `Set ${change.set_number} removed`;
+        const count = result.workout.exercises.find((e) => e.id === item.id)?.target_sets ?? 0;
+        setNotices((current) => ({
+          ...current,
+          [item.id]:
+            result.carried_weeks.length > 0
+              ? `${done}. ${weeksLabel(result.carried_weeks)} will also have ${count} ${count === 1 ? 'set' : 'sets'} of ${item.exercise.name}.`
+              : `${done}. Only this workout changed (later weeks have started or this is the last one).`,
+        }));
+      } catch (e) {
+        setError(`Could not change the sets: ${message(e, 'unknown error')}`);
+      } finally {
+        setPending((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
+    });
+  }
+
   async function onFinish() {
     setFinishing(true);
     setError(null);
@@ -119,7 +155,7 @@ export function WorkoutContainer({ sessionId }: { sessionId: string }) {
       workout={workout}
       unit={weightUnit}
       showRir={showRir}
-      extraRows={extraRows}
+      notices={notices}
       drafts={drafts}
       pending={pending}
       errors={errors}
@@ -131,8 +167,8 @@ export function WorkoutContainer({ sessionId }: { sessionId: string }) {
       }}
       onToggle={onToggle}
       onCommit={logRow}
-      onAddSet={(itemId) => setExtraRows((current) => ({ ...current, [itemId]: (current[itemId] ?? 0) + 1 }))}
-      onRemoveSet={(itemId) => setExtraRows((current) => ({ ...current, [itemId]: Math.max(0, (current[itemId] ?? 0) - 1) }))}
+      onAddSet={(item) => changeSets(item, { op: 'add_set' })}
+      onRemoveSet={(item, row) => changeSets(item, { op: 'remove_set', set_number: row.setNumber })}
       onFinish={() => void onFinish()}
     />
   );

@@ -1,5 +1,7 @@
 import {
   bestSet,
+  MAX_LOGGED_SETS,
+  type ChangeSets,
   summarizeRecords,
   workoutRecords,
   type LogSet,
@@ -144,6 +146,55 @@ export async function deleteSet(sessionExerciseId: string, setNumber: number, us
     if (left === 0) await tx.workoutSession.updateMany({ where: { id: item.sessionId, status: 'in_progress' }, data: { status: 'planned' } });
   });
   return item.sessionId;
+}
+
+// PATCH /session-exercises/{id} (SPEC decision 20): adds a set at the end or removes set n (the
+// logged sets after it move up one). The new count carries over to the same exercise (same day,
+// same position) in later weeks whose workout has not started; a deload week gets half (rounded
+// up). Changes made in a deload week stay in that week. Returns the session id and the weeks changed.
+export async function changeSets(sessionExerciseId: string, userId: string, body: ChangeSets): Promise<{ sessionId: string; carriedWeeks: number[] }> {
+  const item = await findLoggableExercise(sessionExerciseId, userId);
+  const current = item.targetSets;
+  // Sets logged beyond the plan (possible before set counts were editable) count as planned.
+  const lastLogged = (await prisma.loggedSet.aggregate({ where: { sessionExerciseId }, _max: { setNumber: true } }))._max.setNumber ?? 0;
+  const count = Math.max(current, lastLogged);
+  let next: number;
+  if (body.op === 'add_set') {
+    if (count >= MAX_LOGGED_SETS) throw new ApiRouteError('CONFLICT', `An exercise can have at most ${MAX_LOGGED_SETS} sets`);
+    next = count + 1;
+  } else {
+    if (body.set_number > count) throw new ApiRouteError('NOT_FOUND', `Set ${body.set_number} not found`);
+    if (count <= 1) throw new ApiRouteError('CONFLICT', 'An exercise keeps at least one set');
+    const logged = await prisma.loggedSet.findUnique({ where: { sessionExerciseId_setNumber: { sessionExerciseId, setNumber: body.set_number } } });
+    if (logged) throw new ApiRouteError('CONFLICT', 'Un-tick this set before removing it');
+    next = count - 1;
+  }
+
+  const { week } = item.session;
+  const later = week.isDeload
+    ? []
+    : await prisma.sessionExercise.findMany({
+        where: {
+          exerciseId: item.exerciseId,
+          sortOrder: item.sortOrder,
+          session: { dayId: item.session.dayId, status: 'planned', week: { mesocycleId: week.mesocycleId, weekNumber: { gt: week.weekNumber } } },
+        },
+        select: { id: true, session: { select: { week: { select: { weekNumber: true, isDeload: true } } } } },
+      });
+
+  await prisma.$transaction(async (tx) => {
+    if (body.op === 'remove_set') {
+      // Close the gap: sets after the removed one move up (ascending, so the unique index never clashes).
+      const after = await tx.loggedSet.findMany({ where: { sessionExerciseId, setNumber: { gt: body.set_number } }, orderBy: { setNumber: 'asc' } });
+      for (const set of after) await tx.loggedSet.update({ where: { id: set.id }, data: { setNumber: set.setNumber - 1 } });
+    }
+    await tx.sessionExercise.update({ where: { id: sessionExerciseId }, data: { targetSets: next } });
+    for (const other of later) {
+      await tx.sessionExercise.update({ where: { id: other.id }, data: { targetSets: other.session.week.isDeload ? Math.ceil(next / 2) : next } });
+    }
+  });
+  const carriedWeeks = [...new Set(later.map((other) => other.session.week.weekNumber))].sort((a, b) => a - b);
+  return { sessionId: item.sessionId, carriedWeeks };
 }
 
 // Whether a workout has any logged set (undoing a finished workout keeps it started).

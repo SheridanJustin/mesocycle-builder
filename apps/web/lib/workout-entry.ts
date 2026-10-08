@@ -10,7 +10,7 @@ export type SetRow = {
   logged: LoggedSet | null;
   // The previous workout's matching set: shown in the Previous column and used as placeholders.
   previous: SetValues | null;
-  // A set added beyond the plan that is not logged yet (it can be removed).
+  // A set that is not logged and not the only one (removing it changes the plan, SPEC decision 20).
   removable: boolean;
 };
 
@@ -24,10 +24,10 @@ export function formatSet({ weight, reps }: SetValues): string {
   return `${weight !== null && weight > 0 ? formatWeight(weight) : 'BW'} × ${reps}`;
 }
 
-// The rows of one exercise: the planned sets, any logged beyond them, and `extra` added rows.
-export function setRows(exercise: WorkoutExercise, extra: number): SetRow[] {
+// The rows of one exercise: its planned sets (and any logged beyond them).
+export function setRows(exercise: WorkoutExercise): SetRow[] {
   const lastLogged = Math.max(0, ...exercise.sets.map((set) => set.set_number));
-  const count = Math.min(MAX_LOGGED_SETS, Math.max(exercise.target_sets, lastLogged) + extra);
+  const count = Math.min(MAX_LOGGED_SETS, Math.max(exercise.target_sets, lastLogged));
   const previous = exercise.previous?.sets ?? [];
   return Array.from({ length: count }, (_, index) => {
     const setNumber = index + 1;
@@ -37,7 +37,7 @@ export function setRows(exercise: WorkoutExercise, extra: number): SetRow[] {
       setNumber,
       logged,
       previous: match ? { weight: match.weight, reps: match.reps } : null,
-      removable: !logged && setNumber > Math.max(exercise.target_sets, lastLogged),
+      removable: !logged && count > 1,
     };
   });
 }
@@ -88,3 +88,27 @@ export const RECORD_LABEL: Record<LoggedSet['records'][number], string> = {
   weight: 'heaviest weight',
   reps: 'most reps',
 };
+
+// Sets of a workout that are not logged (they count as not done), and how many of those have
+// numbers typed but not ticked.
+export function emptySets(exercises: readonly WorkoutExercise[], drafts: Readonly<Record<string, Draft>>): { empty: number; typed: number } {
+  let empty = 0;
+  let typed = 0;
+  for (const exercise of exercises) {
+    for (const row of setRows(exercise)) {
+      if (row.logged) continue;
+      empty += 1;
+      const draft = drafts[`${exercise.id}:${row.setNumber}`];
+      if (draft && (draft.weight.trim() || draft.reps.trim())) typed += 1;
+    }
+  }
+  return { empty, typed };
+}
+
+// "Week 3", "Weeks 2–4" or "Weeks 2, 4 and 5": where a set change carried over to.
+export function weeksLabel(weeks: readonly number[]): string {
+  if (weeks.length === 1) return `Week ${weeks[0]}`;
+  const consecutive = weeks.every((week, i) => i === 0 || week === weeks[i - 1]! + 1);
+  if (consecutive) return `Weeks ${weeks[0]}–${weeks[weeks.length - 1]}`;
+  return `Weeks ${weeks.slice(0, -1).join(', ')} and ${weeks[weeks.length - 1]}`;
+}

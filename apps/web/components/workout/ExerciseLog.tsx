@@ -13,22 +13,23 @@ type Props = {
   unit: string;
   showRir: boolean;
   editable: boolean;
-  extraRows: number;
+  // After a set was added or removed: where the change carried over to (SPEC decision 20).
+  notice: string | null;
   drafts: Readonly<Record<string, Draft>>;
   pending: ReadonlySet<string>;
   errors: Readonly<Record<string, RowError>>;
   onChange: (key: string, field: keyof Draft, value: string) => void;
   onToggle: (item: WorkoutExercise, row: SetRow) => void;
   onCommit: (item: WorkoutExercise, row: SetRow) => void;
-  onAddSet: (itemId: string) => void;
-  onRemoveSet: (itemId: string) => void;
+  onAddSet: (item: WorkoutExercise) => void;
+  onRemoveSet: (item: WorkoutExercise, row: SetRow) => void;
 };
 
 export const rowKey = (itemId: string, setNumber: number) => `${itemId}:${setNumber}`;
 
 // One exercise of a workout: its target, previous best and a row per set.
-export function ExerciseLog({ item, index, unit, showRir, editable, extraRows, drafts, pending, errors, onChange, onToggle, onCommit, onAddSet, onRemoveSet }: Props) {
-  const rows = setRows(item, extraRows);
+export function ExerciseLog({ item, index, unit, showRir, editable, notice, drafts, pending, errors, onChange, onToggle, onCommit, onAddSet, onRemoveSet }: Props) {
+  const rows = setRows(item);
   const done = item.sets.length;
   const headingId = `exercise-${item.id}`;
   return (
@@ -80,7 +81,7 @@ export function ExerciseLog({ item, index, unit, showRir, editable, extraRows, d
               onChange={(field, value) => onChange(key, field, value)}
               onToggle={() => onToggle(item, row)}
               onCommit={() => onCommit(item, row)}
-              onRemove={() => onRemoveSet(item.id)}
+              onRemove={() => onRemoveSet(item, row)}
             />
           );
         })}
@@ -88,11 +89,17 @@ export function ExerciseLog({ item, index, unit, showRir, editable, extraRows, d
       {editable && rows.length < 20 && (
         <button
           type="button"
-          onClick={() => onAddSet(item.id)}
-          className="mt-2 w-full rounded-lg border border-dashed border-graphite-700 py-1.5 text-sm font-medium text-graphite-300 hover:border-aqua-500 hover:text-aqua-300"
+          disabled={pending.has(`${item.id}:sets`)}
+          onClick={() => onAddSet(item)}
+          className="mt-2 w-full rounded-lg border border-dashed border-graphite-700 py-1.5 text-sm font-medium text-graphite-300 hover:border-aqua-500 hover:text-aqua-300 disabled:opacity-60"
         >
           <span aria-hidden="true">+</span> Add set<span className="sr-only"> to {item.exercise.name}</span>
         </button>
+      )}
+      {notice && (
+        <p role="status" data-testid="sets-notice" className="mt-2 rounded-lg border border-verdigris-800 bg-verdigris-950 px-2.5 py-1.5 text-xs text-verdigris-200">
+          {notice}
+        </p>
       )}
     </section>
   );

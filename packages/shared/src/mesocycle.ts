@@ -192,6 +192,11 @@ export const LockMesocycleSchema = z.object({
 });
 export type LockMesocycle = z.infer<typeof LockMesocycleSchema>;
 
+// POST /mesocycles/{id}/extend: weeks to add to a locked mesocycle (the total stays within
+// MAX_DURATION_WEEKS; checked by the server against the current duration).
+export const ExtendMesocycleSchema = z.object({ weeks: z.number().int().min(1).max(MAX_DURATION_WEEKS - MIN_DURATION_WEEKS) });
+export type ExtendMesocycle = z.infer<typeof ExtendMesocycleSchema>;
+
 // The user's full list of mesocycle ids in the new order (every id exactly once).
 export const ReorderMesocyclesSchema = z
   .object({ ids: z.array(z.string().uuid()).min(1) })

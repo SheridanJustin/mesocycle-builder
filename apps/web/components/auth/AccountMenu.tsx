@@ -4,26 +4,18 @@ import type { Me } from '@mesocycle/shared';
 import { signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api-client';
-import { usePreferences, type Appearance, type WeightUnit } from '../preferences/PreferencesContext';
+import { usePreferences } from '../preferences/PreferencesContext';
+import { Avatar } from '../ui/Avatar';
 import { AccountPanel } from './AccountPanel';
 
-type Props = { name: string | null; email: string };
+type Props = { email: string };
 
-function PersonIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="1.8" strokeLinecap="round">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-    </svg>
-  );
-}
-
-// The person icon in the header. It opens the account panel and loads fresh stats each time.
-export function AccountMenu({ name, email }: Props) {
+// The avatar in the header. It opens the account popup and loads fresh progress each time.
+export function AccountMenu({ email }: Props) {
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { showRir, setShowRir, weightUnit, setWeightUnit, appearance, setAppearance } = usePreferences();
+  const { profile } = usePreferences();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,7 +24,7 @@ export function AccountMenu({ name, email }: Props) {
     api
       .getMe()
       .then((value) => !cancelled && setMe(value))
-      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load your stats'));
+      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load your account'));
     const close = (event: MouseEvent | KeyboardEvent) => {
       if (event instanceof KeyboardEvent && event.key === 'Escape') setOpen(false);
       if (event instanceof MouseEvent && ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
@@ -46,49 +38,6 @@ export function AccountMenu({ name, email }: Props) {
     };
   }, [open]);
 
-  // Optimistic: the UI changes at once; on failure it switches back.
-  async function toggleRir(value: boolean) {
-    setShowRir(value);
-    setError(null);
-    try {
-      setMe(await api.updateMe({ show_rir: value }));
-    } catch (e) {
-      setShowRir(!value);
-      setError(e instanceof Error ? `Could not save the setting: ${e.message}` : 'Could not save the setting');
-    }
-  }
-
-  // Only the label changes: logged numbers are kept as typed.
-  async function changeWeightUnit(value: WeightUnit) {
-    const previous = weightUnit;
-    setWeightUnit(value);
-    setError(null);
-    try {
-      setMe(await api.updateMe({ weight_unit: value }));
-    } catch (e) {
-      setWeightUnit(previous);
-      setError(e instanceof Error ? `Could not save the setting: ${e.message}` : 'Could not save the setting');
-    }
-  }
-
-  // Applies at once; saved to the account so it follows you to other devices.
-  async function changeAppearance(value: Partial<Appearance>) {
-    const previous = appearance;
-    setAppearance(value);
-    setError(null);
-    try {
-      setMe(
-        await api.updateMe({
-          ...(value.palette ? { palette: value.palette } : {}),
-          ...(value.colorMode ? { color_mode: value.colorMode } : {}),
-        }),
-      );
-    } catch (e) {
-      setAppearance(previous);
-      setError(e instanceof Error ? `Could not save the appearance: ${e.message}` : 'Could not save the appearance');
-    }
-  }
-
   return (
     <div ref={ref} className="relative">
       <button
@@ -97,32 +46,17 @@ export function AccountMenu({ name, email }: Props) {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`grid h-8 w-8 place-items-center rounded-full border transition-colors ${
-          open ? 'border-aqua-500 bg-aqua-950 text-aqua-200' : 'border-graphite-700 bg-graphite-900 text-graphite-200 hover:border-aqua-600 hover:text-aqua-200'
-        }`}
+        className={`rounded-full ring-offset-2 ring-offset-graphite-950 transition-shadow ${open ? 'ring-2 ring-aqua-400' : 'hover:ring-2 hover:ring-graphite-500'}`}
       >
-        <PersonIcon />
+        <Avatar icon={profile.avatar.icon} color={profile.avatar.color} name={profile.name || email} size="sm" />
       </button>
       {open && (
         <div
           role="dialog"
           aria-label="Account"
-          className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-4rem)] w-80 overflow-y-auto rounded-2xl border border-graphite-700 bg-graphite-900 p-4 shadow-2xl shadow-black/60"
+          className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-4rem)] w-72 overflow-y-auto rounded-2xl border border-graphite-700 bg-graphite-900 p-3 shadow-2xl shadow-black/60"
         >
-          <AccountPanel
-            me={me}
-            fallbackName={name ?? ''}
-            email={email}
-            error={error}
-            showRir={showRir}
-            onToggleRir={(value) => void toggleRir(value)}
-            weightUnit={weightUnit}
-            onChangeWeightUnit={(value) => void changeWeightUnit(value)}
-            appearance={appearance}
-            onChangeAppearance={(value) => void changeAppearance(value)}
-            onSignOut={() => void signOut({ redirectTo: '/login' })}
-            onNavigate={() => setOpen(false)}
-          />
+          <AccountPanel me={me} profile={profile} email={email} error={error} onSignOut={() => void signOut({ redirectTo: '/login' })} onNavigate={() => setOpen(false)} />
         </div>
       )}
     </div>

@@ -161,3 +161,19 @@ export function workoutRecords(history: readonly SetValues[], sets: readonly (Se
   }
   return records;
 }
+
+// PATCH /session-exercises/{id}: add a set at the end, or remove set n (a logged set must be
+// un-logged first; an exercise keeps at least one set). The change carries over to the same
+// exercise in the following weeks' workouts that have not started (SPEC decision 20).
+export const ChangeSetsSchema = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('add_set') }),
+  z.object({ op: z.literal('remove_set'), set_number: z.number().int().min(1).max(MAX_LOGGED_SETS) }),
+]);
+export type ChangeSets = z.infer<typeof ChangeSetsSchema>;
+
+export const ChangeSetsResultSchema = z.object({
+  workout: WorkoutDetailSchema,
+  // The later weeks whose workout got the same change.
+  carried_weeks: z.array(z.number().int()),
+});
+export type ChangeSetsResult = z.infer<typeof ChangeSetsResultSchema>;

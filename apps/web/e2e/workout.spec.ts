@@ -48,11 +48,20 @@ test('log sets, repeat last workout with one tap, see PRs and personal bests', a
   await expect(rows(page).nth(1)).toHaveAttribute('data-logged', 'true');
   await expect(page.getByTestId('workout-summary')).toHaveText('2 sets logged');
 
-  // Extra sets can be added and removed; a logged set can be un-ticked.
+  // Sets can be added and removed (planned ones too); the change carries over to later weeks.
+  await expect(page.getByTestId('carry-over-hint')).toBeVisible();
   await page.getByRole('button', { name: /Add set/ }).click();
   await expect(rows(page)).toHaveCount(6);
+  await expect(page.getByTestId('sets-notice')).toHaveText(`Set added. Weeks 2–4 will also have 6 sets of ${BENCH}.`);
   await page.getByRole('button', { name: `Remove ${BENCH} set 6` }).click();
   await expect(rows(page)).toHaveCount(5);
+  await page.getByRole('button', { name: `Remove ${BENCH} set 5` }).click();
+  await expect(rows(page)).toHaveCount(4);
+  await expect(page.getByTestId('sets-notice')).toHaveText(`Set 5 removed. Weeks 2–4 will also have 4 sets of ${BENCH}.`);
+  // A logged set cannot be removed (un-tick it first).
+  await expect(page.getByRole('button', { name: `Remove ${BENCH} set 1` })).toHaveCount(0);
+
+  // A logged set can be un-ticked.
   await page.getByRole('button', { name: `${BENCH} set 2 logged, tap to undo` }).click();
   await expect(rows(page).nth(1)).toHaveAttribute('data-logged', 'false');
   await repsOf(page, 2).fill('7');
@@ -66,8 +75,17 @@ test('log sets, repeat last workout with one tap, see PRs and personal bests', a
   await page.reload();
   await expect(repsOf(page, 1)).toHaveValue('9');
 
+  // Empty sets count as not done: finishing asks first.
   await page.getByRole('button', { name: 'Finish workout' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Some sets are empty' });
+  await expect(confirm).toContainText('2 sets are not logged and will count as not done.');
+  await confirm.getByRole('button', { name: 'Keep logging' }).click();
+  await expect(confirm).toBeHidden();
+  await page.getByRole('button', { name: 'Finish workout' }).click();
+  await confirm.getByRole('button', { name: 'Finish anyway' }).click();
   await page.waitForURL(new RegExp(`/mesocycles/${id}$`));
+  await page.getByTestId('week-tab-2').click();
+  await expect(card(page, 'Mon').getByTestId('session-exercise')).toContainText('4 × 8–12');
   await page.getByTestId('week-tab-1').click();
   await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('✓ Completed');
 
@@ -101,11 +119,10 @@ test('log sets, repeat last workout with one tap, see PRs and personal bests', a
   await expect(bench.getByTestId('record-heaviest')).toContainText('105 × 8');
 
   // The weight unit is a preference (it only changes the label).
-  await page.getByRole('button', { name: 'Account' }).click();
+  await page.goto('/settings');
   const saved = page.waitForResponse((r) => r.url().endsWith('/api/v1/me') && r.request().method() === 'PATCH');
-  await page.getByRole('dialog', { name: 'Account' }).getByText('kg', { exact: true }).click();
+  await page.getByText('kg', { exact: true }).click();
   expect((await saved).ok()).toBe(true);
-  await page.keyboard.press('Escape');
   await page.goto(`/mesocycles/${id}`);
   await page.getByTestId('week-tab-1').click();
   await card(page, 'Thu').getByRole('link', { name: 'Continue workout' }).click();

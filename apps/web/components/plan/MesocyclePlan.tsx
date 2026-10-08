@@ -1,6 +1,6 @@
 'use client';
 
-import { estimateSessionMinutes, type GroupVolumeSummary, type MesocycleDetail, type SessionDetail, type UpdateSession } from '@mesocycle/shared';
+import { estimateSessionMinutes, MAX_DURATION_WEEKS, type GroupVolumeSummary, type MesocycleDetail, type SessionDetail, type UpdateSession } from '@mesocycle/shared';
 import type { BlockVolume } from '@mesocycle/volume-engine';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -12,6 +12,7 @@ import { SummaryTiles } from '../review/SummaryTiles';
 import { VolumeTable } from '../review/VolumeTable';
 import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { ExtendDialog } from './ExtendDialog';
 import { StatusBadge } from '../ui/StatusBadge';
 
 type Props = {
@@ -27,6 +28,8 @@ type Props = {
   onSetStatus: (sessionId: string, status: UpdateSession['status']) => void;
   onDrop: () => void;
   onResume: () => void;
+  // Resolves once the request finished (the dialog closes on success).
+  onExtend: (weeks: number) => Promise<boolean>;
   onExport: () => void;
 };
 
@@ -133,9 +136,12 @@ function DayCard({ day, mesocycleId, today, editable, pendingSessionIds, onSetSt
 
 // The view of a locked mesocycle (SPEC 10.1, 10.6): summary, every week day by day (workouts you can
 // start and log, or skip, and rest days), and the volume per muscle group. Active ones can be dropped.
-export function MesocyclePlan({ detail, stats, volume, block, today, pendingSessionIds, error, onSetStatus, onDrop, onResume, onExport }: Props) {
+export function MesocyclePlan({ detail, stats, volume, block, today, pendingSessionIds, error, onSetStatus, onDrop, onResume, onExtend, onExport }: Props) {
   const [weekNumber, setWeekNumber] = useState(() => initialWeek(detail, today));
   const [confirmingDrop, setConfirmingDrop] = useState(false);
+  const [extending, setExtending] = useState(false);
+  const [extendBusy, setExtendBusy] = useState(false);
+  const canExtend = (detail.status === 'active' || detail.status === 'paused' || detail.status === 'completed') && detail.duration_weeks < MAX_DURATION_WEEKS;
   const week = detail.weeks.find((w) => w.week_number === weekNumber) ?? detail.weeks[0];
   const calendar = detail.schedule_mode === 'calendar';
   // Workouts can be ticked off while active; a completed mesocycle can still undo its last ones.
@@ -163,6 +169,7 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={onExport}>Export week as PNG</Button>
+          {canExtend && <Button onClick={() => setExtending(true)}>Extend</Button>}
           {detail.status === 'paused' && (
             <Button variant="primary" onClick={onResume}>
               Resume mesocycle
@@ -274,6 +281,22 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
         emptyText="No exercises in this mesocycle."
         className="mt-5"
       />
+
+      {extending && (
+        <ExtendDialog
+          open
+          detail={detail}
+          busy={extendBusy}
+          onClose={() => setExtending(false)}
+          onExtend={(weeks) => {
+            setExtendBusy(true);
+            void onExtend(weeks).then((ok) => {
+              setExtendBusy(false);
+              if (ok) setExtending(false);
+            });
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmingDrop}

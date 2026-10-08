@@ -9,7 +9,7 @@ import { GET, PATCH } from './route';
 
 beforeEach(async () => {
   await cleanCustomData();
-  await prisma.user.update({ where: { email: 'integration-dev@example.com' }, data: { showRir: true, name: null, palette: 'graphite', colorMode: 'dark', weightUnit: 'lb' } });
+  await prisma.user.update({ where: { email: 'integration-dev@example.com' }, data: { showRir: true, name: null, palette: 'graphite', colorMode: 'dark', weightUnit: 'lb', avatarIcon: 'initial', avatarColor: 'aqua' } });
 });
 afterAll(async () => {
   await cleanCustomData();
@@ -79,12 +79,18 @@ describe('PATCH /api/v1/me', () => {
     expect((await me()).preferences.palette).toBe('frost');
   });
 
+  it('saves the avatar', async () => {
+    expect((await me()).avatar).toEqual({ icon: 'initial', color: 'aqua' });
+    const body = MeSchema.parse(await (await patch({ avatar_icon: 'kettlebell', avatar_color: 'snow' })).json());
+    expect(body.avatar).toEqual({ icon: 'kettlebell', color: 'snow' });
+  });
+
   it('saves the weight unit', async () => {
     expect(MeSchema.parse(await (await patch({ weight_unit: 'kg' })).json()).preferences.weight_unit).toBe('kg');
     expect((await me()).preferences.weight_unit).toBe('kg');
   });
 
-  it.each([{}, { show_rir: 'no' }, { weight_unit: 'stone' }, { name: '' }, { palette: 'neon' }, { color_mode: 'sepia' }])('returns 400 for %j', async (body) => {
+  it.each([{}, { show_rir: 'no' }, { weight_unit: 'stone' }, { avatar_icon: 'skull' }, { avatar_color: 'pink' }, { name: '' }, { palette: 'neon' }, { color_mode: 'sepia' }])('returns 400 for %j', async (body) => {
     expect((await patch(body)).status).toBe(400);
   });
 

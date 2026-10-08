@@ -25,46 +25,94 @@ async function openAccount(page: Page) {
   return page.getByRole('dialog', { name: 'Account' });
 }
 
-test('the account menu shows who is signed in and their training stats', async ({ page }) => {
+// Opens Settings from the account popup (client navigation, like a user would).
+async function openSettings(page: Page) {
+  await (await openAccount(page)).getByRole('link', { name: /Settings/ }).click();
+  await page.waitForURL(/\/settings$/);
+  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+}
+
+const mePatched = (page: Page) => page.waitForResponse((r) => r.url().endsWith('/api/v1/me') && r.request().method() === 'PATCH');
+
+test('the account popup keeps the basics; settings shows the account and training stats', async ({ page }) => {
   const email = await freshAccount(page, 'Robin');
   let panel = await openAccount(page);
   await expect(panel.getByTestId('account-name')).toHaveText('Robin');
   await expect(panel.getByTestId('account-email')).toHaveText(email);
-  await expect(panel).toContainText('Signs in with email and password');
-  await expect(panel.getByTestId('stat-workouts')).toHaveText('0');
   await expect(panel).toContainText('No active mesocycle');
+  await expect(panel.getByRole('link', { name: /Personal bests/ })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(panel.getByRole('switch', { name: 'Show RIR' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
+
+  await openSettings(page);
+  await expect(page.getByTestId('settings-email')).toHaveText(email);
+  await expect(page.getByRole('main')).toContainText('email and password');
+  await expect(page.getByTestId('stat-workouts')).toHaveText('0');
 
   // Lock a mesocycle and finish one workout: the stats follow.
   const id = await createPopulatedDraft(page.request, { name: 'Robin Plan', days: week });
   expect((await page.request.post(`/api/v1/mesocycles/${id}/lock`, { data: { start_date: '2026-10-05' } })).ok()).toBe(true);
   await page.goto(`/mesocycles/${id}`);
+  // The pointer is still where the Settings link was, over a summary tile whose tooltip would cover the week tabs.
+  await page.mouse.move(0, 0);
   await page.getByTestId('week-tab-1').click();
   await page.getByTestId('session-card').first().getByRole('link', { name: 'Start workout' }).click();
   await page.getByRole('button', { name: 'Finish workout' }).click();
+  await page.getByRole('dialog', { name: 'Some sets are empty' }).getByRole('button', { name: 'Finish anyway' }).click();
   await page.waitForURL(new RegExp(`/mesocycles/${id}$`));
-  await page.getByTestId('week-tab-1').click();
-  await expect(page.getByTestId('session-card').first().getByTestId('session-status')).toHaveText('✓ Completed');
 
   panel = await openAccount(page);
-  await expect(panel.getByTestId('stat-workouts')).toHaveText('1');
-  await expect(panel.getByTestId('stat-sets')).toHaveText('5');
   await expect(panel.getByTestId('account-active')).toContainText('Robin Plan');
   await expect(panel.getByTestId('account-active')).toContainText('1/8 workouts');
+  await page.keyboard.press('Escape');
+  await openSettings(page);
+  await expect(page.getByTestId('stat-workouts')).toHaveText('1');
+  await expect(page.getByTestId('stat-sets')).toHaveText('5');
 });
 
-test('RIR can be switched off: it disappears from cards, the plan and the deload text, and the choice is saved', async ({ page }) => {
+test('profile: the avatar icon, its color and the name are saved and shown in the header', async ({ page }) => {
+  await freshAccount(page, 'Alex');
+  const headerAvatar = page.getByRole('button', { name: 'Account' }).getByTestId('avatar');
+  await expect(headerAvatar).toHaveAttribute('data-icon', 'initial');
+  await expect(headerAvatar).toHaveText('A');
+
+  await openSettings(page);
+  let saved = mePatched(page);
+  await page.getByRole('group', { name: 'Avatar icon' }).getByTitle('Kettlebell').click();
+  expect((await saved).ok()).toBe(true);
+  await expect(headerAvatar).toHaveAttribute('data-icon', 'kettlebell');
+  saved = mePatched(page);
+  await page.getByRole('group', { name: 'Avatar color' }).getByTitle('Red').click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.getByRole('group', { name: 'Avatar color' }).getByRole('radio', { name: 'Red' })).toBeChecked();
+
+  saved = mePatched(page);
+  await page.getByLabel('Name').fill('Alex Strong');
+  await page.getByRole('button', { name: 'Save' }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+
+  await page.reload();
+  await expect(headerAvatar).toHaveAttribute('data-icon', 'kettlebell');
+  const panel = await openAccount(page);
+  await expect(panel.getByTestId('account-name')).toHaveText('Alex Strong');
+});
+
+test('RIR can be switched off in settings: it disappears from cards, the plan and the deload text', async ({ page }) => {
   await freshAccount(page, 'Casey');
   const id = await createPopulatedDraft(page.request, { name: 'No RIR', days: week });
   await page.goto(`/mesocycles/${id}/build`);
   const card = page.getByRole('article', { name: 'Barbell Bench Press' }).first();
   await expect(card.getByLabel('RIR')).toBeVisible();
 
-  const panel = await openAccount(page);
-  await panel.getByText('Show RIR', { exact: true }).click();
-  await expect(panel.getByRole('switch', { name: 'Show RIR' })).not.toBeChecked();
-  await page.keyboard.press('Escape');
+  await openSettings(page);
+  const saved = mePatched(page);
+  await page.getByText('Show RIR', { exact: true }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.getByRole('switch', { name: 'Show RIR' })).not.toBeChecked();
+  await page.goBack();
   await expect(card.getByLabel('RIR')).toHaveCount(0);
   await expect(card.getByLabel('Reps', { exact: true })).toBeVisible();
 
@@ -81,7 +129,12 @@ test('RIR can be switched off: it disappears from cards, the plan and the deload
   await expect(page.getByTestId('session-exercise').first()).toHaveText(/5 × 8–12$/);
 
   // And back on.
-  await (await openAccount(page)).getByText('Show RIR', { exact: true }).click();
+  await openSettings(page);
+  const again = mePatched(page);
+  await page.getByText('Show RIR', { exact: true }).click();
+  expect((await again).ok()).toBe(true);
+  await page.goBack();
+  await page.getByTestId('week-tab-1').click();
   await expect(page.getByTestId('session-exercise').first()).toContainText('RIR 2');
 });
 
@@ -93,19 +146,20 @@ test('appearance: a palette and light or dark mode apply at once and are saved t
   const pageBackground = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-graphite-950').trim());
   const darkBackground = await pageBackground();
 
-  const panel = await openAccount(page);
-  await expect(panel.getByRole('radiogroup', { name: 'Color palette' }).getByRole('radio')).toHaveCount(6);
+  await openSettings(page);
+  await expect(page.getByRole('radiogroup', { name: 'Color palette' }).getByRole('radio')).toHaveCount(6);
   // Frost was designed light, so picking it switches to light mode.
-  await panel.getByTestId('palette-frost').click();
+  await page.getByTestId('palette-frost').click();
   await expect(html).toHaveAttribute('data-palette', 'frost');
   await expect(html).toHaveAttribute('data-mode', 'light');
-  await expect(panel.getByTestId('palette-frost')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('palette-frost')).toHaveAttribute('aria-checked', 'true');
   expect(await pageBackground()).not.toBe(darkBackground);
 
   // Any palette also has the other mode.
-  await panel.getByRole('radiogroup', { name: 'Mode' }).getByRole('radio', { name: 'Dark' }).click();
+  const saved = mePatched(page);
+  await page.getByRole('radiogroup', { name: 'Mode' }).getByRole('radio', { name: 'Dark' }).click();
   await expect(html).toHaveAttribute('data-mode', 'dark');
-  await expect(panel.getByTestId('stat-workouts')).toBeVisible();
+  expect((await saved).ok()).toBe(true);
 
   // Saved: the server renders the chosen theme after a reload (no flash of the default).
   await page.reload();

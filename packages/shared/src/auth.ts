@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { COLOR_MODES, THEME_PALETTES, WEIGHT_UNITS } from './constants';
+import { AVATAR_COLORS, AVATAR_ICONS, COLOR_MODES, THEME_PALETTES, WEIGHT_UNITS } from './constants';
 
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 200;
@@ -29,6 +29,7 @@ export const MeSchema = z.object({
   email: z.string(),
   name: z.string().nullable(),
   created_at: z.string(),
+  avatar: z.object({ icon: z.enum(AVATAR_ICONS), color: z.enum(AVATAR_COLORS) }),
   // How this account can sign in.
   sign_in: z.object({ password: z.boolean(), google: z.boolean() }),
   preferences: z.object({ show_rir: z.boolean(), palette: z.enum(THEME_PALETTES), color_mode: z.enum(COLOR_MODES), weight_unit: z.enum(WEIGHT_UNITS) }),
@@ -50,6 +51,8 @@ export const UpdateMeSchema = z
     palette: z.enum(THEME_PALETTES).optional(),
     color_mode: z.enum(COLOR_MODES).optional(),
     weight_unit: z.enum(WEIGHT_UNITS).optional(),
+    avatar_icon: z.enum(AVATAR_ICONS).optional(),
+    avatar_color: z.enum(AVATAR_COLORS).optional(),
     name: z.string().trim().min(1).max(100).nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: 'At least one field is required' });

@@ -28,6 +28,8 @@ const card = (page: Page, day: string) => page.getByTestId('session-card').filte
 async function finishWorkout(page: Page, day: string, weekNumber: number) {
   await card(page, day).getByRole('link', { name: /Start workout|Continue workout/ }).click();
   await page.getByRole('button', { name: 'Finish workout' }).click();
+  // Nothing was logged: confirm finishing with empty sets.
+  await page.getByRole('dialog', { name: 'Some sets are empty' }).getByRole('button', { name: 'Finish anyway' }).click();
   await page.waitForURL(/\/mesocycles\/[^/]+$/);
   await page.getByTestId(`week-tab-${weekNumber}`).click();
 }
@@ -173,4 +175,22 @@ test('only one mesocycle runs at a time: locking in pauses the running one, whic
   const secondCard = page.getByTestId('mesocycle-card').filter({ hasText: secondName });
   await expect(secondCard).toContainText('paused');
   await expect(secondCard.getByRole('button', { name: `Delete ${secondName}` })).toHaveCount(0);
+});
+
+test('a locked mesocycle can be extended by a few weeks', async ({ page, request }) => {
+  const id = await lockedMesocycle(request, unique('Extended'));
+  await page.goto(`/mesocycles/${id}`);
+  await expect(page.getByTestId('week-tab-3')).toBeVisible();
+  await page.getByRole('button', { name: 'Extend' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Extend mesocycle' });
+  // 3 weeks now, at most 10.
+  await expect(dialog.getByRole('radio')).toHaveCount(7);
+  await dialog.getByText('+2').click();
+  await expect(dialog.getByTestId('extend-summary')).toHaveText('3 → 5 weeks (at most 10).');
+  await dialog.getByRole('button', { name: 'Add 2 weeks' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('plan-meta')).toContainText('5 weeks');
+  await page.getByTestId('week-tab-5').click();
+  await expect(card(page, 'Mon').getByRole('link', { name: 'Start workout' })).toBeVisible();
+  await expect(page.getByTestId('plan-progress')).toContainText('0 of 10 workouts done');
 });

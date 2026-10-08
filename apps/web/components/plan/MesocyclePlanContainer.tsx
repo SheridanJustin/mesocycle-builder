@@ -85,6 +85,18 @@ export function MesocyclePlanContainer({ mesocycleId }: { mesocycleId: string })
     }
   }
 
+  async function extend(weeks: number): Promise<boolean> {
+    setActionError(null);
+    try {
+      const detail = await api.extendMesocycle(mesocycleId, { weeks });
+      setLoaded((current) => (current ? { ...current, detail } : current));
+      return true;
+    } catch (e) {
+      setActionError(`Could not extend the mesocycle: ${message(e, 'unknown error')}`);
+      return false;
+    }
+  }
+
   async function drop() {
     setActionError(null);
     try {
@@ -120,6 +132,7 @@ export function MesocyclePlanContainer({ mesocycleId }: { mesocycleId: string })
       onSetStatus={setStatus}
       onDrop={() => void drop()}
       onResume={() => void resume()}
+      onExtend={extend}
       onExport={() => void downloadWeekPng(view.state, loaded.detail.name, { showRir })}
     />
   );

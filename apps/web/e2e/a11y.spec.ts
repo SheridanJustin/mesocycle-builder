@@ -46,7 +46,7 @@ test('the list, the plan and the account panel have no accessibility violations'
   await expect(page.getByTestId('session-card').first()).toBeVisible();
   await audit(page, 'Plan');
   await page.getByRole('button', { name: 'Account' }).click();
-  await expect(page.getByTestId('stat-workouts')).toBeVisible();
+  await expect(page.getByTestId('account-name')).toBeVisible();
   await audit(page, 'Account panel');
 
   await page.goto('/mesocycles');
@@ -95,6 +95,10 @@ test('the workout logger and personal bests have no accessibility violations', a
   await page.getByRole('button', { name: 'Log Barbell Bench Press set 1' }).click();
   await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
   await audit(page, 'Workout with an input error');
+
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await audit(page, 'Settings');
 
   await page.goto('/records');
   await expect(page.getByRole('heading', { name: 'Personal bests' })).toBeVisible();
