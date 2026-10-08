@@ -1,4 +1,4 @@
-import type { MesocycleDetail, MesocycleSummary, PriorityEntry } from '@mesocycle/shared';
+import type { MesocycleDetail, MesocycleSummary, PriorityEntry, SessionDetail, WeekDetail } from '@mesocycle/shared';
 import type { Prisma } from '@prisma/client';
 import { ApiRouteError } from './api';
 import { prisma } from './db';
@@ -17,6 +17,15 @@ export const DETAIL_INCLUDE = {
     },
   },
   priorities: true,
+  weeks: {
+    orderBy: { weekNumber: 'asc' },
+    include: {
+      sessions: {
+        orderBy: { day: { sortOrder: 'asc' } },
+        include: { day: true, exercises: { orderBy: { sortOrder: 'asc' }, include: { exercise: true } } },
+      },
+    },
+  },
 } satisfies Prisma.MesocycleInclude;
 
 type MesocycleRow = Prisma.MesocycleGetPayload<{ include: typeof DETAIL_INCLUDE }>;
@@ -36,11 +45,38 @@ export function toSummaryDto(row: SummaryRow): MesocycleSummary {
     status: row.status,
     start_date: isoDate(row.startDate),
     locked_at: row.lockedAt?.toISOString() ?? null,
+    ended_at: row.endedAt?.toISOString() ?? null,
     deload_final_week: row.deloadFinalWeek,
     day_count: row._count.days,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };
+}
+
+function toWeekDtos(row: MesocycleRow): WeekDetail[] {
+  return row.weeks.map((week) => ({
+    id: week.id,
+    week_number: week.weekNumber,
+    is_deload: week.isDeload,
+    is_complete: week.sessions.length > 0 && week.sessions.every((s) => s.status === 'completed' || s.status === 'skipped'),
+    sessions: week.sessions.map((session) => ({
+      id: session.id,
+      day_id: session.dayId,
+      day_name: session.day.dayName,
+      scheduled_date: isoDate(session.scheduledDate),
+      status: session.status as SessionDetail['status'],
+      exercises: session.exercises.map((item) => ({
+        id: item.id,
+        exercise: toExerciseDto(item.exercise),
+        sort_order: item.sortOrder,
+        target_sets: item.targetSets,
+        rep_range_min: item.repRangeMin,
+        rep_range_max: item.repRangeMax,
+        target_rir: item.targetRir,
+        target_weight: item.targetWeight === null ? null : item.targetWeight.toNumber(),
+      })),
+    })),
+  }));
 }
 
 export async function toDetailDto(row: MesocycleRow): Promise<MesocycleDetail> {
@@ -93,10 +129,12 @@ export async function toDetailDto(row: MesocycleRow): Promise<MesocycleDetail> {
     status: row.status,
     start_date: isoDate(row.startDate),
     locked_at: row.lockedAt?.toISOString() ?? null,
+    ended_at: row.endedAt?.toISOString() ?? null,
     deload_final_week: row.deloadFinalWeek,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
     days,
+    weeks: toWeekDtos(row),
     priorities,
     volume_summary,
   };

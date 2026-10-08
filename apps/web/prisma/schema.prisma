@@ -48,6 +48,8 @@ enum MesocycleStatus {
   draft
   active
   completed
+  dropped
+  paused
 }
 
 enum ScheduleMode {
@@ -58,7 +60,20 @@ enum ScheduleMode {
 model User {
   id String @id @default(uuid()) @db.Uuid
   email String @unique
+  name String? @db.VarChar(100)
+  // scrypt hash (lib/passwords.ts); null for Google-only accounts and the seeded dev user.
+  passwordHash String? @map("password_hash")
+  // Google account subject ("sub"), set when the user signs in with Google.
+  googleId String? @unique @map("google_id")
   weightUnit String @default("lb") @map("weight_unit")
+  // Show RIR targets in the UI (some lifters do not use RIR). The plan still stores them.
+  showRir Boolean @default(true) @map("show_rir")
+  // Appearance: one of THEME_PALETTES (packages/shared) and 'dark' | 'light'.
+  palette String @default("graphite") @db.VarChar(32)
+  colorMode String @default("dark") @map("color_mode") @db.VarChar(8)
+  // Profile avatar: one of AVATAR_ICONS and AVATAR_COLORS (packages/shared).
+  avatarIcon String @default("initial") @map("avatar_icon") @db.VarChar(32)
+  avatarColor String @default("aqua") @map("avatar_color") @db.VarChar(16)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   exercises Exercise[]
@@ -96,17 +111,23 @@ model MuscleLandmark {
   @@map("muscle_landmarks")
 }
 
+// At most one active mesocycle per user: enforced by the partial unique index
+// "mesocycles_one_active_per_user" (migration 20261013010000_one_active), which Prisma cannot express.
 model Mesocycle {
   id String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid @map("user_id")
   name String @db.VarChar(255)
   durationWeeks Int @default(4) @map("duration_weeks")
-  daysPerWeek Int @map("days_per_week")
-  scheduleMode ScheduleMode @default(relative) @map("schedule_mode")
+  daysPerWeek Int @default(7) @map("days_per_week")
+  scheduleMode ScheduleMode @default(calendar) @map("schedule_mode")
   status MesocycleStatus @default(draft)
   startDate DateTime? @db.Date @map("start_date")
   lockedAt DateTime? @map("locked_at")
+  // When the mesocycle was completed (every workout done or skipped) or dropped.
+  endedAt DateTime? @map("ended_at")
   deloadFinalWeek Boolean @default(false) @map("deload_final_week")
+  // The user's own order on the list page (drag to reorder); lower comes first.
+  position Int @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   user User @relation(fields: [userId], references: [id])
@@ -189,7 +210,8 @@ model WorkoutSession {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   week MesocycleWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
-  day MesocycleDay @relation(fields: [dayId], references: [id])
+  // Cascade so deleting a mesocycle (days and weeks together) never trips over its workouts.
+  day MesocycleDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
   exercises SessionExercise[]
   @@map("workout_sessions")
 }
@@ -208,6 +230,8 @@ model SessionExercise {
   session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId], references: [id])
   loggedSets LoggedSet[]
+  // Previous numbers and personal bests look up an exercise's history.
+  @@index([exerciseId])
   @@map("session_exercises")
 }
 
@@ -221,5 +245,7 @@ model LoggedSet {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+  // One row per set: logging a set again replaces it.
+  @@unique([sessionExerciseId, setNumber])
   @@map("logged_sets")
 }

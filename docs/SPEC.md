@@ -7,22 +7,21 @@
 
 ## 0. Product summary
 
-A web app where a lifter builds a 4–6 week hypertrophy training block (a **mesocycle**) through a six-step wizard:
+A web app where a lifter builds a 3–10 week hypertrophy training block (a **mesocycle**) on one screen:
 
-1. Choose training days
-2. Assign muscle groups to days and set priorities
-3. Add and order exercises
-4. Set Week 1 sets, rep ranges, load, and RIR
-5. See live weekly-volume feedback against volume landmarks (MV / MEV / MAV / MRV)
-6. Review and **lock in** the block, which generates the weekly workout logs
+1. **Build** (the board): a repeating cycle of day columns, Mon–Sun by default. Add one or many exercises to a day, edit Week 1 sets, rep ranges, load and RIR inline, and order or move them. A day without exercises is a rest day.
+2. Watch live weekly-volume feedback against volume landmarks (MV / MEV / MAV / MRV) in a sticky bar while building.
+3. **Review**: volume per muscle group, mesocycle settings (duration, deload) and **lock in**, which freezes the plan and generates every week's workouts (shown on a read-only plan page).
 
-The signature UI is a **horizontal board**: each training day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
+The signature UI is a **horizontal board**: each day is a vertical column, columns sit side by side, and the user scrolls left-to-right. A **sticky volume bar** stays visible while scrolling and updates live.
+
+*Revision R1 (after M7, requested by the product owner):* the six-step wizard was simplified to **Build** and **Review**. The create form, the Schedule/Muscles/Metrics/Volume steps, explicit muscle-group sections and the priority/focus feature were removed from the UI (see Section 2, decisions 7–10). *Revision R2:* days can be reordered by dragging their column, prebuilt templates were added (10.10), the duration range became 3–10 weeks, and the UI says "mesocycle" everywhere instead of "block" (decisions 12–13). *Revision R3 (M8):* lock-in is built (Section 9, 10.6), with a read-only plan page; the mesocycle list can be reordered by dragging (decision 14). *Revision R4:* workouts can be completed or skipped, weeks and mesocycles complete themselves, an active mesocycle can be dropped, finished ones go to an archive, rest days show on the plan, and Review exports the week as a PNG (decision 15). *Revision R5:* accounts: email/password sign-up and sign-in, plus "Continue with Google" (decision 1). *Revision R6:* an account menu in the header (profile, training stats, preferences, Sign out) and a "Show RIR" preference (decision 16). *Revision R7 (M9):* only one mesocycle runs at a time (decision 17), plus the hardening pass: phone layout, accessibility audit, 404 and error pages (10.11). *Revision R8:* six color palettes, each with a dark and a light mode (10.12); weekly numbers and the landmark terms carry the status colors. *Revision R9:* workout logging: reps and weight per set, the previous workout's numbers as placeholders, PR badges and a Personal bests page (decision 19), replacing the plan's one-click Complete. *Revision R10:* planned sets can be removed and added in the logger and the change carries over to later weeks; finishing with empty sets warns first (decision 20); a locked mesocycle can be extended (decision 21); a settings page, a slimmer account popup and avatar icons (decision 22).
 
 ### Glossary
 
 | Term | Meaning |
 |---|---|
-| Mesocycle | A training block, usually 4–6 weeks. |
+| Mesocycle | A training block of 3–10 weeks (4 by default). The UI always calls it a mesocycle, never a "block". |
 | Training day | One day in the weekly template (e.g. "Push A"). Repeats every week of the block. |
 | Muscle group slot | A container on a day that says "this day trains chest". Exercises live inside it. Holds the priority tier. |
 | Exercise slot | One exercise placed on a day, with its Week 1 targets. |
@@ -45,20 +44,35 @@ The agent rules live in the repo-root `AGENTS.md`, which is the maintained copy 
 
 The original requirements left several things open. These are the decisions made so Codex does not guess. Change them here first if you disagree.
 
-1. **Auth:** Out of scope. Use a `getCurrentUser()` helper that returns a seeded dev user. Every query is scoped by `user_id` so real auth (e.g. Auth.js) can be dropped in later.
+1. **Auth (R5):** Auth.js (`next-auth` v5) with JWT sessions in an httpOnly signed cookie. Two ways in: an **email/password** account (created at `/login`, password ≥ 8 characters, hashed with Node's built-in scrypt, salted, compared in constant time) and **Continue with Google** (shown only when `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` are set). A Google sign-in is matched by its Google id, else linked to the account with the same email (only if Google reports the email verified), else a new account is created. `getCurrentUser()` reads the session; every query stays scoped by `user_id`, and an API call without a session gets `401`. Every app page sends signed-out visitors to `/login` and returns them afterwards. The seeded dev user (`DEV_USER_EMAIL`, no password) can be claimed by creating an account with that email outside production, so data from before accounts existed is kept. Not built: email verification, password reset, account settings and rate limiting (they need an email service or more infrastructure).
 2. **Weight units:** The user has a `weight_unit` preference (`kg` or `lb`, default `lb`). Weights are stored as entered, with no conversion.
 3. **Counting sets toward volume:** A set counts as **1.0** toward the exercise's primary muscle and **0.5** toward each secondary muscle. The `0.5` is a constant (`SECONDARY_MUSCLE_WEIGHT`) in `packages/shared`.
 4. **Landmark values** are seed data in a `muscle_landmarks` table, not hard-coded in UI. The seeded numbers in Section 8 are starting defaults. They are editable and not scientific absolutes.
 5. **Progression after Week 1** (adding sets, load changes) is a non-goal for v1. Lock-in copies Week 1 targets into every week, ramping only RIR (Section 9.3). A `ProgressionStrategy` interface exists so smarter logic can be added later.
 6. **Draft autosave:** The builder state autosaves via the full-schedule `PUT` (debounced, 800 ms). A draft is always resumable.
-7. **Wizard vs. board:** Steps 3, 4 and 5 all happen on the same horizontal board. Step 3 adds and orders cards, Step 4 edits metrics inline on those cards, and Step 5 is the always-on volume bar. The wizard stepper marks progress but the user can move between steps freely.
+7. **Build and Review only:** everything happens on the board (adding, ordering and editing exercises, with the always-on volume bar). Review holds the mesocycle settings and, from M8, the dashboard and lock-in. There is no stepper and no completion checks.
+8. **Cycle and rest days:** a mesocycle's repeating cycle has 1–10 days, 7 by default. A day without exercises is a **rest day**: it is stored like any other day but generates no sessions at lock-in. Days are named Mon–Sun (`schedule_mode = calendar`, exactly 7 days, `weekday` = position) or numbered "Day 1…N" (`schedule_mode = relative`, no weekdays). A "Number the days" checkbox on the board switches between the two; adding an 8th day switches to numbered days. Names the user typed are kept when switching; generated names are relabelled.
+9. **No create form:** "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens the board. Name, duration and deload are edited on Review.
+10. **Priorities are shelved:** the focus/normal/maintenance priority, its target band and its hint are hidden in the UI. The data model, the API and the engine keep them, so the feature can return later; every muscle is treated as `normal`.
+11. **Muscle groups are implicit:** the UI shows one ordered list of exercises per day, each card tagged with its muscle. `day_muscle_groups` rows are derived on save (one per muscle the day trains, in order of first appearance) and a slot's `muscle` is its exercise's primary muscle when it is added.
+12. **Templates:** a few prebuilt splits (10.10) are static data in `packages/shared`, not database rows. Applying one fills the board with ordinary slots through the normal schedule save, so a templated mesocycle is edited exactly like any other. Templates are curated by hand, never generated (Section 3).
+13. **Duration and wording:** a mesocycle lasts 3–10 weeks. User-facing text says "mesocycle"; "block" remains only as an internal word in code (e.g. block volume = totals over the whole mesocycle).
+14. **List order and lock-in details:** the user's own order on the list page is stored in `mesocycles.position` (new mesocycles go first; reordering does not change `updated_at`). A Mon–Sun mesocycle locks in with a start date that is a **Monday**, so every week lines up with Mon–Sun. Lock-in warnings use the major muscle groups the builder shows (7.6), not individual muscles.
+15. **Tracking:** on an active mesocycle each generated workout can be marked **completed** or **skipped** (and undone). Since R9 a workout is completed from its logger (decision 19), where the sets are entered. A week is complete when all its workouts are completed or skipped; the mesocycle becomes `completed` when all of its are (undoing one reopens it). An active mesocycle can be **dropped** (stopped early). Completed and dropped mesocycles form the **archive**; drafts and archived ones can be deleted, an active one must be dropped first. "Export week as PNG" draws the plan as one plain week on a canvas in the browser (no new dependency, nothing sent to the server).
+16. **Account menu and RIR preference:** a person icon in the header opens the account panel (since R10 most of it lives on the settings page, decision 22): name, email, sign-in methods, member-since date, training stats (workouts done and skipped, sets done = logged sets of completed workouts, or their target sets when finished without logging (decision 19), mesocycles completed, and the active mesocycle with its progress), the **Show RIR** switch, and **Sign out**. Show RIR (`users.show_rir`, on by default) only changes the display: RIR disappears from exercise cards, the drag preview, the plan, the lock-in and deload explanations and the PNG export. RIR values are still stored and still ramp at lock-in, so switching it back on shows them again.
+17. **One mesocycle at a time:** a user has at most one `active` mesocycle (a partial unique index enforces it). Locking in a new one **pauses** the active one (`paused`), in the same transaction; the lock-in dialog names it. A paused mesocycle keeps its workouts but cannot track them until **Resume**, which pauses whichever one is active then. Paused ones stay on the Current tab, can be dropped, and cannot be deleted (drop first). Undoing a workout of a completed mesocycle while another one is active reopens it as `paused`.
+18. **Appearance:** six palettes (Graphite & Aqua, the original; Ocean; Indigo Night; Rose; Plum & Sand; Frost), each with a **dark** and a **light** mode, chosen in the account panel and saved per user (`users.palette`, `users.color_mode`). Components keep using the token scales (graphite, aqua, verdigris, shamrock, snow); each palette and mode redefines them in `app/themes.css`, generated from `lib/themes/palettes.ts` (OKLCH lightness steps, mirrored for light mode). A unit test checks WCAG AA contrast for every palette and mode. The volume status colors keep their five hues in both modes (7.4).
+19. **Workout logging (R9):** "Start workout" on the plan opens the workout logger (`/mesocycles/[id]/workouts/[sessionId]`): each exercise has one row per planned set (Set · Previous · weight · reps · ✓), and sets can be added or removed (decision 20). **Placeholders** are the previous workout's numbers for that set: the last other workout in which the exercise was logged, matched by set number (else its last set); without one, the planned weight and the rep range. **✓** saves the typed numbers, or the placeholders for empty fields, so repeating last workout is one tap per set (reps are required when there is nothing to repeat). Enter moves from weight to reps and then logs; ✓ on a logged set un-logs it; editing a logged set saves on leaving the field. Weight is optional (empty or "BW" = bodyweight), up to 2 decimals, in the user's **weight unit** (`users.weight_unit`, kg or lb, an account-panel switch; it only changes the label, numbers are never converted). The first logged set makes the workout `in_progress` (un-logging every set makes it `planned` again); **Finish workout** completes it (logging is optional; empty sets count as not done, decision 20). Sets of a completed workout can still be corrected; a skipped workout, or a paused, dropped or draft mesocycle, cannot be logged (`409`). Undoing a finished workout that has logged sets puts it back `in_progress`. **Personal bests** per exercise come from every logged set of the user: best estimated 1RM (Epley, `weight × (1 + reps / 30)`, a single rep is the weight), heaviest weight (more reps break a tie) and, for bodyweight sets, most reps. In the logger a set gets a **PR** badge when it beats every set logged in other workouts (only the best set of the workout per kind, and nothing the first time an exercise is logged); each exercise shows its best set so far. The `/records` page (header link "Personal bests", also in the account panel) lists every logged exercise, most recently trained first. The account panel's "Sets done" counts logged sets of completed workouts (target sets for workouts finished without logging). Not built (product decision): pump, soreness or other readiness questions, rest timers and plate math.
+20. **Changing sets while training (R10):** every set row has a remove (✕) button and **+ Add set** adds one at the end (`PATCH /session-exercises/{id}`, 1–20 sets). A logged set must be un-ticked before it can be removed, and an exercise keeps at least one set; logged sets after a removed one move up. The new count **carries over**: the same exercise (same day, same position) in later weeks whose workout has not started gets the same number of sets (a deload week gets half, rounded up); a change made in a deload week stays there. A hint under the logger's title says so, and after each change a notice under the exercise names the weeks that changed ("Set 5 removed. Weeks 2–4 will also have 4 sets of Barbell Bench Press."). **Empty sets** (not ticked) count as not done: **Finish workout** with any of them opens "Some sets are empty" with how many (and how many have numbers typed but not ticked), **Keep logging** or **Finish anyway**.
+21. **Extending a mesocycle (R10):** **Extend** on the plan of an active, paused or completed mesocycle adds 1 or more weeks (up to 10 in total) (`POST /mesocycles/{id}/extend`). New weeks copy the last training (non-deload) week's workouts, including set changes, and continue its RIR ramp (one less per week, never below 0); calendar dates follow on. A deload week that has not started moves to the end; one that has started stays and the new weeks follow it (the mesocycle then no longer ends with a deload). Extending a completed mesocycle reopens it (paused if another one is running).
+22. **Settings and avatar (R10):** the header shows the user's **avatar** (an icon or the name's initial on one of five token gradients: `users.avatar_icon`, `users.avatar_color`). It opens a small account popup: avatar, name and email, the active mesocycle with its progress, links to **Personal bests** and **Settings**, and **Sign out**. Everything else is on `/settings`: **Profile** (name, avatar icon and color), **Training** (Show RIR, weight unit), **Appearance**, **Your training** (workouts done, sets done, mesocycles done, workouts skipped, link to Personal bests) and **Account** (email, sign-in methods, member since, Sign out). Every change saves at once ("Saved") and the header follows.
 
 ---
 
 ## 3. Non-goals (do NOT build)
 
-- Authentication, billing, social features, or sharing.
-- Workout logging UI (entering actual reps and weights per set). Lock-in only **generates** empty logs.
+- Billing, social features, or sharing. (Accounts exist since R5: decision 1.)
+- Readiness tracking in the workout logger (pump, soreness, mood questions). Uploaded profile photos (avatars are built-in icons). Set logging itself is in scope since R9 (decision 19).
 - Automatic set or load progression beyond the RIR ramp.
 - Mobile native apps. (The web UI must still be usable on a phone via horizontal snap scroll.)
 - AI-generated programs.
@@ -99,7 +113,7 @@ Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `create
 - `equipment`: `barbell, dumbbell, cable, machine, bodyweight`
 - `movement_type`: `compound, isolation`
 - `priority`: `focus, normal, maintenance`
-- `mesocycle_status`: `draft, active, completed`
+- `mesocycle_status`: `draft, active, completed, dropped, paused`
 - `schedule_mode`: `calendar, relative`
 
 ### 5.2 Tables
@@ -107,8 +121,14 @@ Use Prisma. SQL is shown for clarity. All IDs are UUIDs. All tables have `create
 ```sql
 users
   id UUID PK
-  email TEXT UNIQUE
+  email TEXT UNIQUE                        -- stored lower-case
+  name VARCHAR(100) NULL
+  password_hash TEXT NULL                  -- scrypt; NULL for Google-only accounts
+  google_id TEXT NULL UNIQUE               -- Google "sub", set on Google sign-in
   weight_unit TEXT NOT NULL DEFAULT 'lb'   -- 'kg' | 'lb'
+  show_rir BOOLEAN NOT NULL DEFAULT TRUE   -- display preference (decision 16)
+  palette VARCHAR(32) NOT NULL DEFAULT 'graphite'  -- appearance (decision 18)
+  color_mode VARCHAR(8) NOT NULL DEFAULT 'dark' CHECK (color_mode IN ('dark', 'light'))
 
 exercises
   id UUID PK
@@ -135,20 +155,23 @@ mesocycles
   id UUID PK
   user_id UUID NOT NULL REFERENCES users(id)
   name VARCHAR(255) NOT NULL
-  duration_weeks INT NOT NULL DEFAULT 4 CHECK (duration_weeks BETWEEN 4 AND 6)
-  days_per_week INT NOT NULL CHECK (days_per_week BETWEEN 2 AND 6)
-  schedule_mode schedule_mode NOT NULL DEFAULT 'relative'
+  duration_weeks INT NOT NULL DEFAULT 4 CHECK (duration_weeks BETWEEN 3 AND 10)
+  days_per_week INT NOT NULL DEFAULT 7 CHECK (days_per_week BETWEEN 1 AND 10)  -- cycle length, rest days included
+  schedule_mode schedule_mode NOT NULL DEFAULT 'calendar'  -- calendar = Mon-Sun names (exactly 7 days); relative = numbered days
   status mesocycle_status NOT NULL DEFAULT 'draft'
   start_date DATE NULL                     -- set at lock-in
   locked_at TIMESTAMP NULL
+  ended_at TIMESTAMP NULL                  -- when it was completed or dropped
   deload_final_week BOOLEAN NOT NULL DEFAULT FALSE
+  position INT NOT NULL DEFAULT 0          -- the user's list order (lower first)
   created_at, updated_at
 
 mesocycle_days
   id UUID PK
   mesocycle_id UUID NOT NULL REFERENCES mesocycles(id) ON DELETE CASCADE
-  day_number INT NOT NULL CHECK (day_number BETWEEN 1 AND 7)  -- position in week
+  day_number INT NOT NULL CHECK (day_number BETWEEN 1 AND 10) -- position in the cycle
   weekday INT NULL CHECK (weekday BETWEEN 0 AND 6)            -- 0=Mon; only when schedule_mode='calendar'
+  -- a day with no exercise_slots is a rest day
   day_name VARCHAR(50) NOT NULL
   sort_order INT NOT NULL
   UNIQUE (mesocycle_id, sort_order)
@@ -194,7 +217,7 @@ mesocycle_weeks
 workout_sessions
   id UUID PK
   week_id UUID NOT NULL REFERENCES mesocycle_weeks(id) ON DELETE CASCADE
-  day_id UUID NOT NULL REFERENCES mesocycle_days(id)
+  day_id UUID NOT NULL REFERENCES mesocycle_days(id) ON DELETE CASCADE
   scheduled_date DATE NULL                 -- only when schedule_mode='calendar'
   status TEXT NOT NULL DEFAULT 'planned'   -- planned | in_progress | completed | skipped
 
@@ -209,16 +232,17 @@ session_exercises
   target_rir INT NOT NULL
   target_weight DECIMAL(6,2) NULL
 
-logged_sets                 -- created empty? NO: created later by a future logging feature
+logged_sets                 -- written by the workout logger (decision 19), never at lock-in
   id UUID PK
   session_exercise_id UUID NOT NULL REFERENCES session_exercises(id) ON DELETE CASCADE
   set_number INT NOT NULL
   reps INT NULL
   weight DECIMAL(6,2) NULL
-  rir INT NULL
+  rir INT NULL                             -- not used by the logger yet
+  UNIQUE (session_exercise_id, set_number) -- one row per set
 ```
 
-Create the `logged_sets` table in the migration, but do not populate it at lock-in. `session_exercises` is a **snapshot** copy of the slot data. Editing the draft template later (before lock) never affects generated sessions, and after lock the template is read-only.
+`logged_sets` is not populated at lock-in; the workout logger writes one row per logged set (`session_exercises.exercise_id` is indexed for history lookups). `session_exercises` is a **snapshot** copy of the slot data. Editing the draft template later (before lock) never affects generated sessions, and after lock the template is read-only.
 
 ---
 
@@ -232,7 +256,7 @@ Base path `/api/v1`. JSON only. All inputs/outputs validated with Zod in `packag
 { "error": { "code": "VALIDATION_ERROR", "message": "Human readable", "details": [ { "path": "days[0].slots[1].target_sets", "issue": "Must be between 1 and 10" } ] } }
 ```
 
-Codes: `VALIDATION_ERROR (400)`, `NOT_FOUND (404)`, `CONFLICT (409)` (e.g. editing a locked mesocycle), `INTERNAL (500)`.
+Codes: `VALIDATION_ERROR (400)`, `UNAUTHORIZED (401)` (no session), `NOT_FOUND (404)`, `CONFLICT (409)` (e.g. editing a locked mesocycle), `INTERNAL (500)`.
 
 ### 6.2 Endpoints
 
@@ -244,21 +268,27 @@ Response: `{ "items": [Exercise], "next_cursor": string | null }`
 **`POST /exercises`** — create a custom exercise.
 Body: `{ name, primary_muscle, secondary_muscles[], equipment_type, movement_type }`. `409` if the name already exists for this user.
 
+**`POST /auth/register`** — create an email/password account. Body `{ "email", "password", "name"? }` (email trimmed and lower-cased; password 8–200 characters). Returns `{ id, email, name }` (`201`); `409` if the email already has an account. It does not sign in: the browser then signs in through Auth.js (`/api/auth/*`, outside `/api/v1`), which also handles Google, the session and sign-out. Every other endpoint needs a session (`401` without one).
+
+**`GET /me`** — the signed-in user: `id`, `email`, `name`, `created_at`, `sign_in` (`password`, `google`), `preferences` (`show_rir`, `palette`, `color_mode`) and `stats` (`workouts_completed`, `workouts_skipped`, `sets_completed`, `mesocycles_completed`, `mesocycles_total`, `active` = `{ id, name, done, total }` or null). **`PATCH /me`** — `{ "show_rir"?, "palette"?, "color_mode"?, "name"? }`; returns the same.
+
 **`GET /muscle-landmarks`**
 Returns all landmark rows. The client caches these.
 
 **`POST /mesocycles`** — create a draft.
-Body:
+Body (every field optional; shown with defaults):
 ```json
-{ "name": "Fall Hypertrophy Block", "duration_weeks": 5, "days_per_week": 4, "schedule_mode": "relative" }
+{ "name": "Untitled mesocycle", "duration_weeks": 4, "days_per_week": 7, "schedule_mode": "calendar" }
 ```
-Creates the mesocycle and `days_per_week` empty days named "Day 1…N" (or Mon/Wed/Fri-style names, sorted by weekday, if calendar mode with `weekdays` provided). Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
+Creates the mesocycle and `days_per_week` empty days (rest days). Calendar mode needs exactly 7 days, named Mon…Sun with `weekday` 0…6; relative mode allows 1–10 days named "Day 1…N". Days get `sort_order` 1…N. Returns the full mesocycle (`201`).
 
-`days_per_week` records the count chosen at creation and is not updated afterwards. The real day count is the number of days (2–7, since Duplicate can add a 7th).
+`days_per_week` is the cycle length (rest days included) and is kept equal to the number of days whenever the schedule is saved.
 
-**`GET /mesocycles`** — list the user's mesocycles (summary only, with `day_count`), most recently updated first.
+**`GET /mesocycles`** — list the user's mesocycles (summary only, with `day_count`) in the user's own order (`position`, then most recently updated). A new mesocycle is placed first.
 
-**`GET /mesocycles/{id}`** — full mesocycle with days, muscle groups, priorities, slots (nested), plus the computed `volume_summary` (Section 7). `priorities` lists only muscles with a stored priority; all others are `normal`. Each slot also carries its `exercise`.
+**`PUT /mesocycles/order`** — save the list order. Body: `{ "ids": ["...", "..."] }`, every one of the user's mesocycle ids exactly once (else `400`). Works for any status and does not change `updated_at`. Returns the reordered list.
+
+**`GET /mesocycles/{id}`** — full mesocycle with days, muscle groups, priorities, slots (nested), plus the computed `volume_summary` (Section 7). `priorities` lists only muscles with a stored priority; all others are `normal`. Each slot also carries its `exercise`. `weeks` is empty for drafts; once locked it lists every week (`week_number`, `is_deload`) with its sessions (`day_id`, `day_name`, `scheduled_date`, `status`) and their exercises (with `exercise`, `sort_order`, `target_sets`, `rep_range_min/max`, `target_rir`, `target_weight`).
 
 **`PATCH /mesocycles/{id}`** — update `name`, `duration_weeks`, `deload_final_week`. `409` if not `draft`.
 
@@ -291,21 +321,37 @@ Body:
   "priorities": [ { "muscle": "chest", "priority": "focus" } ]
 }
 ```
-Rules: the server replaces all days/groups/slots/priorities in one transaction (so day, group and slot ids change on every save). `slot.muscle` must reference a muscle group present on the same day. `weekday` must be `null` in `relative` mode and unique among days in `calendar` mode. Every `exercise_id` must be a global exercise or one of the user's own custom exercises, otherwise `400` with the path of the slot. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
+Rules: the body may also carry `schedule_mode`; it is saved in the same transaction, so names, weekdays and mode always change together. The schedule has 1–10 days. In `calendar` mode it must have exactly 7 days, each with a unique `weekday`; in `relative` mode every `weekday` is `null`. The server replaces all days/groups/slots/priorities in one transaction (so day, group and slot ids change on every save) and sets `days_per_week` to the number of days. `slot.muscle` must reference a muscle group present on the same day. Every `exercise_id` must be a global exercise or one of the user's own custom exercises, otherwise `400` with the path of the slot. Returns the saved mesocycle. Must complete in under 500 ms for 6 days × 12 slots.
 
 **`POST /mesocycles/{id}/duplicate-day`**
-Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` (1-based; at most current day count + 1, otherwise `400`) and shifting later days. All days are renumbered so `sort_order` and `day_number` are 1…n. The copy has no `weekday` (weekdays must stay unique). `409` if this would exceed 7 days or the mesocycle is locked. Returns the updated mesocycle.
+Body: `{ "source_day_id": "...", "target_position": 5, "new_name": "Push B" }`. Deep-copies the day, its muscle groups, and all slots (with all metrics), inserting at `target_position` (1-based; at most current day count + 1, otherwise `400`) and shifting later days. All days are renumbered so `sort_order` and `day_number` are 1…n. Only for numbered (`relative`) cycles: a Mon–Sun week is fixed at 7 days, so this returns `409` in calendar mode. The builder UI does its copies locally and saves them through `PUT /schedule`; this endpoint remains for API clients. `409` if this would exceed 10 days, the mesocycle is in calendar mode, or it is locked. Returns the updated mesocycle.
 
 **`POST /mesocycles/validate-volume`** — stateless; used for live feedback and server-side checks.
 Body: `{ "slots": [ { "exercise_id": "...", "target_sets": 3, "day_id": "..." } ], "priorities": [ { "muscle": "chest", "priority": "focus" } ], "assigned_muscles": ["chest"] }` (`day_id` and `assigned_muscles` are optional; `day_id` is needed for `weekly_frequency`, and `assigned_muscles` makes zero-set muscles appear.)
 Response: the `VolumeSummary` defined in Section 7.3. (The client normally calls the engine locally; this endpoint exists so server and client share one result and for external callers.)
 
 **`POST /mesocycles/{id}/lock`** — lock-in.
-Body: `{ "start_date": "2026-10-05" }` (required if `schedule_mode = calendar`, optional otherwise).
-Preconditions (else `400` with details): at least 1 day has at least 1 slot; no day has zero slots; every slot's exercise exists. Volume warnings do **not** block locking, but the request must include `"acknowledge_warnings": true` if any muscle is `EXCEEDS_MRV` or `BELOW_MV`.
+Body: `{ "start_date": "2026-10-05", "acknowledge_warnings": false }`. `start_date` is required if `schedule_mode = calendar` and must be a **Monday**; it is optional otherwise (stored, but numbered cycles get no dates).
+Preconditions (else `400` with details): at least 1 day has at least 1 slot; every slot's exercise exists. Days with zero slots are rest days and are allowed. Volume warnings do **not** block locking, but the request must include `"acknowledge_warnings": true` if any trained **major muscle group** (7.6) is `EXCEEDS_MRV` or `BELOW_MV`; the `400` lists each such group (e.g. `Chest: Over MRV (23 sets)`). `409` if the mesocycle is not a draft.
 Effect, in one transaction: set status `active`, `locked_at`, generate weeks/sessions/session_exercises (Section 9). Returns the active mesocycle with week/session ids.
 
-**`DELETE /mesocycles/{id}`** — delete a draft (cascade). Returns `204`. `409` for active or completed ones.
+**`PATCH /sessions/{id}`** — body `{ "status": "completed" | "skipped" | "planned" }` (`planned` undoes). Only for workouts of an `active` or `completed` mesocycle (else `409`; another user's workout is `404`). When every workout of the mesocycle is completed or skipped, the mesocycle becomes `completed` and `ended_at` is set; setting one back to `planned` makes it `active` again (a workout with logged sets goes back to `in_progress` instead of `planned`). Returns the whole mesocycle. Each week in the detail carries `is_complete` (all its workouts completed or skipped).
+
+**`GET /sessions/{id}/workout`** — the workout logger's data: day, week, date, the mesocycle (id, name, status), `editable`, the user's `weight_unit`, and per exercise its targets, logged `sets` (`set_number`, `weight`, `reps`, `records`: the PR kinds `e1rm` / `weight` / `reps` the set broke), `previous` (date and sets of the last other workout with this exercise logged) and `best` (the best set before this workout). `404` for another user's workout.
+
+**`PUT /session-exercises/{id}/sets/{n}`** — body `{ "weight": number | null, "reps": int }` (weight 0–9999.99 with up to 2 decimals, reps 1–100, `n` 1–20; else `400`). Logs or corrects set `n`; the first set makes a `planned` workout `in_progress`. `409` for a skipped workout or a mesocycle that is not `active` or `completed`. Returns the whole workout. **`DELETE`** on the same path un-logs the set (a started workout with none left is `planned` again) and returns the workout.
+
+**`GET /records`** — personal bests per exercise from all of the user's logged sets: `best_e1rm`, `heaviest`, `most_reps` (each `weight`, `reps`, `e1rm`, `date`, or null), `sets_logged`, `last_logged`, plus the `weight_unit`; most recently trained first.
+
+**`PATCH /session-exercises/{id}`** — body `{ "op": "add_set" }` or `{ "op": "remove_set", "set_number": n }` (decision 20). `409` for a logged set, the last set, a 21st set, a skipped workout or a mesocycle that is not `active`/`completed`; `404` for a set that does not exist. Returns `{ workout, carried_weeks }` (the later week numbers that got the same change).
+
+**`POST /mesocycles/{id}/extend`** — body `{ "weeks": n }` (decision 21). `400` when the total would pass 10 weeks; `409` for a draft or a dropped mesocycle. Returns the mesocycle.
+
+**`POST /mesocycles/{id}/resume`** — continue a `paused` mesocycle; the active one (if any) becomes `paused`, in one transaction. `409` for any other status. Returns the mesocycle.
+
+**`POST /mesocycles/{id}/drop`** — stop an `active` or `paused` mesocycle early: status `dropped`, `ended_at` set, workouts kept as they are. `409` for any other status. Returns the mesocycle.
+
+**`DELETE /mesocycles/{id}`** — delete a draft or an archived (`completed` / `dropped`) mesocycle, with everything under it (cascade). Returns `204`. `409` for an active or paused one (drop it first).
 
 ---
 
@@ -370,9 +416,13 @@ Let `t` = total weekly sets for a muscle.
 | `mav_high < t <= mrv` | `HIGH` | `orange` | Approaching the ceiling |
 | `t > mrv` | `EXCEEDS_MRV` | `red` | Hard warning |
 
+The five color names are fixed. In dark mode each is rendered as a dark tint, a vivid border/bar and light text (see `apps/web/app/globals.css`): amber `#f59e0b`, lightgreen `#a3e635`, green `#22c55e`, orange `#f97316`, red `#ef4444` (border colors). Light mode (10.12) uses the same five hues as a light tint, a slightly deeper border and dark text (`lib/themes/palettes.ts`). Besides the chips, the colors mark the weekly number in Review's volume table (so phones, which hide the status badge and range bar, still show the status) and the MV/MEV/MAV/MRV terms in the ⓘ explanation (MV amber, MEV lightgreen, MAV green, MRV red), which also lists the five zones in order.
+
 Boundary rule: when `mv == mev` (e.g. both 0 for low-need muscles), `t = mv` is treated as `ABOVE_MEV` or better, never `MAINTENANCE`. Write a test for this.
 
 ### 7.5 Priority tiers → target band
+
+*Shelved in the UI (decision 10):* the engine still computes bands, but the builder hides them and treats every muscle as `normal`.
 
 Priority never changes the status colors (those depend only on landmarks). It sets a **target band** shown as a marker on the volume chip and used for the hint message:
 
@@ -384,7 +434,17 @@ Priority never changes the status colors (those depend only on landmarks). It se
 
 The message tells the user, e.g., "Focus muscle is 4 sets under its target band."
 
-### 7.6 Engine tests (required)
+### 7.6 Major muscle groups (what the UI shows)
+
+The builder and Review show volume for ten major groups, not the 15 muscles: **Chest**, **Back** (lats, upper back, traps), **Shoulders** (front, side and rear delts), **Biceps** (biceps and forearms), **Triceps**, **Quads**, **Hamstrings**, **Glutes**, **Calves**, **Abs** (`MUSCLE_GROUP_OF` in `packages/shared`).
+
+- **Attribution:** for each slot, the group of the exercise's primary muscle gets `sets × 1.0`; every *other* group reached by its secondary muscles gets `sets × SECONDARY_MUSCLE_WEIGHT`, once per group. A pull-up (lats + upper back) is therefore 1 back set per set, not 1.5.
+- **Landmarks:** a group's MV/MEV/MAV/MRV are the highest of its member muscles' landmarks (merged groups are trained by the same exercises, so their targets do not add up). Status and color follow 7.4.
+- **Frequency:** distinct days with at least one set whose primary muscle is in the group.
+- **Block totals (Review):** weekly sets × the number of weeks; when the final week is a deload, that week counts each slot at `ceil(sets / 2)` (9.3).
+- Engine functions: `computeGroupVolume`, `computeBlockVolume`, `groupLandmarks`, `deloadSets`. The muscle-level `computeVolume` and the `validate-volume` API are unchanged.
+
+### 7.7 Engine tests (required)
 
 - Primary/secondary attribution, including exercises with no secondary muscles.
 - Every status boundary (`mv-1, mv, mev-1, mev, mav_low, mav_high, mrv, mrv+1`).
@@ -443,8 +503,8 @@ See `POST /mesocycles/{id}/lock` in Section 6.2.
 
 For `week` in `1..duration_weeks`:
 1. Create a `mesocycle_weeks` row. `is_deload = true` only if `deload_final_week` is true and `week == duration_weeks`.
-2. For each `mesocycle_days` row, ordered by `sort_order`, create a `workout_sessions` row (`status = planned`).
-   - If `schedule_mode = calendar`: `scheduled_date = start_date + (week-1) × 7 days + offset(weekday)`, where `offset` is relative to the weekday of `start_date`'s week start (Monday). Use a date library (date-fns) and write tests across a month boundary and a DST change.
+2. For each `mesocycle_days` row that has at least one slot (rest days are skipped), ordered by `sort_order`, create a `workout_sessions` row (`status = planned`).
+   - If `schedule_mode = calendar`: `scheduled_date = start_date + (week-1) × 7 days + offset(weekday)`, where `offset` is relative to the weekday of `start_date`'s week start (Monday). Dates are calendar days computed with UTC arithmetic (`packages/shared/src/progression.ts`), so neither DST nor the user's time zone can move a workout to another day; tests cover month and year boundaries and DST changes. (This replaces the earlier date-fns suggestion; no date library is needed.)
 3. For each slot on that day (ordered by `sort_order`), create a `session_exercises` snapshot using the Section 9.3 rules.
 
 ### 9.3 Per-week targets (the `ProgressionStrategy` v1)
@@ -456,7 +516,7 @@ Implement `interface ProgressionStrategy { apply(slot, weekNumber, totalWeeks, i
 - **RIR:** `max(0, slot.target_rir - (week - 1))`. Deload week: use the slot's Week 1 RIR.
 
 ### 9.4 After lock-in
-Status becomes `active`. The template and schedule endpoints return `409`. The builder page redirects to a read-only review/summary view.
+Status becomes `active`. The template and schedule endpoints return `409`. The builder page redirects to the plan page (10.1), where workouts are completed or skipped until the mesocycle completes, or it is dropped (decision 15).
 
 ---
 
@@ -464,60 +524,59 @@ Status becomes `active`. The template and schedule endpoints return `409`. The b
 
 ### 10.1 Pages
 
-- `/mesocycles` — list of mesocycles with status badges and "New mesocycle".
-- `/mesocycles/new` — name, duration (4–6), days per week (2–6), mode (calendar/relative). Creates a draft and redirects to the builder.
-- `/mesocycles/[id]/build` — the wizard + horizontal board.
-- `/mesocycles/[id]` — read-only view for active/completed (reuses ReviewDashboard).
+- `/login` — **Sign in** and **Create account** tabs (name optional, email, password with "at least 8 characters"), and **Continue with Google** when configured. Errors appear inline ("Email or password is incorrect.", "An account with this email already exists."). Signed-in visitors are sent on. The header shows **Log in** when signed out; when signed in it shows the user's **avatar**, which opens the account popup (decision 22) with links to Personal bests and Settings and **Sign out**.
 
-### 10.2 Wizard stepper (top of builder page)
+- `/mesocycles` — list of mesocycles with status badges and "New mesocycle". "New mesocycle" creates an untitled 4-week Mon–Sun draft and opens its builder (no form). Each card has a ⠿ grip: drag it (or focus it, press Space, use the arrow keys, Space) to reorder the list; the order is saved. Two tabs: **Current** (drafts, active and paused) and **Archive** (completed and dropped, showing when they ended); each tab is reordered on its own. Drafts and archived mesocycles have a clearly visible red-outlined **Delete** button (with confirmation); active ones don't. Drafts open the builder; locked mesocycles open their plan.
+- `/mesocycles/[id]/workouts/[sessionId]` — the workout logger (decision 19): a card per exercise (name, muscle, equipment, target `sets × reps · RIR`, logged/total sets, best so far) with its set rows and **+ Add set**, and a sticky footer with "N sets logged · N PRs" and **Finish workout** (which returns to the plan). Read-only (with the reason) when the workout was skipped or the mesocycle is paused or archived.
+- `/settings` — the settings page (decision 22): Profile, Training, Appearance, Your training and Account sections.
+- `/records` — **Personal bests**: a table of every logged exercise with its best estimated 1RM (and the set behind it), heaviest set, most bodyweight reps, sets logged and last date; an empty state links to the mesocycles.
+- `/mesocycles/[id]/build` — the builder: **Build** and **Review** tabs, with the sticky volume bar.
+- `/mesocycles/[id]` — the plan of a locked mesocycle: name, status, start date and lock date, a progress bar ("6 of 16 workouts done"), the Review summary tiles, **Workouts** by week (a tab per week, deload marked, ✓ when complete), and the volume table. A week shows **every day of the cycle**: workout cards (day, date, estimated length, every exercise as `sets × reps · RIR`, and **Start workout** (or **Continue workout** when in progress, with an "In progress" badge) and **Skip**, or the result with **Undo**; a completed workout links to its log) and dashed **Rest day** cards, so it is clear when to rest; today's card is outlined. A complete week shows "✓ Week N complete". It opens on the week with the next workout. Active mesocycles have **Drop mesocycle** (with confirmation); paused ones show a "Paused" banner, no Start/Skip buttons, **Resume mesocycle** and **Drop mesocycle**; completed and dropped ones show a banner saying so. The plan is never editable (exercises, days), and a dropped one's workouts are frozen. **Export week as PNG** is offered here too. A draft opened here goes to the builder, and the builder sends a locked mesocycle here.
 
-Six labeled steps with a "current" indicator. Steps are clickable at any time (no hard gating) but each shows a ✓ once its completion rule is met:
+The app is a full-height shell: **the page itself never scrolls** at common desktop sizes (e.g. 1440×900). Only regions scroll: the board sideways when the days cannot fit, a long day column vertically, and Review as a fallback on short screens. The header has the app name (hidden below 640 px), "My mesocycles", "Personal bests" and the account controls (10.1, `/login`).
 
-| Step | Complete when |
-|---|---|
-| 1 Schedule | Days created and named; in calendar mode every day has a weekday, all unique |
-| 2 Muscles | Every day has ≥ 1 muscle group; priorities set (defaults to `normal`) |
-| 3 Exercises | Every muscle group has ≥ 1 exercise slot |
-| 4 Metrics | At least one slot exists and every slot has valid sets/rep range/RIR |
-| 5 Volume | At least one slot exists and no muscle is `EXCEEDS_MRV` |
-| 6 Review | The user opens it; then the Lock-in button is enabled |
+The app uses a dark theme built from the product owner's palette (graphite neutrals, electric-aqua accent, verdigris/shamrock positive, snow destructive); tokens live in `apps/web/app/globals.css`.
+
+### 10.2 Tabs
+
+- **Build**: the board (10.3) — the default.
+- The **mesocycle name** is shown in the builder header and is renamed in place (click, type, Enter).
+- **Review**: summary tiles (training days, rest days, sets per week, average session length), a **Volume by muscle group** table — for each trained major group its weekly sets, status, a range bar with MV/MEV/MAV/MRV marks, its weekly frequency and its total sets over the whole mesocycle (7.6) — the untrained groups, and the mesocycle settings. Hovering or focusing a summary tile explains it: training days lists each training day with its exercise count; rest days lists the rest days and says they create no workouts; sets per week explains that it adds every exercise's sets (unweighted, unlike the per-group table) with a per-day breakdown; average session gives the 10.7 formula with each day's estimate. **Duration** is a row of radio buttons, 3 to 10 weeks, that scrolls sideways when it does not fit. Hovering or focusing the ⓘ next to "Deload in the final week" explains it: each exercise drops to half its sets (rounded up), keeps its rep range and returns to its Week 1 RIR, with this mesocycle's weekly sets → deload-week sets. Groups below MV or above MRV are listed next to the **Lock in mesocycle** button, which opens the lock-in dialog (10.6) and is disabled until a day has an exercise. Below it, **Export week as PNG** saves the schedule as one plain week, for people who just want a guide: a dark image with the mesocycle name, a column per day (rest days dashed) and each exercise with `sets × reps · RIR`, drawn at 2× and downloaded as `<name>-week.png`.
 
 ### 10.3 The horizontal board (core requirement)
 
-- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day. Each column has a fixed width (≈ 320 px desktop, ≈ 85vw mobile) with `scroll-snap-align:start`.
+- A single container `display:flex; overflow-x:auto; scroll-snap-type:x proximity; gap` holding one **DayColumn** per day, with `scroll-snap-align:start`. Training-day columns have a fixed width (224 px; on screens narrower than 640 px, the viewport minus 72 px, at most 320 px) so they never stretch with the window, rest days are narrow (112 px) but grow with their name (up to 224 px), so every day name is shown in full on the same line as the others, and the row is **centered** (safe centering: when the days cannot fit, the row starts at the left edge and the board scrolls sideways). A Mon–Sun week with up to five training days fits a 1440 px window without scrolling.
 - Columns are tall and scroll vertically *inside themselves* if long, but the **primary navigation is left-to-right scrolling**. The page body must not scroll horizontally.
-- **DayColumn header:** editable day name (inline edit, max 50 chars), weekday selector (calendar mode), per-day estimated duration, and a menu: Duplicate, Rename, Delete.
-- **Inside a column:** muscle-group sections, each with a header (muscle name, priority tag, "+ Add exercise"), containing **ExerciseCards** in the day's global order.
-- **ExerciseCard:** shows exercise name, equipment badge, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot), RIR (0–5), starting weight (optional). The unit label is currently fixed to `lb`: there is no user-settings endpoint yet, so `users.weight_unit` is not read by the UI. It has a drag handle, move-up / move-down buttons, and a delete button.
-- **Add exercise:** opens a side panel or modal with the catalog: search box, filters for muscle and equipment, and a "Create custom exercise" form. Results default to the section's muscle. Picking one creates a slot with defaults (3 sets, 8–12 reps, RIR 3).
-- **Add muscle group** control at the bottom of each column.
-- **Add day** control as the last column (until 6 days; the 7th is allowed only via Duplicate).
+- Above the board: a **"Number the days"** switch (Mon–Sun ↔ Day 1…N, see decision 8), locked on while the cycle does not have exactly 7 days, the **+ Add day** button (up to 10 days; in a Mon–Sun week it switches to numbered days), the **Templates** button (10.10), and a visible **drag tip** ("press and hold an exercise to drag it … Drag a day's header to reorder days") that can be dismissed; the dismissal is remembered in that browser only.
+- **DayColumn header:** a grip icon (the header is the day's drag handle, 10.4), editable day name (inline edit, max 50 chars), "Rest day" or the estimated duration and exercise count, and a menu: Rename, Duplicate as new day (numbered cycles under 10 days), Copy exercises to (any other day), Clear (make rest day), Remove day (numbered cycles only, never below 1 day).
+- **Inside a column:** the day's **ExerciseCards** as one ordered list (no muscle sections). A big **"+ Add"** button sits at the bottom of every column.
+- **ExerciseCard:** shows exercise name, its major muscle group (with a color dot), the equipment, and inline editable fields: sets (stepper), rep range (preset dropdown 8–12 / 5–10 / 10–15 / 15–20 / 20–30 or "Custom" with min/max inputs; 8–12 is included because it is the default for a new slot). The sets, reps and RIR fields keep a fixed width at every screen size; extra width goes between them and RIR (0–5). **Starting weight is not shown**: the builder is a schedule planner. The API and database keep `starting_weight`, and the UI preserves any stored value. It has a small delete (✕) button. There are no move buttons: the whole card is dragged (10.4).
+- **Add exercises panel** (opened by "+ Add"): search box, muscle chips (several can be selected at once), an equipment filter, and a checkbox list of the catalog. The user ticks one or many exercises (selections survive filter changes) and confirms with "Add N exercises"; each becomes a slot with defaults (3 sets, 8–12 reps, RIR 3). "+ Custom" opens the create-custom-exercise form; the new exercise is selected.
 
 ### 10.4 Drag and drop (dnd-kit)
 
-- Reorder cards within a column.
-- Drag a card to another column (across the horizontal plane). The card keeps **all** its metrics. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
-- If the destination column has no section for the card's exercise's primary muscle, create one automatically.
-- Within a section, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropping on a card in another section of the same day moves the card into that section. A card dropped on the day column it came from does nothing. For a move to another day the destination section is always the exercise's primary muscle (an existing section, or a new one); the card lands before the card it was dropped on when that card is in that section, otherwise at the end.
-- Move up / move down buttons swap a card with the previous/next card **of the same section**. Cards in other sections keep their place in the day's global order.
-- Provide keyboard alternatives (dnd-kit keyboard sensor + the move up/down buttons and a "Move to day…" menu). With the keyboard sensor, Space picks up the drag handle, Up/Down move through the cards of the current section, Left/Right jump to the neighbouring day, and Space drops. Results are announced to screen readers.
+- **Press and hold** a card (anywhere except its fields and buttons) for about 0.2 s to pick it up, then drag it. A quick click or a scroll never starts a drag. **Touch screens** use their own sensor (touch events, hold about 0.25 s): once a card or day is picked up, moving the finger drags it instead of scrolling, while a quick swipe still scrolls the board. Drag handles (the day grip, the list grip) are at least 28×32 px, because phones snap a touch to the nearest control and a tiny grip next to the day-name field would focus the field instead. Long-press text selection and the iOS callout are disabled on draggable items.
+- Reorder cards within a column; drag a card to another column (across the horizontal plane). The card keeps **all** its metrics and its muscle. The board auto-scrolls horizontally when the pointer nears the left/right edge while dragging.
+- Within a day, dropping on a card below puts the dragged card after it and dropping on a card above puts it before it. Dropped on a card in another day, it lands before that card; dropped on another day's column (including a rest day), it goes to the end. A card dropped on its own day's column does nothing.
+- Keyboard alternative: the dnd-kit keyboard sensor. Focus a card (it is a focusable group labelled "Move <exercise>") and press Space to pick it up; Up/Down move through the cards of the current day, Left/Right jump to the neighbouring day's column, and Space drops. Results are announced to screen readers.
+- **Days are reordered** the same way: press and hold a column's header (anywhere but its name field and menu) and drag it left or right; the other columns make room. Generated names belong to the position, not the day: dragging Tuesday's column to the front makes its exercises Monday's (and the old Monday becomes Tuesday), and in a numbered cycle "Day 2" moved to the front becomes "Day 1". Names the user typed travel with their day. Keyboard: focus the header (a group labelled "Move <day>"), press Space, use Left/Right, press Space; the result is announced and focus stays on the moved day.
 - Scroll snapping on the board is switched off while a drag is in progress, otherwise it undoes the edge auto-scroll.
 - Drag operations update `sort_order` values for the affected days and trigger autosave and a volume recompute.
 
 ### 10.5 Sticky volume bar
 
-- A horizontal bar fixed to the top of the builder viewport (below the stepper) that **does not scroll with the board**.
-- One **VolumeChip** per muscle that has sets or is assigned: muscle label, `total_sets`, and a mini range-bar showing MV/MEV/MAV/MRV marks plus the priority target band. The chip's color comes from Section 7.4.
-- The bar itself scrolls horizontally if there are many muscles. Clicking a chip opens a popover with the full landmarks, frequency, the list of contributing exercises (and days), and the hint message.
+- A horizontal bar fixed to the top of the builder viewport (below the tabs) that **does not scroll with the board**.
+- One **VolumeChip** per major muscle group that has sets (7.6): muscle label, `total_sets`, a mini range-bar showing MV/MEV/MAV/MRV marks, the status label and the weekly frequency. The chip's color comes from Section 7.4. (Priority target bands are hidden; decision 10.)
+- The chips sit in a grid (5 per row on narrow screens, 10 on wide ones), so the bar never needs a scrollbar. An **ⓘ** button opens plain-language definitions: MV (Maintenance Volume): ~6 sets per week maintains current muscle mass; MEV (Minimum Effective Volume): starting point for growth, varies by training experience; MAV (Maximum Adaptive Volume): sweet spot range between MEV and MRV for optimal gains; MRV (Maximum Recoverable Volume): upper limit before recovery fails and gains stop. Below them: "Values differ per muscle: muscles worked hard by compound lifts (shoulders, abs, glutes) need little or no direct work to maintain." The same ⓘ appears on Review. The landmark ticks on every range bar are a mid grey, 2 px wide, taller than the bar and outlined, so they stand out on any fill without being harsh. Clicking a chip opens a popover with the status, weekly sets, frequency, the full landmarks and the list of contributing exercises (and days).
 - Updates **synchronously on every change** (no spinner). It calls the local engine; the server result is only used when saving.
 - Provide a text/ARIA label for every color state so color is never the only signal.
 
 ### 10.6 Review & lock-in (Step 6)
 
-- **Volume panel:** every muscle with a horizontal bar chart against its landmarks.
-- **Day cards:** day name, ordered exercises with sets × reps @ RIR, and estimated duration.
-- **Warnings list:** every `BELOW_MV`, `MAINTENANCE` (for focus muscles), and `EXCEEDS_MRV` muscle.
-- **Lock-in button:** opens a confirmation dialog stating that the structure will be frozen for the block. It asks for `start_date` in calendar mode and requires an "I understand" checkbox if warnings exist.
+- **Volume panel:** every major muscle group with a horizontal bar against its landmarks, plus whole-mesocycle totals (10.2).
+- **Warnings list:** every trained major group that is `BELOW_MV` or `EXCEEDS_MRV` (focus-based `MAINTENANCE` warnings return with priorities).
+- **Lock-in dialog:** states that the plan will be frozen; summarizes what will be created (`weeks × training days = workouts`, the RIR ramp, the deload week); in calendar mode asks for the start Monday (this week's Monday or one of the next seven); lists the warnings with an "I understand and want to lock in anyway" checkbox that must be ticked first. Pending autosave is flushed before the request. On success the app opens the read-only plan (10.1).
+- **Day cards** (day name, exercises with sets × reps @ RIR, estimated duration) are shown per week on the read-only plan rather than on Review, which keeps Review within one screen.
 
 ### 10.7 Estimated session duration
 
@@ -525,31 +584,72 @@ For each day: `5 min warm-up + Σ over slots of target_sets × (45 s work + rest
 
 ### 10.8 Quick copy
 
-"Duplicate day" calls `POST /duplicate-day`, inserts the copy immediately to the right of the source, and scrolls it into view. Default name: `"<source name> (copy)"`, rename inline immediately.
+From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) inserts a copy immediately to the right of the source, scrolls it into view and focuses its name for an inline rename; default name `"<source name> (copy)"` (a generated name becomes the next "Day N"). **Copy exercises to** appends copies of all the day's exercises, with all metrics, to another day. Both happen locally and autosave.
 
 ### 10.9 Validation and UX rules
 
 - Sets: integer 1–10. Reps: min ≥ 1, min < max ≤ 50. RIR: 0–5. Weight: ≥ 0, max 2 decimals.
-- Cannot delete a day or muscle group silently if it contains slots: show a confirm dialog with the count.
+- Cannot remove or clear a day silently if it contains slots: show a confirm dialog with the count.
 - Show a "Saving… / Saved / Save failed — retry" indicator for autosave. On failure, keep local state and retry with backoff.
-- Empty states: an empty column shows "Add a muscle group to get started."
-- Accessibility: all interactive elements reachable by keyboard; visible focus; color contrast meets WCAG AA; announce drag results to screen readers.
+- Empty states: an empty column is labelled "Rest day" and shows only its "+ Add" button.
+- Accessibility: all interactive elements reachable by keyboard; visible focus; color contrast meets WCAG AA (small grey text uses `graphite-400` or lighter on dark surfaces); announce drag results to screen readers. Every page has one `main` landmark and headings in order (the board has a visually hidden "Training days" `h2`; exercise cards use `h3`). An axe audit runs in e2e on every main screen (`e2e/a11y.spec.ts`) and must report no violations; Lighthouse accessibility scored 100 on the builder, the list and login (M9).
+
+### 10.10 Templates
+
+Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) and referencing seeded exercises by name:
+
+| Template | Days (Mon–Sun week) |
+|---|---|
+| Full Body | Mon, Wed, Fri |
+| Upper / Lower | Mon, Tue, Thu, Fri |
+| Push / Pull / Legs + Upper / Lower | Mon, Tue, Wed, Fri, Sat |
+| Push / Pull / Legs | Mon–Sat |
+
+- Every template gives each of the 10 major groups at least its MEV and at most the top of its MAV with the seeded landmarks (a unit test enforces this), uses the board's rep-range presets and RIR 2.
+- **From the list:** "Start from a template" opens a picker (name, description, a Mon–Sun strip showing training days, exercise and weekly-set counts). Picking one creates a mesocycle named after the template, saves its schedule through `PUT /schedule` and opens the board.
+- **On the board:** the **Templates** button opens the same picker. If the board has exercises, a confirmation dialog warns that every day will be replaced. An untitled mesocycle takes the template's name.
+- Exercises are matched by name against `GET /exercises` (built-in exercises win over custom ones with the same name). A name that is missing from the catalog is skipped and listed in a notice.
+
+### 10.11 Phones and error pages (M9)
+
+- At phone width (390 px) every screen fits the width; the page never scrolls sideways. On the board a training day is nearly the full width, capped at 320 px (one day at a time, the next one peeking in, snap scrolling); rest days stay narrow. The volume chips keep readable labels in one row that scrolls sideways (from 640 px up they form the fitting grid). The drag tip is shortened and the "Empty days are rest days" hint is hidden. Dialogs keep a 16 px margin.
+- Unknown URLs show a **Page not found** page with a link to the list; an unexpected crash shows **Something went wrong** with **Try again**. A mesocycle that does not exist (or belongs to someone else) shows "Mesocycle not found." with a link back.
+
+### 10.12 Appearance
+
+- The settings page has an **Appearance** section: a Dark / Light switch and a grid of the six palettes, each with a swatch strip (page, surface, accent, secondary, text) and "Dark first" / "Light first". Picking a palette applies it at once in the mode it was designed for; the switch then flips modes for any palette. The choice is saved to the account and rendered by the server (`<html data-palette data-mode>`), so pages never flash the default colors. Signed-out pages use the default.
+- Light mode mirrors the token scales: the lightest step becomes the darkest, so the same classes stay readable. The week PNG export keeps its own dark design.
 
 ---
 
 ## 11. Testing requirements
 
-**Unit (Vitest):** volume engine (Section 7.6), set-attribution, duration estimate, `RirRampStrategy`, lock-in date generation, Zod schemas.
+**Unit (Vitest):** volume engine (Sections 7.6 and 7.7), set-attribution, duration estimate, `RirRampStrategy`, lock-in date generation, Zod schemas.
 
 **API integration:** each endpoint, success and error paths, including: `409` on locked mesocycles, `404` on another user's resource, atomic rollback if lock-in fails halfway, and `PUT /schedule` idempotency.
 
 **End-to-end (Playwright), minimum:**
-1. Create a 4-day mesocycle, assign muscles, add exercises, edit metrics, and confirm volume chips change.
+1. Create a mesocycle, add exercises (several at once), edit metrics, and confirm volume chips change.
 2. Drag a card from column 1 to column 3 and confirm metrics are preserved and volumes recomputed.
-3. Duplicate "Push A" into "Push B" and confirm the cards and metrics copied.
+3. Duplicate "Push A" into "Push B" (numbered cycle) and confirm the cards and metrics copied; in a Mon–Sun week, copy a day's exercises into another day.
 4. Push a muscle over MRV and confirm the chip turns red and lock-in requires acknowledgement.
 5. Lock in and confirm the weekly sessions exist with the correct RIR ramp.
 6. At a 390 px viewport, confirm horizontal scrolling works and the page body does not scroll sideways.
+7. Drag a day column to a new position (pointer and keyboard) and confirm generated names follow the position while exercises move with the day.
+8. Create a mesocycle from a template (list page) and apply a template on the board (with confirmation).
+9. Reorder mesocycles on the list (pointer and keyboard) and confirm the order survives a reload.
+10. Finish (from the logger), skip and undo workouts; confirm a week and then the mesocycle complete, and that the mesocycle moves to the archive.
+11. Drop an active mesocycle; confirm it is archived and can then be deleted.
+12. Export the week as a PNG from Review and from the plan page.
+13. Sign-up, sign-out and sign-in; signed-out visitors are redirected to `/login` (and back afterwards) and the API answers `401`; each account sees only its own mesocycles.
+14. The account popup shows the user and the active mesocycle and links to Settings, which shows the stats that follow completed workouts; switching Show RIR off hides RIR on the board, the plan and the deload text, and stays off after a reload.
+15. One active mesocycle: locking in a second pauses the first (the dialog says so); a paused one cannot track workouts until resumed.
+16. Phone width (390 px): every screen fits, the board and the volume chips scroll sideways; the accessibility audit reports no violations.
+17. Appearance: picking a palette and mode applies at once and survives a reload; a light palette passes the accessibility audit; weekly numbers carry their status color on a phone.
+18. Workout logging: log sets (typed, with Enter, and with one tap from the placeholders), add and remove sets, un-log and correct a set, finish the workout; the next workout shows the previous numbers, a heavier set gets a PR badge, a half-done workout is "In progress", the Personal bests page lists the bests, and the kg/lb switch relabels the weight.
+19. Sets while training: remove a planned set and add one; the notice names the later weeks that changed and the plan shows the new count there; finishing with empty sets asks first.
+20. Extend a locked mesocycle by two weeks; the new weeks appear with their workouts.
+21. Settings: pick an avatar icon and color and rename; the header follows and it survives a reload; Show RIR, weight unit and appearance work from Settings; the settings page fits a phone.
 
 ---
 
@@ -559,7 +659,7 @@ For each day: `5 min warm-up + Σ over slots of target_sets × (45 s work + rest
 *Done when:* `pnpm install && pnpm db:migrate && pnpm dev` works; lint/typecheck/test pass.
 
 **M1 — Shared schemas and volume engine.** `packages/shared` (enums, Zod schemas, constants) and `packages/volume-engine` with full tests.
-*Done when:* every test in Section 7.6 passes with ≥ 95% coverage on the engine.
+*Done when:* every test in Section 7.7 passes with ≥ 95% coverage on the engine.
 
 **M2 — Seed data and catalog API.** Landmarks, ≥ 90 exercises, `GET/POST /exercises`, `GET /muscle-landmarks`.
 *Done when:* seed is idempotent; filtering and search work; duplicate custom names return `409`.

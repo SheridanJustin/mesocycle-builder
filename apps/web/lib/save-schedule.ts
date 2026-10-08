@@ -39,7 +39,14 @@ export async function replaceSchedule(mesocycleId: string, schedule: PutSchedule
     await tx.mesocycleMusclePriority.createMany({
       data: schedule.priorities.map((p) => ({ mesocycleId, muscle: p.muscle, priority: p.priority })),
     });
-    // Bump updated_at even when only children changed.
-    await tx.mesocycle.update({ where: { id: mesocycleId }, data: { updatedAt: new Date() } });
+    // days_per_week tracks the cycle length (rest days included). Also bumps updated_at.
+    await tx.mesocycle.update({
+      where: { id: mesocycleId },
+      data: {
+        daysPerWeek: schedule.days.length,
+        ...(schedule.schedule_mode ? { scheduleMode: schedule.schedule_mode } : {}),
+        updatedAt: new Date(),
+      },
+    });
   });
 }

@@ -11,8 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "dotenv --no-override -e ../../.env -- playwright test",
-    "prisma:migrate": "dotenv --no-override -e ../../.env -- prisma migrate deploy",
+    "prisma:migrate": "dotenv --no-override -e ../../.env -- prisma migrate deploy && prisma generate",
     "prisma:generate": "prisma generate",
+    "themes": "tsx scripts/generate-themes.ts",
     "prisma:seed": "dotenv --no-override -e ../../.env -- prisma db seed",
     "test:integration": "dotenv --no-override -e ../../.env -- vitest run --config vitest.integration.config.ts"
   },
@@ -24,11 +25,13 @@
     "@mesocycle/volume-engine": "workspace:*",
     "@prisma/client": "6.3.1",
     "next": "15.1.6",
+    "next-auth": "5.0.0-beta.32",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "zod": "3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.1",
     "@eslint/js": "9.20.0",
     "@next/eslint-plugin-next": "15.1.6",
     "@playwright/test": "1.50.1",

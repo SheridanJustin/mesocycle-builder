@@ -29,36 +29,36 @@ function day(overrides: Record<string, unknown> = {}) {
 }
 
 describe('CreateMesocycleSchema', () => {
-  it('applies defaults', () => {
-    const parsed = CreateMesocycleSchema.parse({ name: 'Block', days_per_week: 4 });
-    expect(parsed.duration_weeks).toBe(4);
-    expect(parsed.schedule_mode).toBe('relative');
-  });
-
-  it.each([3, 7])('rejects duration_weeks %i', (duration_weeks) => {
-    expect(CreateMesocycleSchema.safeParse({ name: 'Block', days_per_week: 4, duration_weeks }).success).toBe(false);
-  });
-
-  it.each([1, 7])('rejects days_per_week %i', (days_per_week) => {
-    expect(CreateMesocycleSchema.safeParse({ name: 'Block', days_per_week }).success).toBe(false);
-  });
-
-  it('accepts matching unique weekdays in calendar mode', () => {
-    const result = CreateMesocycleSchema.safeParse({
-      name: 'Block',
-      days_per_week: 3,
+  it('defaults to an untitled 4-week, 7-day Mon-Sun block', () => {
+    expect(CreateMesocycleSchema.parse({})).toEqual({
+      name: 'Untitled mesocycle',
+      duration_weeks: 4,
+      days_per_week: 7,
       schedule_mode: 'calendar',
-      weekdays: [0, 2, 4],
     });
-    expect(result.success).toBe(true);
   });
 
-  it('rejects weekdays in relative mode, with the wrong count, or with duplicates', () => {
-    const base = { name: 'Block', days_per_week: 3, schedule_mode: 'calendar' };
-    expect(CreateMesocycleSchema.safeParse({ ...base, schedule_mode: 'relative', weekdays: [0, 2, 4] }).success).toBe(false);
-    expect(CreateMesocycleSchema.safeParse({ ...base, weekdays: [0, 2] }).success).toBe(false);
-    expect(CreateMesocycleSchema.safeParse({ ...base, weekdays: [0, 2, 2] }).success).toBe(false);
-    expect(CreateMesocycleSchema.safeParse({ ...base, weekdays: [0, 2, 7] }).success).toBe(false);
+  it('accepts numbered cycles of 1 to 10 days', () => {
+    for (const days_per_week of [1, 8, 10]) {
+      expect(CreateMesocycleSchema.safeParse({ days_per_week, schedule_mode: 'relative' }).success).toBe(true);
+    }
+  });
+
+  it.each([0, 11])('rejects days_per_week %i', (days_per_week) => {
+    expect(CreateMesocycleSchema.safeParse({ days_per_week, schedule_mode: 'relative' }).success).toBe(false);
+  });
+
+  it('needs exactly 7 days for weekday names', () => {
+    expect(CreateMesocycleSchema.safeParse({ days_per_week: 5 }).success).toBe(false);
+    expect(CreateMesocycleSchema.safeParse({ days_per_week: 5, schedule_mode: 'calendar' }).success).toBe(false);
+  });
+
+  it.each([2, 11])('rejects duration_weeks %i', (duration_weeks) => {
+    expect(CreateMesocycleSchema.safeParse({ duration_weeks }).success).toBe(false);
+  });
+
+  it('rejects a blank name', () => {
+    expect(CreateMesocycleSchema.safeParse({ name: '  ' }).success).toBe(false);
   });
 });
 
@@ -115,10 +115,17 @@ describe('PutScheduleSchema', () => {
     expect(parsed.days[0]?.weekday).toBeNull();
   });
 
-  it('accepts at most 7 days', () => {
-    const days = Array.from({ length: 8 }, (_, i) => day({ day_number: Math.min(i + 1, 7), sort_order: i }));
+  it('accepts 1 to 10 days', () => {
+    const days = Array.from({ length: 11 }, (_, i) => day({ day_number: Math.min(i + 1, 10), sort_order: i }));
     expect(PutScheduleSchema.safeParse({ days }).success).toBe(false);
-    expect(PutScheduleSchema.safeParse({ days: days.slice(0, 7) }).success).toBe(true);
+    expect(PutScheduleSchema.safeParse({ days: days.slice(0, 10) }).success).toBe(true);
+    expect(PutScheduleSchema.safeParse({ days: [] }).success).toBe(false);
+  });
+
+  it('accepts an optional schedule_mode', () => {
+    expect(PutScheduleSchema.parse({ days: [day()], schedule_mode: 'relative' }).schedule_mode).toBe('relative');
+    expect(PutScheduleSchema.parse({ days: [day()] }).schedule_mode).toBeUndefined();
+    expect(PutScheduleSchema.safeParse({ days: [day()], schedule_mode: 'weekly' }).success).toBe(false);
   });
 
   it('rejects a slot whose muscle has no group on the same day', () => {
@@ -162,7 +169,8 @@ describe('DuplicateDaySchema', () => {
     const base = { source_day_id: exerciseId };
     expect(DuplicateDaySchema.safeParse({ ...base, target_position: 5, new_name: 'Push B' }).success).toBe(true);
     expect(DuplicateDaySchema.safeParse({ ...base, target_position: 0 }).success).toBe(false);
-    expect(DuplicateDaySchema.safeParse({ ...base, target_position: 8 }).success).toBe(false);
+    expect(DuplicateDaySchema.safeParse({ ...base, target_position: 10 }).success).toBe(true);
+    expect(DuplicateDaySchema.safeParse({ ...base, target_position: 11 }).success).toBe(false);
   });
 });
 
@@ -188,6 +196,7 @@ describe('response schemas', () => {
     status: 'draft',
     start_date: null,
     locked_at: null,
+    ended_at: null,
     deload_final_week: false,
     created_at: '2026-10-06T00:00:00.000Z',
     updated_at: '2026-10-06T00:00:00.000Z',
@@ -196,7 +205,7 @@ describe('response schemas', () => {
   it('accepts a summary and a detail with empty days', () => {
     expect(MesocycleSummarySchema.safeParse({ ...summary, day_count: 4 }).success).toBe(true);
     expect(
-      MesocycleDetailSchema.safeParse({ ...summary, days: [], priorities: [], volume_summary: { summary: {} } }).success,
+      MesocycleDetailSchema.safeParse({ ...summary, days: [], weeks: [], priorities: [], volume_summary: { summary: {} } }).success,
     ).toBe(true);
   });
 

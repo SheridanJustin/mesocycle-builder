@@ -5,13 +5,13 @@ type Props = { status: SaveStatus; onRetry: () => void };
 
 export function SaveIndicator({ status, onRetry }: Props) {
   return (
-    <div role="status" aria-live="polite" data-testid="save-indicator" className="flex items-center gap-2 text-sm">
-      {status.kind === 'idle' && <span className="text-slate-500">All changes saved</span>}
-      {status.kind === 'saving' && <span className="text-slate-600">Saving…</span>}
-      {status.kind === 'saved' && <span className="text-green-800">Saved</span>}
+    <div role="status" aria-live="polite" data-testid="save-indicator" className="flex items-center gap-2 text-xs">
+      {status.kind === 'idle' && <span className="text-graphite-400">All changes saved</span>}
+      {status.kind === 'saving' && <span className="text-graphite-400">Saving…</span>}
+      {status.kind === 'saved' && <span className="text-shamrock-400">Saved</span>}
       {status.kind === 'error' && (
         <>
-          <span className="text-red-800">Save failed — {status.message}</span>
+          <span className="text-snow-300">Save failed — {status.message}</span>
           <Button size="sm" onClick={onRetry}>
             Retry
           </Button>

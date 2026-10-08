@@ -21,9 +21,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-async function setup(daysPerWeek = 3, extra: Record<string, unknown> = {}): Promise<MesocycleDetail> {
+async function setup(daysPerWeek = 3): Promise<MesocycleDetail> {
   const created = MesocycleDetailSchema.parse(
-    await (await createMesocycle(postJson('/api/v1/mesocycles', { name: 'Block', days_per_week: daysPerWeek, ...extra }))).json(),
+    await (await createMesocycle(postJson('/api/v1/mesocycles', { name: 'Block', days_per_week: daysPerWeek, schedule_mode: 'relative' }))).json(),
   );
   const bench = await exerciseId('Barbell Bench Press');
   const pushdown = await exerciseId('Cable Pushdown');
@@ -38,7 +38,7 @@ async function setup(daysPerWeek = 3, extra: Record<string, unknown> = {}): Prom
                 slotBody('a', 'chest', bench, 1, { target_sets: 4, rep_range_min: 5, rep_range_max: 8, target_rir: 1, starting_weight: 102.5 }),
                 slotBody('b', 'triceps', pushdown, 2, { target_sets: 2 }),
               ],
-              { day_name: 'Push A', ...(extra.schedule_mode === 'calendar' ? { weekday: 0 } : {}) },
+              { day_name: 'Push A' },
             )
           : dayBody(i + 1, ['quads'], [], { day_name: `Other ${i + 1}` }),
       ),
@@ -112,32 +112,32 @@ describe('POST /api/v1/mesocycles/{id}/duplicate-day', () => {
     expect(updated.volume_summary.summary.chest).toMatchObject({ total_sets: 8, weekly_frequency: 2 });
   });
 
-  it('gives the copy no weekday in calendar mode so weekdays stay unique', async () => {
-    const meso = await setup(2, { schedule_mode: 'calendar' });
-    const updated = MesocycleDetailSchema.parse(
-      await (await duplicate(meso.id, { source_day_id: meso.days[0]?.id, target_position: 2 })).json(),
-    );
-    expect(updated.days[0]?.weekday).toBe(0);
-    expect(updated.days[1]?.weekday).toBeNull();
+  it('returns 409 for a Mon-Sun week, which is fixed at 7 days', async () => {
+    const week = MesocycleDetailSchema.parse(await (await createMesocycle(postJson('/api/v1/mesocycles', {}))).json());
+    const response = await duplicate(week.id, { source_day_id: week.days[0]?.id, target_position: 2 });
+    expect(response.status).toBe(409);
+    expect(ApiErrorSchema.parse(await response.json()).error.message).toContain('switch to numbered days');
+    expect(await prisma.mesocycleDay.count({ where: { mesocycleId: week.id } })).toBe(7);
   });
 
-  it('allows a 7th day via duplicate but returns 409 for an 8th', async () => {
-    const meso = await setup(6);
-    const seventh = MesocycleDetailSchema.parse(
-      await (await duplicate(meso.id, { source_day_id: meso.days[0]?.id, target_position: 7 })).json(),
+  it('allows up to 10 days and returns 409 for an 11th', async () => {
+    const meso = await setup(9);
+    const tenth = MesocycleDetailSchema.parse(
+      await (await duplicate(meso.id, { source_day_id: meso.days[0]?.id, target_position: 10 })).json(),
     );
-    expect(seventh.days).toHaveLength(7);
-    expect(seventh.days[6]?.day_number).toBe(7);
+    expect(tenth.days).toHaveLength(10);
+    expect(tenth.days[9]?.day_number).toBe(10);
+    expect(tenth.days_per_week).toBe(10);
 
-    const response = await duplicate(meso.id, { source_day_id: meso.days[0]?.id, target_position: 7 });
+    const response = await duplicate(meso.id, { source_day_id: meso.days[0]?.id, target_position: 10 });
     expect(response.status).toBe(409);
     expect(ApiErrorSchema.parse(await response.json()).error.code).toBe('CONFLICT');
-    expect(await prisma.mesocycleDay.count({ where: { mesocycleId: meso.id } })).toBe(7);
+    expect(await prisma.mesocycleDay.count({ where: { mesocycleId: meso.id } })).toBe(10);
   });
 
   it('returns 400 when target_position skips past the end', async () => {
     const meso = await setup();
-    for (const target_position of [5, 0, 8]) {
+    for (const target_position of [5, 0, 11]) {
       const response = await duplicate(meso.id, { source_day_id: meso.days[0]?.id, target_position });
       expect(response.status).toBe(400);
     }
@@ -163,7 +163,9 @@ describe('POST /api/v1/mesocycles/{id}/duplicate-day', () => {
   });
 
   it('returns 404 for another user\'s mesocycle', async () => {
-    const theirs = await prisma.mesocycle.create({ data: { userId: await otherUserId(), name: 'Theirs', daysPerWeek: 3 } });
+    const theirs = await prisma.mesocycle.create({
+      data: { userId: await otherUserId(), name: 'Theirs', daysPerWeek: 3, scheduleMode: 'relative' },
+    });
     const day = await prisma.mesocycleDay.create({ data: { mesocycleId: theirs.id, dayNumber: 1, dayName: 'X', sortOrder: 1 } });
     const response = await duplicate(theirs.id, { source_day_id: day.id, target_position: 2 });
     expect(response.status).toBe(404);

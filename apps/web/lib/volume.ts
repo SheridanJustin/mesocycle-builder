@@ -1,5 +1,5 @@
-import { MUSCLES, type Muscle, type PriorityEntry, type VolumeSummary } from '@mesocycle/shared';
-import { computeVolume, type ExerciseInfo, type Landmarks, type Priorities, type SlotInput } from '@mesocycle/volume-engine';
+import { MUSCLES, type GroupVolumeSummary, type Muscle, type PriorityEntry, type VolumeSummary } from '@mesocycle/shared';
+import { computeGroupVolume, computeVolume, type ExerciseInfo, type Landmarks, type Priorities, type SlotInput } from '@mesocycle/volume-engine';
 import { prisma } from './db';
 
 export async function loadLandmarks(): Promise<Landmarks> {
@@ -30,4 +30,9 @@ export async function summarizeVolume(input: VolumeInput): Promise<VolumeSummary
   return computeVolume(input.slots, input.exercises, landmarks, prioritiesFromEntries(input.priorities), {
     assignedMuscles: input.assignedMuscles,
   });
+}
+
+// Major-group volume, as the builder shows it (SPEC 7.6). Used for the lock-in warnings.
+export async function summarizeGroupVolume(slots: SlotInput[], exercises: Record<string, ExerciseInfo>): Promise<GroupVolumeSummary> {
+  return computeGroupVolume(slots, exercises, await loadLandmarks());
 }

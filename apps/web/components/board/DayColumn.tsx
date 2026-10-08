@@ -1,50 +1,53 @@
 'use client';
 
-import { estimateSessionMinutes, MAX_DAY_NAME_LENGTH, MUSCLES, MAX_DAYS_WITH_DUPLICATE, type Muscle, type ScheduleMode } from '@mesocycle/shared';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { WEEKDAY_NAMES } from '../../lib/days';
-import type { BuilderDay, BuilderSlot, BuilderState } from '../../lib/builder/types';
-import { muscleLabel } from '../../lib/labels';
+import { estimateSessionMinutes, MAX_DAY_NAME_LENGTH } from '@mesocycle/shared';
+import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
+import type { BuilderDay } from '../../lib/builder/types';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { InlineText } from '../ui/InlineText';
 import { DayMenu } from './DayMenu';
-import { MuscleSection } from './MuscleSection';
 import type { BoardHandlers } from './types';
 
 type Props = {
   day: BuilderDay;
-  dayCount: number;
-  mode: ScheduleMode;
-  takenWeekdays: ReadonlySet<number>;
-  priorities: BuilderState['priorities'];
+  copyTargets: { id: string; name: string }[];
+  canDuplicate: boolean;
+  canRemove: boolean;
   handlers: BoardHandlers;
-  // Renders the cards of one section; the board swaps in a sortable version for drag and drop.
-  renderCards: (day: BuilderDay, muscle: Muscle, slots: BuilderSlot[]) => ReactNode;
+  // The day's cards (the board renders them inside a sortable context).
+  children: ReactNode;
   // When true the column scrolls into view and its name field takes focus (after Duplicate / Rename).
   focusName: boolean;
   onFocusNameHandled: () => void;
   // Lets the board register this column as a drop target.
   columnRef?: (element: HTMLElement | null) => void;
   isDropTarget?: boolean;
+  // Lets the board reorder whole days: the header is the drag handle.
+  drag?: {
+    handleRef: (element: HTMLElement | null) => void;
+    handleProps: HTMLAttributes<HTMLElement>;
+    style: CSSProperties;
+    isDragging: boolean;
+  };
 };
 
 export function DayColumn({
   day,
-  dayCount,
-  mode,
-  takenWeekdays,
-  priorities,
+  copyTargets,
+  canDuplicate,
+  canRemove,
   handlers,
-  renderCards,
+  children,
   focusName,
   onFocusNameHandled,
   columnRef,
   isDropTarget = false,
+  drag,
 }: Props) {
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirming, setConfirming] = useState<'clear' | 'remove' | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
   const nameId = `day-name-${day.id}`;
-  const free = MUSCLES.filter((muscle) => !day.muscles.includes(muscle));
+  const isRestDay = day.slots.length === 0;
 
   useEffect(() => {
     if (!focusName) return;
@@ -57,10 +60,8 @@ export function DayColumn({
 
   const minutes = estimateSessionMinutes(day.slots.map((slot) => ({ sets: slot.sets, movementType: slot.exercise.movement_type })));
 
-  function requestDelete() {
-    if (day.muscles.length === 0 && day.slots.length === 0) handlers.onRemoveDay(day.id);
-    else setConfirmingDelete(true);
-  }
+  const weeklySets = day.slots.reduce((sum, slot) => sum + slot.sets, 0);
+  const pill = 'rounded-full bg-graphite-800 px-2 py-0.5 text-[11px] font-medium text-graphite-200';
 
   return (
     <section
@@ -71,102 +72,116 @@ export function DayColumn({
       id={`day-col-${day.id}`}
       aria-label={`${day.name} column`}
       data-testid="day-column"
-      className={`flex max-h-[calc(100dvh-13rem)] w-[85vw] max-w-sm shrink-0 snap-start flex-col rounded-xl border bg-slate-100 sm:w-80 ${
-        isDropTarget ? 'border-blue-600 ring-2 ring-blue-300' : 'border-slate-300'
-      }`}
+      style={drag?.style}
+      className={`relative flex ${drag?.isDragging ? 'z-10 opacity-40' : ''} max-h-full snap-start flex-col rounded-2xl border ${isRestDay ? 'w-max min-w-28 max-w-56 shrink-0' : 'w-[min(calc(100vw-4.5rem),20rem)] shrink-0 sm:w-56'} ${
+        isRestDay ? 'bg-graphite-900/40' : 'bg-graphite-900/90 shadow-lg shadow-black/30'
+      } ${isDropTarget ? 'border-aqua-400 ring-2 ring-aqua-700' : isRestDay ? 'border-graphite-800/70 border-dashed' : 'border-graphite-800'}`}
     >
-      <header className="grid gap-1 border-b border-slate-300 p-3">
+      {/* No overflow clipping on the column: the day menu must be able to extend past short (rest-day) columns. */}
+      {/* Rest days keep the bar's space (invisible) so every day name sits on the same line. */}
+      <div aria-hidden="true" className={`mx-3 h-0.5 rounded-full bg-gradient-to-r from-aqua-500 via-verdigris-500 to-transparent ${isRestDay ? 'invisible' : ''}`} />
+      <header
+        ref={drag?.handleRef}
+        {...drag?.handleProps}
+        aria-label={drag ? `Move ${day.name}` : undefined}
+        title={drag ? 'Press and hold to move this day' : undefined}
+        className={`rounded-t-2xl pb-2 pt-2 ${isRestDay ? 'px-1.5' : 'px-2.5'} ${drag ? 'cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-aqua-400' : ''}`}
+      >
         <div className="flex items-center gap-1">
+          {drag && (
+            // A finger-sized handle (phones snap a touch to the nearest control, so a tiny grip next
+            // to the name field would focus the field instead of picking the day up).
+            <span
+              aria-hidden="true"
+              data-testid="day-grip"
+              className="-my-1 -ml-1.5 grid h-8 w-7 shrink-0 place-items-center rounded-md text-graphite-400 hover:bg-graphite-800 hover:text-graphite-200"
+            >
+              <svg viewBox="0 0 8 14" className="h-3.5 w-2 fill-current">
+                <circle cx="2" cy="2" r="1.2" />
+                <circle cx="6" cy="2" r="1.2" />
+                <circle cx="2" cy="7" r="1.2" />
+                <circle cx="6" cy="7" r="1.2" />
+                <circle cx="2" cy="12" r="1.2" />
+                <circle cx="6" cy="12" r="1.2" />
+              </svg>
+            </span>
+          )}
           <InlineText
             id={nameId}
             ariaLabel={`Day name for ${day.name}`}
             value={day.name}
             maxLength={MAX_DAY_NAME_LENGTH}
             onCommit={(name) => handlers.onRenameDay(day.id, name)}
-            className="min-w-0 flex-1 text-base font-semibold"
+            title={day.name}
+            // A rest-day column grows with its name (up to its max width), so the name is never cut off.
+            autoSize={isRestDay}
+            wrapperClassName="min-w-0 flex-1"
+            className={`min-w-0 flex-1 text-[15px] font-semibold ${isRestDay ? 'px-1! text-graphite-300' : ''}`}
           />
           <DayMenu
             dayName={day.name}
-            canDelete={dayCount > 1}
-            canDuplicate={dayCount < MAX_DAYS_WITH_DUPLICATE}
-            onDuplicate={() => handlers.onDuplicateDay(day.id)}
+            hasExercises={!isRestDay}
+            copyTargets={copyTargets}
+            canDuplicate={canDuplicate}
+            canRemove={canRemove}
+            onCopyTo={(targetId) => handlers.onCopyDay(day.id, targetId)}
+            onDuplicate={() => handlers.onCopyDay(day.id, null)}
             onRename={() => document.getElementById(nameId)?.focus()}
-            onDelete={requestDelete}
+            onClear={() => setConfirming('clear')}
+            onRemove={() => (isRestDay ? handlers.onRemoveDay(day.id) : setConfirming('remove'))}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 px-2 text-xs text-slate-700">
-          {mode === 'calendar' && (
-            <select
-              aria-label={`Weekday for ${day.name}`}
-              className="rounded border border-slate-300 bg-white px-1 py-0.5"
-              value={day.weekday ?? ''}
-              onChange={(e) => handlers.onSetWeekday(day.id, e.target.value === '' ? null : Number(e.target.value))}
-            >
-              <option value="">Weekday…</option>
-              {WEEKDAY_NAMES.map((label, value) => (
-                <option key={label} value={value} disabled={takenWeekdays.has(value) && day.weekday !== value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          )}
-          {day.slots.length > 0 && (
-            <span data-testid="day-duration" title="Estimated session length">
-              ~{minutes} min
+        <div className="mt-1 flex flex-wrap gap-1 px-2">
+          {isRestDay ? (
+            <span data-testid="rest-day" className="rounded-full px-0.5 text-[11px] font-medium uppercase tracking-wider text-graphite-400">
+              Rest day
             </span>
+          ) : (
+            <>
+              <span className={pill}>
+                {day.slots.length} exercise{day.slots.length === 1 ? '' : 's'}
+              </span>
+              <span className={pill}>{weeklySets} sets</span>
+              <span className={pill} data-testid="day-duration" title="Estimated session length">
+                ~{minutes} min
+              </span>
+            </>
           )}
-          <span>
-            {day.slots.length} exercise{day.slots.length === 1 ? '' : 's'}
-          </span>
         </div>
       </header>
 
-      <div className="grid flex-1 content-start gap-4 overflow-y-auto p-3">
-        {day.muscles.length === 0 && <p className="rounded border border-dashed border-slate-400 p-4 text-center text-sm text-slate-700">Add a muscle group to get started.</p>}
-        {day.muscles.map((muscle) => {
-          const slots = day.slots.filter((slot) => slot.muscle === muscle);
-          return (
-            <MuscleSection
-              key={muscle}
-              muscle={muscle}
-              priority={priorities[muscle] ?? 'normal'}
-              slotCount={slots.length}
-              onAddExercise={() => handlers.onAddExercise(day.id, muscle)}
-              onRemove={() => handlers.onRemoveMuscle(day.id, muscle)}
-            >
-              {renderCards(day, muscle, slots)}
-            </MuscleSection>
-          );
-        })}
-      </div>
+      {!isRestDay && <div className="grid flex-1 content-start gap-2 overflow-y-auto px-2 pb-1">{children}</div>}
 
-      <footer className="border-t border-slate-300 p-3">
-        <select
-          aria-label={`Add muscle group to ${day.name}`}
-          className="w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm"
-          value=""
-          disabled={free.length === 0}
-          onChange={(e) => e.target.value && handlers.onAddMuscle(day.id, e.target.value as Muscle)}
+      {/* Zero intrinsic width: the button's text never widens a rest-day column (it wraps instead). */}
+      <footer className="w-0 min-w-full p-2.5">
+        <button
+          type="button"
+          aria-label={`Add exercises to ${day.name}`}
+          onClick={() => handlers.onOpenAddExercises(day.id)}
+          className={`w-full rounded-xl border border-dashed font-medium transition-colors ${
+            isRestDay
+              ? 'border-graphite-700 px-2 py-5 text-sm text-graphite-400 hover:border-aqua-500 hover:bg-aqua-950/40 hover:text-aqua-300'
+              : 'border-graphite-700 py-2 text-sm text-graphite-300 hover:border-aqua-500 hover:bg-aqua-950/40 hover:text-aqua-300'
+          }`}
         >
-          <option value="">+ Add muscle group…</option>
-          {free.map((muscle) => (
-            <option key={muscle} value={muscle}>
-              {muscleLabel(muscle)}
-            </option>
-          ))}
-        </select>
+          <span aria-hidden="true">+</span> Add exercises
+        </button>
       </footer>
-
       <ConfirmDialog
-        open={confirmingDelete}
-        title="Delete this day?"
-        message={`“${day.name}” has ${day.muscles.length} muscle group(s) and ${day.slots.length} exercise(s). They will be deleted.`}
-        confirmLabel="Delete day"
+        open={confirming !== null}
+        title={confirming === 'clear' ? 'Clear this day?' : 'Remove this day?'}
+        message={
+          confirming === 'clear'
+            ? `All ${day.slots.length} exercise(s) on “${day.name}” will be removed, making it a rest day.`
+            : `“${day.name}” and its ${day.slots.length} exercise(s) will be removed.`
+        }
+        confirmLabel={confirming === 'clear' ? 'Clear day' : 'Remove day'}
         onConfirm={() => {
-          setConfirmingDelete(false);
-          handlers.onRemoveDay(day.id);
+          if (confirming === 'clear') handlers.onClearDay(day.id);
+          else handlers.onRemoveDay(day.id);
+          setConfirming(null);
         }}
-        onCancel={() => setConfirmingDelete(false)}
+        onCancel={() => setConfirming(null)}
       />
     </section>
   );

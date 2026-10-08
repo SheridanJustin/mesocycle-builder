@@ -1,8 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../lib/passwords';
 import { seedCatalog, seedDevUser } from '../prisma/seed-lib';
 
+// The account the tests sign in with (e2e/auth.setup.ts).
 export const E2E_EMAIL = 'e2e-dev@example.com';
+export const E2E_PASSWORD = 'e2e-password-123';
 
 // Migrates and seeds TEST_DATABASE_URL, and clears mesocycles left over from earlier runs.
 export default async function globalSetup() {
@@ -18,6 +21,7 @@ export default async function globalSetup() {
   const prisma = new PrismaClient({ datasources: { db: { url } } });
   try {
     await seedDevUser(prisma, E2E_EMAIL);
+    await prisma.user.update({ where: { email: E2E_EMAIL }, data: { passwordHash: await hashPassword(E2E_PASSWORD), name: 'E2E Tester', weightUnit: 'lb' } });
     await seedCatalog(prisma);
     await prisma.mesocycle.deleteMany({});
     await prisma.exercise.deleteMany({ where: { isCustom: true } });

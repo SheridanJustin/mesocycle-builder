@@ -1,13 +1,21 @@
 'use client';
 
-import { PutScheduleSchema, type Exercise, type MesocycleDetail, type Muscle, type Priority, type ScheduleMode } from '@mesocycle/shared';
+import {
+  DEFAULT_MESOCYCLE_NAME,
+  PutScheduleSchema,
+  type Exercise,
+  type LockMesocycle,
+  type MesocycleDetail,
+  type MesocycleTemplate,
+} from '@mesocycle/shared';
 import type { Landmarks } from '@mesocycle/volume-engine';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { api, ApiClientError } from '../api-client';
+import { api, ApiClientError, fetchExerciseCatalog } from '../api-client';
 import { AutosaveController, type SaveStatus } from './autosave';
 import { newId } from './ids';
 import { detailToState, stateToSchedule } from './mappers';
 import { builderReducer, EMPTY_STATE, type BuilderAction } from './reducer';
+import { templateToState } from './templates';
 import type { BuilderState, SlotMetrics } from './types';
 import { computeBuilderVolume, toEngineLandmarks } from './volume';
 
@@ -15,7 +23,6 @@ export type BuilderMeta = {
   name: string;
   durationWeeks: number;
   deloadFinalWeek: boolean;
-  scheduleMode: ScheduleMode;
   status: MesocycleDetail['status'];
 };
 
@@ -26,7 +33,6 @@ function metaFrom(detail: MesocycleDetail): BuilderMeta {
     name: detail.name,
     durationWeeks: detail.duration_weeks,
     deloadFinalWeek: detail.deload_final_week,
-    scheduleMode: detail.schedule_mode,
     status: detail.status,
   };
 }
@@ -110,68 +116,84 @@ export function useBuilder(mesocycleId: string) {
 
   const actions = useMemo(
     () => ({
+      setNumbered: (numbered: boolean) => dispatch({ type: 'setNumbered', numbered }),
       addDay: () => dispatch({ type: 'addDay', dayId: newId() }),
       removeDay: (dayId: string) => dispatch({ type: 'removeDay', dayId }),
+      clearDay: (dayId: string) => dispatch({ type: 'clearDay', dayId }),
       renameDay: (dayId: string, name: string) => dispatch({ type: 'renameDay', dayId, name }),
-      setWeekday: (dayId: string, weekday: number | null) => dispatch({ type: 'setWeekday', dayId, weekday }),
-      addMuscle: (dayId: string, muscle: Muscle) => dispatch({ type: 'addMuscle', dayId, muscle }),
-      removeMuscle: (dayId: string, muscle: Muscle) => dispatch({ type: 'removeMuscle', dayId, muscle }),
-      addSlot: (dayId: string, muscle: Muscle, exercise: Exercise) =>
-        dispatch({ type: 'addSlot', dayId, muscle, exercise, slotId: newId() }),
+      addExercises: (dayId: string, exercises: Exercise[]) =>
+        dispatch({ type: 'addSlots', dayId, items: exercises.map((exercise) => ({ slotId: newId(), exercise })) }),
       removeSlot: (slotId: string) => dispatch({ type: 'removeSlot', slotId }),
       updateSlot: (slotId: string, patch: Partial<SlotMetrics>) => dispatch({ type: 'updateSlot', slotId, patch }),
-      stepSlot: (slotId: string, direction: 'up' | 'down') => dispatch({ type: 'stepSlot', slotId, direction }),
-      moveSlot: (slotId: string, toDayId: string, toMuscle: Muscle, beforeSlotId: string | null) =>
-        dispatch({ type: 'moveSlot', slotId, toDayId, toMuscle, beforeSlotId }),
-      setPriority: (muscle: Muscle, priority: Priority) => dispatch({ type: 'setPriority', muscle, priority }),
+      moveSlot: (slotId: string, toDayId: string, beforeSlotId: string | null) =>
+        dispatch({ type: 'moveSlot', slotId, toDayId, beforeSlotId }),
+      moveDay: (dayId: string, toIndex: number) => dispatch({ type: 'moveDay', dayId, toIndex }),
     }),
     [dispatch],
   );
 
+  // Copies a day's exercises into another day, or into a new day right after it (targetDayId null).
+  // Returns the id of the day that received the copy.
+  const copyDay = useCallback(
+    (sourceDayId: string, targetDayId: string | null): string => {
+      const source = state.days.find((d) => d.id === sourceDayId);
+      const newDayId = newId();
+      dispatch({ type: 'copyDay', sourceDayId, targetDayId, newDayId, slotIds: (source?.slots ?? []).map(() => newId()) });
+      return targetDayId ?? newDayId;
+    },
+    [dispatch, state.days],
+  );
+
+  // Settings saves run one after another, so quick changes (3 weeks, then 6) reach the server in
+  // order; only the response to the last pending save updates the screen.
+  const settingsQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingSettings = useRef(0);
   const updateSettings = useCallback(
-    async (patch: Partial<Pick<BuilderMeta, 'name' | 'durationWeeks' | 'deloadFinalWeek'>>) => {
+    (patch: Partial<Pick<BuilderMeta, 'name' | 'durationWeeks' | 'deloadFinalWeek'>>): Promise<void> => {
       setNotice(null);
       setMeta((current) => (current ? { ...current, ...patch } : current));
-      try {
-        const detail = await api.patchMesocycle(mesocycleId, {
-          ...(patch.name !== undefined ? { name: patch.name } : {}),
-          ...(patch.durationWeeks !== undefined ? { duration_weeks: patch.durationWeeks } : {}),
-          ...(patch.deloadFinalWeek !== undefined ? { deload_final_week: patch.deloadFinalWeek } : {}),
-        });
-        setMeta(metaFrom(detail));
-      } catch (error) {
-        setNotice(error instanceof Error ? `Could not save settings: ${error.message}` : 'Could not save settings.');
-        if (lastDetail.current) setMeta(metaFrom(lastDetail.current));
-      }
+      pendingSettings.current += 1;
+      const run = settingsQueue.current.then(async () => {
+        try {
+          const detail = await api.patchMesocycle(mesocycleId, {
+            ...(patch.name !== undefined ? { name: patch.name } : {}),
+            ...(patch.durationWeeks !== undefined ? { duration_weeks: patch.durationWeeks } : {}),
+            ...(patch.deloadFinalWeek !== undefined ? { deload_final_week: patch.deloadFinalWeek } : {}),
+          });
+          if (pendingSettings.current === 1) setMeta(metaFrom(detail));
+        } catch (error) {
+          setNotice(error instanceof Error ? `Could not save settings: ${error.message}` : 'Could not save settings.');
+          if (lastDetail.current) setMeta(metaFrom(lastDetail.current));
+        } finally {
+          pendingSettings.current -= 1;
+        }
+      });
+      settingsQueue.current = run;
+      return run;
     },
     [mesocycleId],
   );
 
-  // Duplicate-day works on server ids, so unsaved edits are flushed first and the board is
-  // rebuilt from the server's answer afterwards (the copy appears right of its source).
-  const duplicateDay = useCallback(
-    async (dayId: string): Promise<string | null> => {
+  // Replaces every day with the template's. An untitled mesocycle also takes the template's name.
+  const applyTemplate = useCallback(
+    async (template: MesocycleTemplate) => {
       setNotice(null);
-      const sourceIndex = state.days.findIndex((d) => d.id === dayId);
-      const saved = await controller.current?.flush();
-      const serverDay = lastDetail.current?.days[sourceIndex];
-      if (!saved || sourceIndex === -1 || !serverDay) {
-        setNotice('Could not duplicate the day because the latest changes are not saved yet.');
-        return null;
-      }
-      try {
-        const detail = await api.duplicateDay(mesocycleId, { source_day_id: serverDay.id, target_position: sourceIndex + 2 });
-        lastDetail.current = detail;
-        const next = detailToState(detail);
-        saveRequested.current = false;
-        rawDispatch({ type: 'hydrate', state: next });
-        return next.days[sourceIndex + 1]?.id ?? null;
-      } catch (error) {
-        setNotice(error instanceof Error ? `Could not duplicate the day: ${error.message}` : 'Could not duplicate the day.');
-        return null;
-      }
+      const { state: next, missing } = templateToState(template, await fetchExerciseCatalog());
+      dispatch({ type: 'replace', state: next });
+      if (missing.length > 0) setNotice(`Some template exercises are not in your catalog and were skipped: ${missing.join(', ')}.`);
+      if (meta?.name === DEFAULT_MESOCYCLE_NAME) await updateSettings({ name: template.name });
     },
-    [mesocycleId, state.days],
+    [dispatch, meta?.name, updateSettings],
+  );
+
+  // Saves any pending edits first, so the plan that gets locked is exactly what is on screen.
+  const lockIn = useCallback(
+    async (body: LockMesocycle): Promise<MesocycleDetail> => {
+      const saved = (await controller.current?.flush()) ?? true;
+      if (!saved) throw new Error('Your latest changes could not be saved. Retry saving, then lock in.');
+      return api.lockMesocycle(mesocycleId, body);
+    },
+    [mesocycleId],
   );
 
   return {
@@ -183,7 +205,9 @@ export function useBuilder(mesocycleId: string) {
     notice,
     actions,
     updateSettings,
-    duplicateDay,
+    copyDay,
+    applyTemplate,
+    lockIn,
     retrySave: () => controller.current?.retry(),
   };
 }

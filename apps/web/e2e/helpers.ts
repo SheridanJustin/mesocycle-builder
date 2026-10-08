@@ -1,19 +1,16 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
-// Creates a mesocycle through the real form and lands on the builder.
-export async function createMesocycleViaUi(page: Page, opts: { name: string; days?: number; weeks?: number }) {
-  await page.goto('/mesocycles/new');
-  await page.getByLabel('Name').fill(opts.name);
-  if (opts.weeks) await page.getByLabel('Duration (weeks)').selectOption(String(opts.weeks));
-  if (opts.days) await page.getByLabel('Training days per week').selectOption(String(opts.days));
-  await page.getByRole('button', { name: 'Create and start building' }).click();
+// "New mesocycle" creates an untitled Mon-Sun draft and opens the board. Returns its id.
+export async function createMesocycleViaUi(page: Page): Promise<string> {
+  await page.goto('/mesocycles');
+  await page.getByRole('button', { name: 'New mesocycle' }).click();
   await page.waitForURL(/\/mesocycles\/[0-9a-f-]+\/build/);
-  await expect(page.getByTestId('mesocycle-title')).toHaveText(opts.name);
+  await expect(page.getByTestId('mesocycle-title')).toHaveValue('Untitled mesocycle');
   return page.url().match(/\/mesocycles\/([0-9a-f-]+)\/build/)![1] as string;
 }
 
-export async function gotoStep(page: Page, label: string) {
-  await page.getByRole('navigation', { name: 'Builder steps' }).getByRole('button', { name: new RegExp(label) }).click();
+export async function gotoTab(page: Page, label: 'Build' | 'Review') {
+  await page.getByRole('navigation', { name: 'Builder tabs' }).getByRole('button', { name: label }).click();
 }
 
 // Waits until autosave has finished ("Saved" or "All changes saved").
@@ -25,26 +22,36 @@ export function column(page: Page, dayName: string) {
   return page.getByRole('region', { name: `${dayName} column` });
 }
 
-// Assigns muscles on step 2, e.g. { 'Day 1': ['Chest', 'Triceps'] }, then opens the board (step 3).
-export async function assignMuscles(page: Page, assignments: Record<string, string[]>) {
-  await gotoStep(page, 'Muscles');
-  for (const [day, muscles] of Object.entries(assignments)) {
-    for (const muscle of muscles) await page.getByRole('button', { name: `${day}: ${muscle}`, exact: true }).click();
-  }
-  await gotoStep(page, 'Exercises');
+export function card(page: Page, dayName: string, exerciseName: string) {
+  return column(page, dayName).getByRole('article', { name: exerciseName });
 }
 
-// Adds an exercise to a section through the catalog side panel.
-export async function addExercise(page: Page, dayName: string, muscle: string, search: string, exactName: string) {
-  await column(page, dayName).getByRole('button', { name: `Add exercise to ${muscle}` }).click();
+export async function columnNames(page: Page): Promise<string[]> {
+  // After a reload the page shows "Loading…" first; wait for the board.
+  await page.getByTestId('day-column').first().waitFor();
+  const labels = await page.getByTestId('day-column').evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''));
+  return labels.map((label) => label.replace(/ column$/, ''));
+}
+
+// Opens a day's Add panel, ticks every named exercise (searching for each) and adds them in one go.
+export async function addExercises(page: Page, dayName: string, names: string[]) {
+  await column(page, dayName).getByRole('button', { name: `Add exercises to ${dayName}` }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Search exercises').fill(search);
-  await dialog.getByRole('button', { name: new RegExp(`^${exactName}`) }).click();
+  for (const name of names) {
+    await dialog.getByLabel('Search exercises').fill(name);
+    await dialog.getByRole('checkbox', { name: new RegExp(`^${escapeRegExp(name)}`) }).check();
+  }
+  await dialog.getByRole('button', { name: names.length === 1 ? 'Add 1 exercise' : `Add ${names.length} exercises` }).click();
   await expect(dialog).toBeHidden();
 }
 
-export function card(page: Page, dayName: string, exerciseName: string) {
-  return column(page, dayName).getByRole('article', { name: exerciseName });
+export function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export async function openDayMenu(page: Page, dayName: string) {
+  await column(page, dayName).getByRole('button', { name: `${dayName} menu` }).click();
+  return page.getByRole('menu', { name: `${dayName} actions` });
 }
 
 // True when the page itself (not the board) scrolls sideways.
@@ -52,17 +59,38 @@ export async function pageScrollsSideways(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 }
 
-// Drags with real mouse events (dnd-kit's pointer sensor needs movement past a small threshold).
+// Press and hold a card's title, then drag with real mouse events (cards activate after a short hold).
+export function grip(page: Page, dayName: string, exerciseName: string) {
+  return card(page, dayName, exerciseName).getByRole('heading', { name: exerciseName });
+}
+
 export async function dragTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, opts: { release?: boolean } = {}) {
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  await page.mouse.move(from.x + 10, from.y + 10, { steps: 3 });
+  await page.waitForTimeout(300);
+  await page.mouse.move(from.x + 4, from.y + 4, { steps: 2 });
   await page.mouse.move(to.x, to.y, { steps: 25 });
   if (opts.release !== false) await page.mouse.up();
 }
 
-export async function center(locator: import('@playwright/test').Locator): Promise<{ x: number; y: number }> {
+export async function center(locator: Locator): Promise<{ x: number; y: number }> {
   const box = await locator.boundingBox();
   if (!box) throw new Error('Element has no bounding box');
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+// Review's duration is a row of radio buttons (3-10 weeks). The inputs are visually hidden, so click the label.
+export async function setDuration(page: Page, weeks: number) {
+  await page.getByTestId('duration-options').locator('label').filter({ hasText: new RegExp(`^${weeks} weeks$`) }).click();
+  await expect(durationRadio(page, weeks)).toBeChecked();
+}
+
+export function durationRadio(page: Page, weeks: number) {
+  return page.getByRole('radio', { name: `${weeks} weeks`, exact: true });
+}
+
+// Resolves when a mesocycle settings PATCH (name, duration or deload) carrying `field` has been saved.
+// Settings do not go through the schedule autosave, so waitForSaved does not cover them.
+export function settingsSaved(page: Page, field: 'name' | 'duration_weeks' | 'deload_final_week') {
+  return page.waitForResponse((r) => r.request().method() === 'PATCH' && (r.request().postData() ?? '').includes(`"${field}"`) && r.ok());
 }

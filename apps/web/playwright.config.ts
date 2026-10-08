@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { AUTH_STATE } from './e2e/auth-state';
 
 const PORT = 3100;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
@@ -15,6 +16,10 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   globalSetup: './e2e/global-setup.ts',
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    { name: 'app', dependencies: ['setup'], testIgnore: /auth\.setup\.ts/, use: { storageState: AUTH_STATE } },
+  ],
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
@@ -30,6 +35,11 @@ export default defineConfig({
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? '',
       DEV_USER_EMAIL: 'e2e-dev@example.com',
       NEXT_DIST_DIR: '.next-e2e',
+      // Auth.js needs a secret; this one only signs test sessions on localhost.
+      AUTH_SECRET: 'e2e-only-secret-do-not-use-anywhere-else-0123456789',
+      AUTH_TRUST_HOST: 'true',
+      AUTH_GOOGLE_ID: '',
+      AUTH_GOOGLE_SECRET: '',
     },
   },
 });

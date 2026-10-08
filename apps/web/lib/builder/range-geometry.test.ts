@@ -1,11 +1,10 @@
-import type { MuscleVolume } from '@mesocycle/shared';
+import type { GroupVolume } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { formatSets, rangeGeometry } from './range-geometry';
+import { formatSets, rangeGeometry, rangeLabels } from './range-geometry';
 
-const chest: Pick<MuscleVolume, 'exact_total_sets' | 'landmarks' | 'target_band'> = {
+const chest: Pick<GroupVolume, 'exact_total_sets' | 'landmarks'> = {
   exact_total_sets: 12,
   landmarks: { mv: 8, mev: 10, mav_low: 12, mav_high: 20, mrv: 22 },
-  target_band: { low: 16, high: 20 },
 };
 
 describe('rangeGeometry', () => {
@@ -22,11 +21,10 @@ describe('rangeGeometry', () => {
     expect(rangeGeometry(chest).marks.map((m) => m.label)).toEqual(['MV', 'MEV', 'MAV low', 'MAV high', 'MRV']);
   });
 
-  it('positions the value and the target band on the same scale', () => {
+  it('positions the value on the same scale as the marks', () => {
     const g = rangeGeometry(chest);
     expect(g.valuePct).toBeCloseTo((12 / g.scaleMax) * 100);
-    expect(g.bandLeftPct).toBeCloseTo((16 / g.scaleMax) * 100);
-    expect(g.bandWidthPct).toBeCloseTo(((20 - 16) / g.scaleMax) * 100);
+    expect(g.valuePct).toBe(g.marks.find((m) => m.key === 'mav_low')?.pct);
   });
 
   it('extends the scale when the total exceeds MRV', () => {
@@ -37,10 +35,9 @@ describe('rangeGeometry', () => {
   });
 
   it('handles a zero total and all-zero landmarks without NaN', () => {
-    const zero = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 0, mav_low: 0, mav_high: 0, mrv: 0 }, target_band: { low: 0, high: 0 } });
+    const zero = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 0, mav_low: 0, mav_high: 0, mrv: 0 } });
     expect(zero.valuePct).toBe(0);
     expect(Number.isNaN(zero.scaleMax)).toBe(false);
-    expect(zero.bandWidthPct).toBe(0);
   });
 });
 
@@ -49,5 +46,19 @@ describe('formatSets', () => {
     expect(formatSets(14)).toBe('14');
     expect(formatSets(6.5)).toBe('6.5');
     expect(formatSets(0)).toBe('0');
+  });
+});
+
+describe('rangeLabels', () => {
+  it('labels MV, MEV, MAV (low end) and MRV when they are far apart', () => {
+    const marks = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 8, mav_low: 16, mav_high: 22, mrv: 30 } }).marks;
+    expect(rangeLabels(marks).map((l) => l.text)).toEqual(['MV', 'MEV', 'MAV', 'MRV']);
+  });
+
+  it('merges landmarks that coincide or crowd each other', () => {
+    const glutes = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 0, mev: 0, mav_low: 4, mav_high: 12, mrv: 16 } }).marks;
+    expect(rangeLabels(glutes).map((l) => l.text)).toEqual(['MV/MEV', 'MAV', 'MRV']);
+    const chest = rangeGeometry({ exact_total_sets: 0, landmarks: { mv: 8, mev: 10, mav_low: 12, mav_high: 20, mrv: 22 } }).marks;
+    expect(rangeLabels(chest).map((l) => l.text)).toEqual(['MV/MEV', 'MAV', 'MRV']);
   });
 });

@@ -1,32 +1,100 @@
 @import 'tailwindcss';
+/* Other palettes and the light mode re-define the scales below (SPEC 10.12). */
+@import './themes.css';
 
-/* Volume status colors are fixed by docs/SPEC.md section 7.4. Do not add others.
-   Each status has a tint (background), a border/bar color and a dark text color that meets WCAG AA. */
 @theme {
-  --color-status-amber-bg: #fef3c7;
-  --color-status-amber-border: #d97706;
-  --color-status-amber-bar: #f59e0b;
-  --color-status-amber-text: #78350f;
+  /* Default palette ("Graphite & Aqua", dark). graphite = neutrals, aqua = primary accent,
+     verdigris/shamrock = positive, snow = destructive. app/themes.css swaps these per palette and mode. */
+  --color-graphite-50: #f3f2f3;
+  --color-graphite-100: #e6e4e7;
+  --color-graphite-200: #cdcace;
+  --color-graphite-300: #b5afb6;
+  --color-graphite-400: #9c959d;
+  --color-graphite-500: #837a85;
+  --color-graphite-600: #69626a;
+  --color-graphite-700: #4f4950;
+  --color-graphite-800: #343135;
+  --color-graphite-900: #1a181b;
+  --color-graphite-950: #121113;
 
-  --color-status-lightgreen-bg: #ecfccb;
-  --color-status-lightgreen-border: #65a30d;
-  --color-status-lightgreen-bar: #84cc16;
-  --color-status-lightgreen-text: #365314;
+  --color-snow-50: #f6eeee;
+  --color-snow-100: #eddede;
+  --color-snow-200: #dbbdbd;
+  --color-snow-300: #c99c9c;
+  --color-snow-400: #b87a7a;
+  --color-snow-500: #a65959;
+  --color-snow-600: #854747;
+  --color-snow-700: #633636;
+  --color-snow-800: #422424;
+  --color-snow-900: #211212;
+  --color-snow-950: #170c0c;
 
-  --color-status-green-bg: #dcfce7;
-  --color-status-green-border: #16a34a;
-  --color-status-green-bar: #22c55e;
-  --color-status-green-text: #14532d;
+  --color-aqua-50: #e5fcff;
+  --color-aqua-100: #ccfaff;
+  --color-aqua-200: #99f5ff;
+  --color-aqua-300: #66f0ff;
+  --color-aqua-400: #33ebff;
+  --color-aqua-500: #00e5ff;
+  --color-aqua-600: #00b8cc;
+  --color-aqua-700: #008a99;
+  --color-aqua-800: #005c66;
+  --color-aqua-900: #002e33;
+  --color-aqua-950: #002024;
 
-  --color-status-orange-bg: #ffedd5;
-  --color-status-orange-border: #ea580c;
-  --color-status-orange-bar: #f97316;
-  --color-status-orange-text: #7c2d12;
+  --color-verdigris-50: #e9fcfa;
+  --color-verdigris-100: #d2f9f4;
+  --color-verdigris-200: #a6f2e9;
+  --color-verdigris-300: #79ecde;
+  --color-verdigris-400: #4ce6d4;
+  --color-verdigris-500: #20dfc9;
+  --color-verdigris-600: #19b3a1;
+  --color-verdigris-700: #138678;
+  --color-verdigris-800: #0d5950;
+  --color-verdigris-900: #062d28;
+  --color-verdigris-950: #041f1c;
 
-  --color-status-red-bg: #fee2e2;
-  --color-status-red-border: #dc2626;
-  --color-status-red-bar: #ef4444;
-  --color-status-red-text: #7f1d1d;
+  --color-shamrock-50: #e8fdf1;
+  --color-shamrock-100: #d1fae2;
+  --color-shamrock-200: #a3f5c5;
+  --color-shamrock-300: #75f0a8;
+  --color-shamrock-400: #46ec8b;
+  --color-shamrock-500: #18e76e;
+  --color-shamrock-600: #13b958;
+  --color-shamrock-700: #0f8a42;
+  --color-shamrock-800: #0a5c2c;
+  --color-shamrock-900: #052e16;
+  --color-shamrock-950: #03200f;
+
+  /* Volume status colors are fixed by docs/SPEC.md section 7.4 (amber, lightgreen, green, orange, red),
+     tuned for the dark theme: a dark tint (bg), a vivid border and bar, and light text (WCAG AA). */
+  --color-status-amber-bg: #33240a;
+  --color-status-amber-border: #f59e0b;
+  --color-status-amber-bar: #fbbf24;
+  --color-status-amber-text: #fde68a;
+
+  --color-status-lightgreen-bg: #222f0b;
+  --color-status-lightgreen-border: #a3e635;
+  --color-status-lightgreen-bar: #bef264;
+  --color-status-lightgreen-text: #ecfccb;
+
+  --color-status-green-bg: #0b2a18;
+  --color-status-green-border: #22c55e;
+  --color-status-green-bar: #4ade80;
+  --color-status-green-text: #bbf7d0;
+
+  --color-status-orange-bg: #351a08;
+  --color-status-orange-border: #f97316;
+  --color-status-orange-bar: #fb923c;
+  --color-status-orange-text: #fed7aa;
+
+  --color-status-red-bg: #370e0e;
+  --color-status-red-border: #ef4444;
+  --color-status-red-bar: #f87171;
+  --color-status-red-text: #fecaca;
+}
+
+html {
+  color-scheme: dark;
 }
 
 html,
@@ -38,13 +106,24 @@ body {
 /* The page body must never scroll sideways; only the board does. `clip` keeps position: sticky working. */
 body {
   overflow-x: clip;
+  background:
+    radial-gradient(900px 420px at 0% -10%, color-mix(in srgb, var(--color-aqua-500) 7%, transparent), transparent 70%),
+    radial-gradient(700px 380px at 100% -5%, color-mix(in srgb, var(--color-verdigris-500) 5%, transparent), transparent 70%),
+    var(--color-graphite-950);
+  background-attachment: fixed;
+}
+
+/* Slim dark scrollbars (the board and columns scroll). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-graphite-700) transparent;
 }
 
 :focus-visible {
-  outline: 2px solid #1d4ed8;
+  outline: 2px solid var(--color-aqua-400);
   outline-offset: 2px;
 }
 
 dialog::backdrop {
-  background: rgb(15 23 42 / 0.5);
+  background: rgb(0 0 0 / 0.65);
 }

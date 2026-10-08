@@ -23,15 +23,3 @@ export function repRangeError(min: number, max: number): string | null {
   if (min >= max) return 'Min must be below max';
   return null;
 }
-
-// Weight: optional, >= 0, at most 2 decimals, at most 9999.99. Empty text means "no weight".
-export function parseWeight(text: string): { ok: true; value: number | null } | { ok: false; error: string } {
-  const trimmed = text.trim();
-  if (trimmed === '') return { ok: true, value: null };
-  const value = Number(trimmed);
-  if (!Number.isFinite(value)) return { ok: false, error: 'Enter a number' };
-  if (value < 0) return { ok: false, error: 'Must be 0 or more' };
-  if (value > 9999.99) return { ok: false, error: 'Too large' };
-  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return { ok: false, error: 'At most 2 decimals' };
-  return { ok: true, value };
-}

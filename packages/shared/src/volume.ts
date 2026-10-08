@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MAX_SETS, MIN_SETS } from './constants';
-import { MuscleSchema, PrioritySchema, VolumeColorSchema, VolumeStatusSchema } from './enums';
+import { MuscleGroupSchema, MuscleSchema, PrioritySchema, VolumeColorSchema, VolumeStatusSchema } from './enums';
 import { LandmarksSchema } from './landmarks';
 
 export const MuscleVolumeSchema = z.object({
@@ -40,3 +40,19 @@ export const ValidateVolumeRequestSchema = z.object({
   assigned_muscles: z.array(MuscleSchema).default([]),
 });
 export type ValidateVolumeRequest = z.infer<typeof ValidateVolumeRequestSchema>;
+
+// Weekly volume per major muscle group (shown in the builder and on Review).
+export const GroupVolumeSchema = z.object({
+  total_sets: z.number().min(0),
+  exact_total_sets: z.number().min(0),
+  weekly_frequency: z.number().int().min(0),
+  status: VolumeStatusSchema,
+  landmarks: LandmarksSchema,
+  color: VolumeColorSchema,
+});
+export type GroupVolume = z.infer<typeof GroupVolumeSchema>;
+
+export const GroupVolumeSummarySchema = z.object({
+  summary: z.record(MuscleGroupSchema, GroupVolumeSchema),
+});
+export type GroupVolumeSummary = z.infer<typeof GroupVolumeSummarySchema>;

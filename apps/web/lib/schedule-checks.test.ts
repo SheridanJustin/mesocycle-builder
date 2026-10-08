@@ -17,18 +17,29 @@ function schedule(days: { weekday: number | null }[]) {
   });
 }
 
+const week = (weekdays: (number | null)[]) => schedule(weekdays.map((weekday) => ({ weekday })));
+
 describe('weekdayIssues', () => {
   it('flags any weekday in relative mode', () => {
-    expect(weekdayIssues(schedule([{ weekday: null }, { weekday: 2 }]), 'relative')).toEqual([
-      { path: 'days[1].weekday', issue: 'Only allowed in calendar mode' },
+    expect(weekdayIssues(week([null, 2]), 'relative')).toEqual([
+      { path: 'days[1].weekday', issue: 'Only allowed when days use weekday names' },
     ]);
+    expect(weekdayIssues(week([null, null, null]), 'relative')).toEqual([]);
   });
 
-  it('flags duplicate weekdays in calendar mode and allows nulls', () => {
-    expect(weekdayIssues(schedule([{ weekday: 1 }, { weekday: null }, { weekday: 1 }]), 'calendar')).toEqual([
+  it('accepts a full Mon-Sun week in calendar mode', () => {
+    expect(weekdayIssues(week([0, 1, 2, 3, 4, 5, 6]), 'calendar')).toEqual([]);
+  });
+
+  it('needs exactly 7 days in calendar mode', () => {
+    expect(weekdayIssues(week([0, 1, 2]), 'calendar')).toEqual([{ path: 'days', issue: 'Weekday names need exactly 7 days' }]);
+  });
+
+  it('flags missing and duplicate weekdays in calendar mode', () => {
+    expect(weekdayIssues(week([0, 1, 1, 3, null, 5, 6]), 'calendar')).toEqual([
       { path: 'days[2].weekday', issue: 'Weekdays must be unique' },
+      { path: 'days[4].weekday', issue: 'Required when days use weekday names' },
     ]);
-    expect(weekdayIssues(schedule([{ weekday: 0 }, { weekday: 3 }]), 'calendar')).toEqual([]);
   });
 });
 

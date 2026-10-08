@@ -5,17 +5,19 @@ import {
   DEFAULT_RIR,
   DEFAULT_SLOT_SETS,
   MAX_DAY_NAME_LENGTH,
-  MAX_DAYS_PER_WEEK,
-  MAX_DAYS_WITH_DUPLICATE,
+  DEFAULT_CYCLE_DAYS,
+  DEFAULT_MESOCYCLE_NAME,
+  MAX_CYCLE_DAYS,
   MAX_DURATION_WEEKS,
   MAX_REPS,
   MAX_RIR,
   MAX_SETS,
-  MIN_DAYS_PER_WEEK,
+  MIN_CYCLE_DAYS,
   MIN_DURATION_WEEKS,
   MIN_REPS,
   MIN_RIR,
   MIN_SETS,
+  WEEK_DAYS,
 } from './constants';
 import { MesocycleStatusSchema, MuscleSchema, PrioritySchema, ScheduleModeSchema } from './enums';
 import { ExerciseSchema } from './exercise';
@@ -37,27 +39,17 @@ export const WeightSchema = z
   .max(9999.99)
   .refine(hasAtMostTwoDecimals, { message: 'Must have at most 2 decimal places' });
 
+// Every field is optional: "New mesocycle" creates a 7-day Mon-Sun draft named "Untitled mesocycle".
 export const CreateMesocycleSchema = z
   .object({
-    name: mesocycleName,
+    name: mesocycleName.default(DEFAULT_MESOCYCLE_NAME),
     duration_weeks: durationWeeks.default(4),
-    days_per_week: z.number().int().min(MIN_DAYS_PER_WEEK).max(MAX_DAYS_PER_WEEK),
-    schedule_mode: ScheduleModeSchema.default('relative'),
-    // Optional day names for calendar mode, e.g. Mon/Wed/Fri.
-    weekdays: z.array(weekday).optional(),
+    days_per_week: z.number().int().min(MIN_CYCLE_DAYS).max(MAX_CYCLE_DAYS).default(DEFAULT_CYCLE_DAYS),
+    schedule_mode: ScheduleModeSchema.default('calendar'),
   })
-  .superRefine((value, ctx) => {
-    if (value.weekdays === undefined) return;
-    if (value.schedule_mode !== 'calendar') {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['weekdays'], message: 'Only allowed in calendar mode' });
-      return;
-    }
-    if (value.weekdays.length !== value.days_per_week) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['weekdays'], message: 'Must have one entry per day' });
-    }
-    if (new Set(value.weekdays).size !== value.weekdays.length) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['weekdays'], message: 'Weekdays must be unique' });
-    }
+  .refine((value) => value.schedule_mode !== 'calendar' || value.days_per_week === WEEK_DAYS, {
+    message: `Weekday names (calendar mode) need exactly ${WEEK_DAYS} days`,
+    path: ['days_per_week'],
   });
 export type CreateMesocycle = z.infer<typeof CreateMesocycleSchema>;
 
@@ -104,7 +96,7 @@ function findDuplicate<T>(values: readonly T[]): number {
 
 export const ScheduleDaySchema = z
   .object({
-    day_number: z.number().int().min(1).max(7),
+    day_number: z.number().int().min(1).max(MAX_CYCLE_DAYS),
     weekday: weekday.nullable().default(null),
     day_name: dayName,
     sort_order: z.number().int().min(0),
@@ -152,7 +144,9 @@ export type ScheduleDay = z.infer<typeof ScheduleDaySchema>;
 
 export const PutScheduleSchema = z
   .object({
-    days: z.array(ScheduleDaySchema).max(MAX_DAYS_WITH_DUPLICATE),
+    days: z.array(ScheduleDaySchema).min(MIN_CYCLE_DAYS).max(MAX_CYCLE_DAYS),
+    // Saved together with the days so labels and weekdays always change atomically.
+    schedule_mode: ScheduleModeSchema.optional(),
     priorities: z.array(z.object({ muscle: MuscleSchema, priority: PrioritySchema })).default([]),
   })
   .superRefine((schedule, ctx) => {
@@ -177,7 +171,7 @@ export type PutSchedule = z.infer<typeof PutScheduleSchema>;
 
 export const DuplicateDaySchema = z.object({
   source_day_id: z.string().uuid(),
-  target_position: z.number().int().min(1).max(MAX_DAYS_WITH_DUPLICATE),
+  target_position: z.number().int().min(1).max(MAX_CYCLE_DAYS),
   new_name: dayName.optional(),
 });
 export type DuplicateDay = z.infer<typeof DuplicateDaySchema>;
@@ -198,18 +192,35 @@ export const LockMesocycleSchema = z.object({
 });
 export type LockMesocycle = z.infer<typeof LockMesocycleSchema>;
 
+// POST /mesocycles/{id}/extend: weeks to add to a locked mesocycle (the total stays within
+// MAX_DURATION_WEEKS; checked by the server against the current duration).
+export const ExtendMesocycleSchema = z.object({ weeks: z.number().int().min(1).max(MAX_DURATION_WEEKS - MIN_DURATION_WEEKS) });
+export type ExtendMesocycle = z.infer<typeof ExtendMesocycleSchema>;
+
+// The user's full list of mesocycle ids in the new order (every id exactly once).
+export const ReorderMesocyclesSchema = z
+  .object({ ids: z.array(z.string().uuid()).min(1) })
+  .refine((value) => new Set(value.ids).size === value.ids.length, { message: 'Ids must be unique', path: ['ids'] });
+export type ReorderMesocycles = z.infer<typeof ReorderMesocyclesSchema>;
+
+// Marks one generated workout done or skipped (or back to planned to undo). Active mesocycles only.
+export const UpdateSessionSchema = z.object({ status: z.enum(['planned', 'completed', 'skipped']) });
+export type UpdateSession = z.infer<typeof UpdateSessionSchema>;
+
 // ---- Responses ----
 
 export const MesocycleSummarySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   duration_weeks: z.number().int(),
-  // Count chosen at creation. The real day count is days.length (2-7 once days are duplicated).
+  // Length of the repeating cycle (1-10 days, rest days included). Kept equal to days.length.
   days_per_week: z.number().int(),
   schedule_mode: ScheduleModeSchema,
   status: MesocycleStatusSchema,
   start_date: isoDate.nullable(),
   locked_at: z.string().nullable(),
+  // When it was completed or dropped.
+  ended_at: z.string().nullable(),
   deload_final_week: z.boolean(),
   day_count: z.number().int().min(0),
   created_at: z.string(),
@@ -245,8 +256,46 @@ export const DayDetailSchema = z.object({
 });
 export type DayDetail = z.infer<typeof DayDetailSchema>;
 
+// Generated at lock-in (SPEC 5.3, 9): snapshots of the plan, one workout per training day per week.
+export const SessionExerciseDetailSchema = z.object({
+  id: z.string().uuid(),
+  exercise: ExerciseSchema,
+  sort_order: z.number().int(),
+  target_sets: z.number().int(),
+  rep_range_min: z.number().int(),
+  rep_range_max: z.number().int(),
+  target_rir: z.number().int(),
+  target_weight: z.number().nullable(),
+});
+export type SessionExerciseDetail = z.infer<typeof SessionExerciseDetailSchema>;
+
+export const SESSION_STATUSES = ['planned', 'in_progress', 'completed', 'skipped'] as const;
+
+export const SessionDetailSchema = z.object({
+  id: z.string().uuid(),
+  day_id: z.string().uuid(),
+  day_name: z.string(),
+  // Only for Mon-Sun (calendar) mesocycles.
+  scheduled_date: isoDate.nullable(),
+  status: z.enum(SESSION_STATUSES),
+  exercises: z.array(SessionExerciseDetailSchema),
+});
+export type SessionDetail = z.infer<typeof SessionDetailSchema>;
+
+export const WeekDetailSchema = z.object({
+  id: z.string().uuid(),
+  week_number: z.number().int(),
+  is_deload: z.boolean(),
+  // Every workout of the week is completed or skipped.
+  is_complete: z.boolean(),
+  sessions: z.array(SessionDetailSchema),
+});
+export type WeekDetail = z.infer<typeof WeekDetailSchema>;
+
 export const MesocycleDetailSchema = MesocycleSummarySchema.omit({ day_count: true }).extend({
   days: z.array(DayDetailSchema),
+  // Empty for drafts; filled at lock-in.
+  weeks: z.array(WeekDetailSchema),
   // Only muscles with a stored priority; every other muscle is 'normal'.
   priorities: z.array(z.object({ muscle: MuscleSchema, priority: PrioritySchema })),
   volume_summary: VolumeSummarySchema,

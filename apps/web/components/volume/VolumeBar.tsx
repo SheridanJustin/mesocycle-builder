@@ -1,46 +1,51 @@
 'use client';
 
-import type { Muscle, VolumeSummary } from '@mesocycle/shared';
+import type { GroupVolumeSummary, MuscleGroup } from '@mesocycle/shared';
 import { useCallback, useId, useState } from 'react';
 import type { Contribution } from '../../lib/builder/volume';
+import { LandmarkInfo } from './LandmarkInfo';
 import { VolumeChip } from './VolumeChip';
 import { VolumeDetailPopover } from './VolumeDetailPopover';
 
 type Props = {
-  volume: VolumeSummary;
-  contributionsFor: (muscle: Muscle) => Contribution[];
+  volume: GroupVolumeSummary;
+  contributionsFor: (group: MuscleGroup) => Contribution[];
 };
 
-// Sticky weekly-volume bar. It renders straight from the engine result, so it is always in sync
-// with the board. The popover is positioned against the sticky header, outside the scroller.
+// Sticky weekly-volume bar, one chip per major muscle group. It renders straight from the engine
+// result, so it is always in sync with the board. The popover is positioned against the sticky
+// header, outside the scroller.
 export function VolumeBar({ volume, contributionsFor }: Props) {
-  const [selected, setSelected] = useState<Muscle | null>(null);
+  const [selected, setSelected] = useState<MuscleGroup | null>(null);
   const popoverId = useId();
   const close = useCallback(() => setSelected(null), []);
-  const entries = Object.entries(volume.summary) as [Muscle, NonNullable<VolumeSummary['summary'][Muscle]>][];
+  const entries = Object.entries(volume.summary) as [MuscleGroup, NonNullable<GroupVolumeSummary['summary'][MuscleGroup]>][];
   const open = selected ? volume.summary[selected] : undefined;
 
   return (
-    <div role="region" aria-label="Weekly volume by muscle" data-testid="volume-bar">
+    <div role="region" aria-label="Weekly volume by muscle group" data-testid="volume-bar" className="flex items-center gap-2 py-1.5">
       {entries.length === 0 ? (
-        <p className="py-1 text-xs text-slate-600">Weekly volume per muscle appears here once you add muscle groups.</p>
+        <p className="flex-1 py-1 text-xs text-graphite-400">Weekly sets per muscle group appear here as you add exercises.</p>
       ) : (
-        <ul className="flex gap-2 overflow-x-auto py-1">
-          {entries.map(([muscle, entry]) => (
-            <li key={muscle} className="shrink-0">
+        // Ten groups at most: a grid that always fits from tablet width up. On a phone the chips
+        // keep a readable width in one row that scrolls sideways (the page itself never does).
+        <ul className="-my-1 flex min-w-0 flex-1 snap-x gap-1.5 overflow-x-auto py-1 sm:my-0 sm:grid sm:grid-cols-5 sm:overflow-visible sm:py-0 lg:grid-cols-10">
+          {entries.map(([group, entry]) => (
+            <li key={group} className="w-[6.75rem] shrink-0 snap-start sm:w-auto sm:min-w-0">
               <VolumeChip
-                muscle={muscle}
+                group={group}
                 entry={entry}
-                expanded={selected === muscle}
+                expanded={selected === group}
                 controlsId={popoverId}
-                onToggle={() => setSelected(selected === muscle ? null : muscle)}
+                onToggle={() => setSelected(selected === group ? null : group)}
               />
             </li>
           ))}
         </ul>
       )}
+      <LandmarkInfo />
       {selected && open && (
-        <VolumeDetailPopover id={popoverId} muscle={selected} entry={open} contributions={contributionsFor(selected)} onClose={close} />
+        <VolumeDetailPopover id={popoverId} group={selected} entry={open} contributions={contributionsFor(selected)} onClose={close} />
       )}
     </div>
   );

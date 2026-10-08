@@ -19,7 +19,9 @@ export const MUSCLES = [
 export const EQUIPMENT_TYPES = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight'] as const;
 export const MOVEMENT_TYPES = ['compound', 'isolation'] as const;
 export const PRIORITIES = ['focus', 'normal', 'maintenance'] as const;
-export const MESOCYCLE_STATUSES = ['draft', 'active', 'completed'] as const;
+export const MESOCYCLE_STATUSES = ['draft', 'active', 'completed', 'dropped', 'paused'] as const;
+// Finished mesocycles live in the archive.
+export const ARCHIVED_STATUSES = ['completed', 'dropped'] as const;
 export const SCHEDULE_MODES = ['calendar', 'relative'] as const;
 export const WEIGHT_UNITS = ['kg', 'lb'] as const;
 
@@ -40,11 +42,16 @@ export const VOLUME_STATUS_COLOR = {
 export const SECONDARY_MUSCLE_WEIGHT = 0.5;
 
 // Validation bounds (SPEC 5.2 and 10.9).
-export const MIN_DURATION_WEEKS = 4;
-export const MAX_DURATION_WEEKS = 6;
-export const MIN_DAYS_PER_WEEK = 2;
-export const MAX_DAYS_PER_WEEK = 6;
-export const MAX_DAYS_WITH_DUPLICATE = 7;
+export const MIN_DURATION_WEEKS = 3;
+export const MAX_DURATION_WEEKS = 10;
+// A mesocycle's repeating cycle is 1-10 days long (7 by default: a Mon-Sun week).
+// Days without exercises are rest days.
+export const MIN_CYCLE_DAYS = 1;
+export const MAX_CYCLE_DAYS = 10;
+export const DEFAULT_CYCLE_DAYS = 7;
+// Weekday names (Mon-Sun) need exactly this many days; otherwise days are numbered.
+export const WEEK_DAYS = 7;
+export const DEFAULT_MESOCYCLE_NAME = 'Untitled mesocycle';
 export const MAX_DAY_NAME_LENGTH = 50;
 export const MIN_SETS = 1;
 export const MAX_SETS = 10;
@@ -67,3 +74,37 @@ export const REST_SECONDS = { compound: 150, isolation: 90 } as const;
 // Exercise catalog paging (SPEC 6.2).
 export const DEFAULT_EXERCISE_PAGE_SIZE = 50;
 export const MAX_EXERCISE_PAGE_SIZE = 200;
+
+// Major muscle groups shown in the volume bar and on Review. Back and shoulders merge several
+// muscles that are trained by the same exercises; forearms count toward biceps.
+export const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'abs'] as const;
+
+export const MUSCLE_GROUP_OF = {
+  chest: 'chest',
+  lats: 'back',
+  upper_back: 'back',
+  traps: 'back',
+  front_delts: 'shoulders',
+  side_delts: 'shoulders',
+  rear_delts: 'shoulders',
+  biceps: 'biceps',
+  forearms: 'biceps',
+  triceps: 'triceps',
+  quads: 'quads',
+  hamstrings: 'hamstrings',
+  glutes: 'glutes',
+  calves: 'calves',
+  abs: 'abs',
+} as const satisfies Record<(typeof MUSCLES)[number], (typeof MUSCLE_GROUPS)[number]>;
+
+// Appearance (SPEC 10.12): a color palette and a light or dark mode, saved per user.
+export const THEME_PALETTES = ['graphite', 'ocean', 'indigo', 'rose', 'plum', 'frost'] as const;
+export const COLOR_MODES = ['dark', 'light'] as const;
+export const DEFAULT_PALETTE = 'graphite';
+export const DEFAULT_COLOR_MODE = 'dark';
+
+// Profile avatar (SPEC decision 22): an icon (or the name's initial) on a color.
+export const AVATAR_ICONS = ['initial', 'dumbbell', 'kettlebell', 'flame', 'bolt', 'heart', 'star', 'mountain', 'leaf', 'crown', 'trophy', 'sun', 'moon'] as const;
+export const AVATAR_COLORS = ['aqua', 'verdigris', 'shamrock', 'snow', 'graphite'] as const;
+export const DEFAULT_AVATAR_ICON = 'initial';
+export const DEFAULT_AVATAR_COLOR = 'aqua';

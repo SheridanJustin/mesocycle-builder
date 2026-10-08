@@ -1,21 +1,25 @@
-import type { PutSchedule, ScheduleMode } from '@mesocycle/shared';
+import { WEEK_DAYS, type PutSchedule, type ScheduleMode } from '@mesocycle/shared';
 import { ApiRouteError } from './api';
 
 type Detail = { path: string; issue: string };
 
-// Rules that depend on the mesocycle's schedule_mode, which the request body does not carry.
+// Rules that depend on the schedule mode. Calendar mode is a Mon-Sun week: exactly 7 days, each with
+// its own weekday. Numbered (relative) days carry no weekday.
 export function weekdayIssues(schedule: PutSchedule, mode: ScheduleMode): Detail[] {
   const issues: Detail[] = [];
+  if (mode === 'calendar' && schedule.days.length !== WEEK_DAYS) {
+    issues.push({ path: 'days', issue: `Weekday names need exactly ${WEEK_DAYS} days` });
+  }
   const seen = new Set<number>();
   schedule.days.forEach((day, index) => {
-    if (day.weekday === null) return;
     const path = `days[${index}].weekday`;
     if (mode === 'relative') {
-      issues.push({ path, issue: 'Only allowed in calendar mode' });
-    } else if (seen.has(day.weekday)) {
-      issues.push({ path, issue: 'Weekdays must be unique' });
+      if (day.weekday !== null) issues.push({ path, issue: 'Only allowed when days use weekday names' });
+      return;
     }
-    seen.add(day.weekday);
+    if (day.weekday === null) issues.push({ path, issue: 'Required when days use weekday names' });
+    else if (seen.has(day.weekday)) issues.push({ path, issue: 'Weekdays must be unique' });
+    else seen.add(day.weekday);
   });
   return issues;
 }

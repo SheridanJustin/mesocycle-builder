@@ -1,11 +1,13 @@
 import type { User } from '@prisma/client';
+import { ApiRouteError } from './api';
 import { prisma } from './db';
+import { sessionUserId } from './session-user';
 
-// Auth is out of scope (SPEC 2.1): the "current user" is the seeded dev user.
+// The signed-in user. API routes call this first, so every query is scoped to them (SPEC 2.1);
+// without a session (or for a deleted user) the request fails with 401.
 export async function getCurrentUser(): Promise<User> {
-  const email = process.env.DEV_USER_EMAIL;
-  if (!email) throw new Error('DEV_USER_EMAIL is not set. Add it to .env (see .env.example).');
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) throw new Error(`Dev user ${email} not found. Run pnpm db:seed.`);
+  const id = await sessionUserId();
+  const user = id ? await prisma.user.findUnique({ where: { id } }) : null;
+  if (!user) throw new ApiRouteError('UNAUTHORIZED', 'Sign in to continue');
   return user;
 }

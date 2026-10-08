@@ -18,7 +18,7 @@ export function PUT(request: Request, { params }: Context) {
     const mesocycle = await findOwnedDraft(id, user.id);
     const schedule = await parseJsonBody(request, PutScheduleSchema);
 
-    throwIfIssues(weekdayIssues(schedule, mesocycle.scheduleMode));
+    throwIfIssues(weekdayIssues(schedule, schedule.schedule_mode ?? mesocycle.scheduleMode));
 
     // Slots may only use global exercises or the current user's own custom ones.
     const exerciseIds = [...new Set(schedule.days.flatMap((d) => d.slots.map((s) => s.exercise_id)))];

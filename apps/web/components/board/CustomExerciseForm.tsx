@@ -13,7 +13,7 @@ type Props = {
   onCancel: () => void;
 };
 
-const field = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm';
+const field = 'mt-1 w-full rounded-md border border-graphite-700 bg-graphite-950 px-2 py-1.5 text-sm text-graphite-50';
 
 export function CustomExerciseForm({ defaultMuscle, submitting, error, onSubmit, onCancel }: Props) {
   const [name, setName] = useState('');
@@ -63,7 +63,7 @@ export function CustomExerciseForm({ defaultMuscle, submitting, error, onSubmit,
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
           {MUSCLES.filter((muscle) => muscle !== primary).map((muscle) => (
             <label key={muscle} className="flex items-center gap-1">
-              <input type="checkbox" checked={secondary.includes(muscle)} onChange={() => toggleSecondary(muscle)} />
+              <input type="checkbox" className="accent-aqua-500" checked={secondary.includes(muscle)} onChange={() => toggleSecondary(muscle)} />
               {muscleLabel(muscle)}
             </label>
           ))}
@@ -92,14 +92,14 @@ export function CustomExerciseForm({ defaultMuscle, submitting, error, onSubmit,
         </label>
       </div>
       {shown && (
-        <p role="alert" className="rounded-md bg-red-50 p-2 text-sm text-red-900">
+        <p role="alert" className="rounded-md border border-snow-700 bg-snow-900 p-2 text-sm text-snow-100">
           {shown}
         </p>
       )}
       <div className="flex justify-end gap-2">
         <Button onClick={onCancel}>Back to search</Button>
         <Button type="submit" variant="primary" disabled={submitting}>
-          {submitting ? 'Creating…' : 'Create and add'}
+          {submitting ? 'Creating…' : 'Create and select'}
         </Button>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { addExercise, assignMuscles, card, createMesocycleViaUi, gotoStep, waitForSaved } from './helpers';
+import { createPopulatedDraft } from './api-helpers';
+import { addExercises, card, column, createMesocycleViaUi, waitForSaved } from './helpers';
 
 const chip = (page: Page, muscle: string) => page.getByTestId(`volume-chip-${muscle}`);
 
@@ -11,33 +12,28 @@ async function setSets(page: Page, day: string, exercise: string, target: number
   await expect(c.getByTestId('value-Sets')).toHaveText(String(target));
 }
 
-// Fixed status colors from SPEC 7.4 (see globals.css): the border color of each chip.
-const BORDER = { amber: 'rgb(217, 119, 6)', lightgreen: 'rgb(101, 163, 13)', green: 'rgb(22, 163, 74)', orange: 'rgb(234, 88, 12)', red: 'rgb(220, 38, 38)' };
+// The spec's fixed status hues (SPEC 7.4), dark-tuned (globals.css): the chip border color.
+const BORDER = {
+  amber: 'rgb(245, 158, 11)',
+  lightgreen: 'rgb(163, 230, 53)',
+  green: 'rgb(34, 197, 94)',
+  orange: 'rgb(249, 115, 22)',
+  red: 'rgb(239, 68, 68)',
+};
 
-test('scenario 1: build a 4-day block and watch the volume chips change with every edit', async ({ page }) => {
-  await createMesocycleViaUi(page, { name: 'Volume Block', days: 4 });
-  await assignMuscles(page, {
-    'Day 1': ['Chest', 'Triceps'],
-    'Day 2': ['Lats'],
-    'Day 3': ['Quads'],
-    'Day 4': ['Chest'],
-  });
+test('scenario 1: build a week and watch the volume chips change with every edit', async ({ page }) => {
+  await createMesocycleViaUi(page);
+  await expect(chip(page, 'chest')).toHaveCount(0);
 
-  // Assigned muscles show up with zero sets and a warning status.
-  await expect(chip(page, 'chest')).toHaveAttribute('data-status', 'BELOW_MV');
-  await expect(page.getByTestId('volume-total-chest')).toHaveText('0');
-  await expect(chip(page, 'quads')).toBeVisible();
-  await expect(chip(page, 'biceps')).toHaveCount(0);
-
-  // Bench press: 3 sets chest, 1.5 to front delts and triceps (0.5 each per set).
-  await addExercise(page, 'Day 1', 'Chest', 'bench press', 'Barbell Bench Press');
+  // Bench press: 3 sets chest, 1.5 each to front delts and triceps.
+  await addExercises(page, 'Mon', ['Barbell Bench Press']);
   await expect(page.getByTestId('volume-total-chest')).toHaveText('3');
   await expect(page.getByTestId('volume-total-triceps')).toHaveText('1.5');
-  await expect(page.getByTestId('volume-total-front_delts')).toHaveText('1.5');
+  // Only major groups are shown: front delts count toward Shoulders.
+  await expect(page.getByTestId('volume-total-shoulders')).toHaveText('1.5');
+  await expect(page.getByTestId('volume-chip-front_delts')).toHaveCount(0);
   await expect(page.getByTestId('volume-frequency-chest')).toHaveText('1×/wk');
 
-  // Walk the chest chip through every status color by changing sets.
-  const bench = 'Barbell Bench Press';
   const expectStatus = async (status: string, color: keyof typeof BORDER, total: string) => {
     await expect(chip(page, 'chest')).toHaveAttribute('data-status', status);
     await expect(chip(page, 'chest')).toHaveAttribute('data-color', color);
@@ -45,88 +41,84 @@ test('scenario 1: build a 4-day block and watch the volume chips change with eve
     await expect(page.getByTestId('volume-total-chest')).toHaveText(total);
   };
   await expectStatus('BELOW_MV', 'amber', '3');
-  await setSets(page, 'Day 1', bench, 8);
+  await setSets(page, 'Mon', 'Barbell Bench Press', 8);
   await expectStatus('MAINTENANCE', 'amber', '8');
-  await setSets(page, 'Day 1', bench, 10);
+  await setSets(page, 'Mon', 'Barbell Bench Press', 10);
   await expectStatus('ABOVE_MEV', 'lightgreen', '10');
-  await addExercise(page, 'Day 4', 'Chest', 'cable fly', 'Cable Fly'); // +3 sets on Day 4
+  await addExercises(page, 'Thu', ['Cable Fly']);
   await expectStatus('MAV', 'green', '13');
   await expect(page.getByTestId('volume-frequency-chest')).toHaveText('2×/wk');
-  await setSets(page, 'Day 4', 'Cable Fly', 10);
+  await setSets(page, 'Thu', 'Cable Fly', 10);
   await expectStatus('MAV', 'green', '20');
-  await addExercise(page, 'Day 1', 'Chest', 'machine chest press', 'Machine Chest Press'); // +3 -> 23
+  await addExercises(page, 'Mon', ['Machine Chest Press']);
   await expectStatus('EXCEEDS_MRV', 'red', '23');
-  await setSets(page, 'Day 1', 'Machine Chest Press', 2); // 22 = MRV -> HIGH
+  await setSets(page, 'Mon', 'Machine Chest Press', 2);
   await expectStatus('HIGH', 'orange', '22');
 
-  // Moving a card between days keeps the total but changes frequency.
-  await expect(page.getByTestId('volume-frequency-chest')).toHaveText('2×/wk');
-  await card(page, 'Day 4', 'Cable Fly').getByLabel('Move Cable Fly to day').selectOption({ label: 'Day 1' });
-  await expect(page.getByTestId('volume-total-chest')).toHaveText('22');
-  await expect(page.getByTestId('volume-frequency-chest')).toHaveText('1×/wk');
-
-  // Removing exercises lowers the total immediately.
-  await card(page, 'Day 1', 'Machine Chest Press').getByRole('button', { name: 'Delete Machine Chest Press' }).click();
+  await card(page, 'Mon', 'Machine Chest Press').getByRole('button', { name: 'Delete Machine Chest Press' }).click();
   await expect(page.getByTestId('volume-total-chest')).toHaveText('20');
 
-  // Stepper reflects progress: volume step is complete only while nothing exceeds MRV.
   await waitForSaved(page);
   await page.reload();
-  await gotoStep(page, 'Exercises');
   await expect(page.getByTestId('volume-total-chest')).toHaveText('20');
   await expect(page.getByTestId('volume-total-triceps')).toHaveText('5');
 });
 
-test('M6: priority sets the target band and hint; chips expose status text and ARIA labels', async ({ page }) => {
-  await createMesocycleViaUi(page, { name: 'Band Block', days: 2 });
-  await gotoStep(page, 'Muscles');
-  await page.getByRole('button', { name: 'Day 1: Chest', exact: true }).click();
-  await page.getByLabel('Chest', { exact: true }).selectOption('focus');
-  await gotoStep(page, 'Exercises');
-  await addExercise(page, 'Day 1', 'Chest', 'cable fly', 'Cable Fly');
-  await setSets(page, 'Day 1', 'Cable Fly', 10);
-  await addExercise(page, 'Day 1', 'Chest', 'pec deck', 'Pec Deck');
-  await setSets(page, 'Day 1', 'Pec Deck', 2); // 12 sets: bottom of MAV, 4 under the focus band (16-20)
+test('back and shoulders are each one group, counted once per exercise', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, {
+    name: 'Group Block',
+    days: [
+      { slots: [{ exercise: 'Pull-Up', sets: 4 }, { exercise: 'Barbell Row', sets: 4 }, { exercise: 'Barbell Shrug', sets: 3 }] },
+      { slots: [{ exercise: 'Dumbbell Lateral Raise', sets: 4 }, { exercise: 'Face Pull', sets: 3 }] },
+      {}, {}, {}, {}, {},
+    ],
+  });
+  await page.goto(`/mesocycles/${id}/build`);
+  // Pull-ups (lats + upper back) count once: 4 + rows 4 + shrugs 3 = 11 direct back sets, plus face pulls'
+  // upper-back secondary 3 x 0.5 = 12.5.
+  await expect(page.getByTestId('volume-total-back')).toHaveText('12.5');
+  // Lateral raises 4 + face pulls 3 + barbell row's rear-delt secondary 2 = 9 shoulder sets.
+  await expect(page.getByTestId('volume-total-shoulders')).toHaveText('9');
+  for (const muscle of ['lats', 'upper_back', 'traps', 'side_delts', 'rear_delts', 'forearms']) {
+    await expect(page.getByTestId(`volume-chip-${muscle}`)).toHaveCount(0);
+  }
+  await expect(page.getByTestId('volume-chip-back')).toHaveAccessibleName(/^Back: 12.5 sets per week/);
+});
 
+test('chips explain themselves in text, and priorities and target bands are hidden', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, {
+    name: 'Chip Block',
+    days: [{ slots: [{ exercise: 'Cable Fly', sets: 10 }, { exercise: 'Pec Deck', sets: 2 }] }, {}, {}, {}, {}, {}, {}],
+  });
+  await page.goto(`/mesocycles/${id}/build`);
   const chest = chip(page, 'chest');
   await expect(page.getByTestId('volume-status-chest')).toHaveText('In MAV');
-  await expect(chest).toHaveAccessibleName(/Chest: 12 sets per week\. Status In MAV, ideal zone\. Trained directly on 1 day per week\. Focus priority\./);
-  await expect(chest.getByTestId('target-band')).toBeVisible();
+  await expect(chest).toHaveAccessibleName('Chest: 12 sets per week. Status In MAV, ideal zone. Trained directly on 1 day per week.');
+  await expect(page.getByTestId('target-band')).toHaveCount(0);
 
   await chest.click();
   const popover = page.getByTestId('volume-popover');
   await expect(chest).toHaveAttribute('aria-expanded', 'true');
-  await expect(popover).toContainText('Focus muscle is 4 sets under its target band.');
-  await expect(popover).toContainText('16–20 sets');
+  await expect(popover).toContainText('In MAV — ideal zone');
   await expect(popover).toContainText('12–20'); // MAV range
   await expect(popover).toContainText('Cable Fly');
   await expect(popover).toContainText('Pec Deck');
-  await expect(popover).toContainText('Day 1');
-  await expect(popover).toContainText('Contributing exercises');
-
-  // Escape closes it and returns to the chip row.
+  await expect(popover).toContainText('Mon');
+  await expect(popover).not.toContainText('Priority');
+  await expect(popover).not.toContainText('Target band');
+  await expect(popover).not.toContainText('target band');
   await page.keyboard.press('Escape');
   await expect(popover).toHaveCount(0);
-
-  // Lowering the priority to maintenance moves the band and the hint, never the status color.
-  await gotoStep(page, 'Muscles');
-  await page.getByLabel('Chest', { exact: true }).selectOption('maintenance');
-  await chest.click();
-  await expect(popover).toContainText('Maintenance muscle is 2 sets over its target band.');
-  await expect(chest).toHaveAttribute('data-color', 'green');
 });
 
-test('M6: the volume bar stays visible while the board scrolls sideways', async ({ page }) => {
+test('the volume bar stays visible while the board scrolls sideways', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 600 });
-  await createMesocycleViaUi(page, { name: 'Sticky Block', days: 6 });
-  await assignMuscles(page, { 'Day 1': ['Chest'] });
+  await createMesocycleViaUi(page);
+  await addExercises(page, 'Mon', ['Cable Fly']);
   const bar = page.getByTestId('volume-bar');
-  await expect(bar).toBeInViewport();
-  const header = page.locator('div.sticky').first();
-  await expect(header).toHaveCSS('position', 'sticky');
-
+  // The page never scrolls; the bar sits above the board, which scrolls on its own.
   await page.getByTestId('board').evaluate((el) => el.scrollTo({ left: el.scrollWidth }));
-  await expect(page.getByRole('region', { name: 'Day 6 column' })).toBeInViewport();
+  await expect(column(page, 'Sun')).toBeInViewport();
   await expect(bar).toBeInViewport();
   await expect(chip(page, 'chest')).toBeInViewport();
 });

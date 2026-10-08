@@ -1,70 +1,65 @@
 import type { Exercise } from '@mesocycle/shared';
 import { describe, expect, it } from 'vitest';
-import { dayDropId } from './drop';
-import { keyboardTarget } from './keyboard-targets';
-import { createDay, createSlot } from './reducer';
+import { columnId, dayDropId } from './drop';
+import { columnKeyboardTarget, keyboardTarget } from './keyboard-targets';
+import { createSlot } from './reducer';
 import type { BuilderState } from './types';
 
-function exercise(id: string, primary: Exercise['primary_muscle'] = 'chest'): Exercise {
-  return { id, name: id, primary_muscle: primary, secondary_muscles: [], equipment_type: 'cable', movement_type: 'isolation', is_custom: false };
+function exercise(id: string): Exercise {
+  return { id, name: id, primary_muscle: 'chest', secondary_muscles: [], equipment_type: 'cable', movement_type: 'isolation', is_custom: false };
 }
 
-// Day 1: chest [a, c], triceps [b]. Day 2: chest [e]. Day 3: empty.
+// Day 1: a, b, c. Day 2: e. Day 3: rest.
 const state: BuilderState = {
+  mode: 'relative',
   days: [
-    { ...createDay('d1', 'Day 1'), muscles: ['chest', 'triceps'], slots: [createSlot(exercise('a'), 'chest', 'a'), createSlot(exercise('b', 'triceps'), 'triceps', 'b'), createSlot(exercise('c'), 'chest', 'c')] },
-    { ...createDay('d2', 'Day 2'), muscles: ['chest'], slots: [createSlot(exercise('e'), 'chest', 'e')] },
-    createDay('d3', 'Day 3'),
+    { id: 'd1', name: 'Day 1', weekday: null, slots: ['a', 'b', 'c'].map((s) => createSlot(exercise(s), s)) },
+    { id: 'd2', name: 'Day 2', weekday: null, slots: [createSlot(exercise('e'), 'e')] },
+    { id: 'd3', name: 'Day 3', weekday: null, slots: [] },
   ],
   priorities: {},
 };
 
-describe('keyboardTarget up/down', () => {
-  it('steps through the cards of the current section, skipping other sections', () => {
-    expect(keyboardTarget(state, 'a', null, 'ArrowDown')).toBe('c');
-    expect(keyboardTarget(state, 'a', 'c', 'ArrowUp')).toBe('a');
-  });
-
-  it('stops at the edges of a section', () => {
+describe('keyboardTarget', () => {
+  it('walks the cards of the current day and stops at the ends', () => {
+    expect(keyboardTarget(state, 'a', null, 'ArrowDown')).toBe('b');
+    expect(keyboardTarget(state, 'a', 'c', 'ArrowUp')).toBe('b');
     expect(keyboardTarget(state, 'a', null, 'ArrowUp')).toBeNull();
     expect(keyboardTarget(state, 'a', 'c', 'ArrowDown')).toBeNull();
-    expect(keyboardTarget(state, 'b', null, 'ArrowDown')).toBeNull();
   });
 
-  it('walks the section of whatever the drag is currently over', () => {
-    // After moving right onto Day 2's chest card, down has nowhere to go but up does not either.
-    expect(keyboardTarget(state, 'a', 'e', 'ArrowDown')).toBeNull();
-    expect(keyboardTarget(state, 'a', 'e', 'ArrowUp')).toBeNull();
-  });
-
-  it('enters the first card from a day column when going down', () => {
-    expect(keyboardTarget(state, 'a', dayDropId('d1'), 'ArrowDown')).toBe('a');
-    expect(keyboardTarget(state, 'a', dayDropId('d3'), 'ArrowDown')).toBeNull();
-    expect(keyboardTarget(state, 'a', dayDropId('d1'), 'ArrowUp')).toBeNull();
-  });
-});
-
-describe('keyboardTarget left/right', () => {
-  it('moves onto the card in the next day\'s section for the primary muscle', () => {
-    expect(keyboardTarget(state, 'a', null, 'ArrowRight')).toBe('e');
-  });
-
-  it('falls back to the day column when that section does not exist', () => {
-    expect(keyboardTarget(state, 'b', null, 'ArrowRight')).toBe(dayDropId('d2'));
-    expect(keyboardTarget(state, 'a', 'e', 'ArrowRight')).toBe(dayDropId('d3'));
-  });
-
-  it('goes back left and stops at the board edges', () => {
-    expect(keyboardTarget(state, 'a', 'e', 'ArrowLeft')).toBe('a');
-    expect(keyboardTarget(state, 'a', null, 'ArrowLeft')).toBeNull();
+  it('jumps between day columns and stops at the board edges', () => {
+    expect(keyboardTarget(state, 'a', null, 'ArrowRight')).toBe(dayDropId('d2'));
+    expect(keyboardTarget(state, 'a', dayDropId('d2'), 'ArrowRight')).toBe(dayDropId('d3'));
     expect(keyboardTarget(state, 'a', dayDropId('d3'), 'ArrowRight')).toBeNull();
+    expect(keyboardTarget(state, 'a', dayDropId('d2'), 'ArrowLeft')).toBe(dayDropId('d1'));
+    expect(keyboardTarget(state, 'a', null, 'ArrowLeft')).toBeNull();
   });
-});
 
-describe('keyboardTarget with unknown ids', () => {
-  it('returns null', () => {
+  it('steps from a column into its first card going down', () => {
+    expect(keyboardTarget(state, 'a', dayDropId('d2'), 'ArrowDown')).toBe('e');
+    expect(keyboardTarget(state, 'a', dayDropId('d3'), 'ArrowDown')).toBeNull();
+    expect(keyboardTarget(state, 'a', dayDropId('d2'), 'ArrowUp')).toBeNull();
+  });
+
+  it('returns null for unknown ids', () => {
     expect(keyboardTarget(state, 'nope', null, 'ArrowDown')).toBeNull();
     expect(keyboardTarget(state, 'a', 'nope', 'ArrowDown')).toBeNull();
     expect(keyboardTarget(state, 'a', dayDropId('nope'), 'ArrowDown')).toBeNull();
+  });
+});
+
+describe('columnKeyboardTarget', () => {
+  it('steps left and right through the columns from where the drag currently is', () => {
+    expect(columnKeyboardTarget(state, columnId('d1'), null, 'ArrowRight')).toBe(columnId('d2'));
+    expect(columnKeyboardTarget(state, columnId('d1'), columnId('d2'), 'ArrowRight')).toBe(columnId('d3'));
+    expect(columnKeyboardTarget(state, columnId('d3'), columnId('d3'), 'ArrowLeft')).toBe(columnId('d2'));
+  });
+
+  it('stops at the ends and ignores Up/Down', () => {
+    expect(columnKeyboardTarget(state, columnId('d1'), null, 'ArrowLeft')).toBeNull();
+    expect(columnKeyboardTarget(state, columnId('d3'), null, 'ArrowRight')).toBeNull();
+    expect(columnKeyboardTarget(state, columnId('d1'), null, 'ArrowDown')).toBeNull();
+    expect(columnKeyboardTarget(state, columnId('zz'), null, 'ArrowRight')).toBeNull();
   });
 });
