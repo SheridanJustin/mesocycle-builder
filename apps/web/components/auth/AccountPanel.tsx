@@ -1,6 +1,6 @@
 import type { Me } from '@mesocycle/shared';
 import Link from 'next/link';
-import type { Appearance } from '../preferences/PreferencesContext';
+import type { Appearance, WeightUnit } from '../preferences/PreferencesContext';
 import { Button } from '../ui/Button';
 import { AppearancePicker } from './AppearancePicker';
 
@@ -12,6 +12,8 @@ type Props = {
   error: string | null;
   showRir: boolean;
   onToggleRir: (value: boolean) => void;
+  weightUnit: WeightUnit;
+  onChangeWeightUnit: (value: WeightUnit) => void;
   appearance: Appearance;
   onChangeAppearance: (value: Partial<Appearance>) => void;
   onSignOut: () => void;
@@ -37,7 +39,7 @@ function signInMethods(me: Me): string {
 }
 
 // The account panel: who is signed in, a few totals, display preferences and Sign out.
-export function AccountPanel({ me, fallbackName, email, error, showRir, onToggleRir, appearance, onChangeAppearance, onSignOut, onNavigate }: Props) {
+export function AccountPanel({ me, fallbackName, email, error, showRir, onToggleRir, weightUnit, onChangeWeightUnit, appearance, onChangeAppearance, onSignOut, onNavigate }: Props) {
   const name = me?.name ?? fallbackName;
   const initial = (name || email).trim().charAt(0).toUpperCase() || '?';
   return (
@@ -100,6 +102,9 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
             ) : (
               <p className="mt-2 text-xs text-graphite-400">No active mesocycle. Lock one in to start tracking workouts.</p>
             )}
+            <Link href="/records" onClick={onNavigate} className="mt-2 inline-block text-sm font-medium text-aqua-300 hover:underline">
+              Personal bests →
+            </Link>
           </>
         ) : (
           <p className="text-sm text-graphite-400">Loading…</p>
@@ -126,6 +131,22 @@ export function AccountPanel({ me, fallbackName, email, error, showRir, onToggle
             className="relative mt-0.5 h-5 w-9 shrink-0 rounded-full bg-graphite-700 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-graphite-200 after:transition-transform peer-checked:bg-aqua-600 peer-checked:after:translate-x-4 peer-checked:after:bg-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-aqua-400"
           />
         </label>
+        <fieldset className="mt-3 flex items-center justify-between gap-3">
+          <legend className="float-left text-sm font-medium text-graphite-100">Weight unit</legend>
+          <span className="flex rounded-lg border border-graphite-700 bg-graphite-950 p-0.5">
+            {(['kg', 'lb'] as const).map((unit) => (
+              <label
+                key={unit}
+                className={`cursor-pointer rounded-md px-3 py-0.5 text-sm font-medium has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-aqua-400 ${
+                  weightUnit === unit ? 'bg-aqua-500 text-graphite-950' : 'text-graphite-300 hover:text-graphite-50'
+                }`}
+              >
+                <input type="radio" name="weight-unit" value={unit} checked={weightUnit === unit} onChange={() => onChangeWeightUnit(unit)} className="sr-only" />
+                {unit}
+              </label>
+            ))}
+          </span>
+        </fieldset>
       </section>
 
       <section aria-label="Appearance">

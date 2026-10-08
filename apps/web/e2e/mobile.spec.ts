@@ -78,7 +78,10 @@ test('review, lock-in, the plan, the list, the account panel and login fit a pho
 
   await expect(page.getByTestId('session-card').first()).toBeVisible();
   await expectFitsWidth(page);
-  await page.getByTestId('session-card').first().getByRole('button', { name: 'Complete' }).click();
+  await page.getByTestId('session-card').first().getByRole('link', { name: 'Start workout' }).click();
+  await page.getByRole('button', { name: 'Finish workout' }).click();
+  await page.waitForURL(new RegExp(`/mesocycles/${id}$`));
+  await page.getByTestId('week-tab-1').click();
   await expect(page.getByTestId('session-card').first().getByTestId('session-status')).toHaveText('✓ Completed');
 
   await page.getByRole('button', { name: 'Account' }).click();

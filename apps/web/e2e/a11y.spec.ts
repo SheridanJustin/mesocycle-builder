@@ -83,3 +83,20 @@ test.describe('signed out', () => {
     await audit(page, 'Create account');
   });
 });
+
+test('the workout logger and personal bests have no accessibility violations', async ({ page, request }) => {
+  const id = await createPopulatedDraft(request, { name: 'A11y Workout', days: week });
+  expect((await request.post(`/api/v1/mesocycles/${id}/lock`, { data: { start_date: '2026-10-05' } })).ok()).toBe(true);
+  await page.goto(`/mesocycles/${id}`);
+  await page.getByTestId('week-tab-1').click();
+  await page.getByRole('link', { name: 'Start workout' }).first().click();
+  await expect(page.getByTestId('set-row').first()).toBeVisible();
+  await audit(page, 'Workout');
+  await page.getByRole('button', { name: 'Log Barbell Bench Press set 1' }).click();
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+  await audit(page, 'Workout with an input error');
+
+  await page.goto('/records');
+  await expect(page.getByRole('heading', { name: 'Personal bests' })).toBeVisible();
+  await audit(page, 'Personal bests');
+});

@@ -11,7 +11,7 @@ export function GET() {
   return handle(async () => jsonResponse(MeSchema, await loadMe(await getCurrentUser())));
 }
 
-// PATCH /api/v1/me: { show_rir?, name? }.
+// PATCH /api/v1/me: { show_rir?, palette?, color_mode?, weight_unit?, name? }.
 export function PATCH(request: Request) {
   return handle(async () => {
     const user = await getCurrentUser();
@@ -22,6 +22,7 @@ export function PATCH(request: Request) {
         showRir: body.show_rir,
         palette: body.palette,
         colorMode: body.color_mode,
+        weightUnit: body.weight_unit,
         ...(body.name !== undefined ? { name: body.name } : {}),
       },
     });

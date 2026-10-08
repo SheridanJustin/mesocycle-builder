@@ -37,24 +37,31 @@ const SESSION_BADGE: Record<SessionDetail['status'], string> = {
   skipped: 'bg-graphite-800 text-graphite-300 ring-graphite-600',
 };
 
-function WorkoutActions({ session, editable, busy, onSetStatus }: { session: SessionDetail; editable: boolean; busy: boolean; onSetStatus: Props['onSetStatus'] }) {
+const linkButton = 'inline-flex items-center justify-center rounded-lg px-2 py-1 text-sm font-medium transition-colors';
+
+function WorkoutActions({ session, href, editable, busy, onSetStatus }: { session: SessionDetail; href: string; editable: boolean; busy: boolean; onSetStatus: Props['onSetStatus'] }) {
   const done = session.status === 'completed' || session.status === 'skipped';
   return (
-    <div className="mt-3 flex items-center gap-2">
-      {done && (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {(done || session.status === 'in_progress') && (
         <span data-testid="session-status" className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ring-1 ${SESSION_BADGE[session.status]}`}>
-          {session.status === 'completed' ? '✓ Completed' : 'Skipped'}
+          {session.status === 'completed' ? '✓ Completed' : session.status === 'skipped' ? 'Skipped' : 'In progress'}
         </span>
       )}
       {editable && !done && (
         <>
-          <Button variant="primary" size="sm" disabled={busy} onClick={() => onSetStatus(session.id, 'completed')}>
-            Complete
-          </Button>
+          <Link href={href} className={`${linkButton} bg-aqua-500 text-graphite-950 hover:bg-aqua-400`}>
+            {session.status === 'in_progress' ? 'Continue workout' : 'Start workout'}
+          </Link>
           <Button size="sm" disabled={busy} onClick={() => onSetStatus(session.id, 'skipped')}>
             Skip
           </Button>
         </>
+      )}
+      {session.status === 'completed' && (
+        <Link href={href} className="text-xs font-medium text-aqua-300 underline-offset-2 hover:underline">
+          {editable ? 'View or edit log' : 'View log'}
+        </Link>
       )}
       {editable && done && (
         <button
@@ -70,7 +77,7 @@ function WorkoutActions({ session, editable, busy, onSetStatus }: { session: Ses
   );
 }
 
-function DayCard({ day, today, editable, pendingSessionIds, onSetStatus }: { day: PlanDay; today: string; editable: boolean; pendingSessionIds: ReadonlySet<string>; onSetStatus: Props['onSetStatus'] }) {
+function DayCard({ day, mesocycleId, today, editable, pendingSessionIds, onSetStatus }: { day: PlanDay; mesocycleId: string; today: string; editable: boolean; pendingSessionIds: ReadonlySet<string>; onSetStatus: Props['onSetStatus'] }) {
   const { showRir } = usePreferences();
   const isToday = day.date === today;
   const ring = isToday ? 'ring-2 ring-aqua-500' : '';
@@ -119,13 +126,13 @@ function DayCard({ day, today, editable, pendingSessionIds, onSetStatus }: { day
           </li>
         ))}
       </ol>
-      <WorkoutActions session={session} editable={editable} busy={pendingSessionIds.has(session.id)} onSetStatus={onSetStatus} />
+      <WorkoutActions session={session} href={`/mesocycles/${mesocycleId}/workouts/${session.id}`} editable={editable} busy={pendingSessionIds.has(session.id)} onSetStatus={onSetStatus} />
     </li>
   );
 }
 
 // The view of a locked mesocycle (SPEC 10.1, 10.6): summary, every week day by day (workouts you can
-// complete or skip, and rest days), and the volume per muscle group. Active ones can be dropped.
+// start and log, or skip, and rest days), and the volume per muscle group. Active ones can be dropped.
 export function MesocyclePlan({ detail, stats, volume, block, today, pendingSessionIds, error, onSetStatus, onDrop, onResume, onExport }: Props) {
   const [weekNumber, setWeekNumber] = useState(() => initialWeek(detail, today));
   const [confirmingDrop, setConfirmingDrop] = useState(false);
@@ -252,7 +259,7 @@ export function MesocyclePlan({ detail, stats, volume, block, today, pendingSess
             )}
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
               {planDays(detail, week).map((day) => (
-                <DayCard key={day.dayId} day={day} today={today} editable={editable} pendingSessionIds={pendingSessionIds} onSetStatus={onSetStatus} />
+                <DayCard key={day.dayId} day={day} mesocycleId={detail.id} today={today} editable={editable} pendingSessionIds={pendingSessionIds} onSetStatus={onSetStatus} />
               ))}
             </ul>
           </div>

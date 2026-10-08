@@ -227,6 +227,8 @@ model SessionExercise {
   session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId], references: [id])
   loggedSets LoggedSet[]
+  // Previous numbers and personal bests look up an exercise's history.
+  @@index([exerciseId])
   @@map("session_exercises")
 }
 
@@ -240,5 +242,7 @@ model LoggedSet {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+  // One row per set: logging a set again replaces it.
+  @@unique([sessionExerciseId, setNumber])
   @@map("logged_sets")
 }

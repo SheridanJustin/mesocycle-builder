@@ -41,7 +41,10 @@ test('the account menu shows who is signed in and their training stats', async (
   expect((await page.request.post(`/api/v1/mesocycles/${id}/lock`, { data: { start_date: '2026-10-05' } })).ok()).toBe(true);
   await page.goto(`/mesocycles/${id}`);
   await page.getByTestId('week-tab-1').click();
-  await page.getByTestId('session-card').first().getByRole('button', { name: 'Complete' }).click();
+  await page.getByTestId('session-card').first().getByRole('link', { name: 'Start workout' }).click();
+  await page.getByRole('button', { name: 'Finish workout' }).click();
+  await page.waitForURL(new RegExp(`/mesocycles/${id}$`));
+  await page.getByTestId('week-tab-1').click();
   await expect(page.getByTestId('session-card').first().getByTestId('session-status')).toHaveText('✓ Completed');
 
   panel = await openAccount(page);

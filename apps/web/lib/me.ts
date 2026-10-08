@@ -7,15 +7,26 @@ export function toPalette(value: string): Me['preferences']['palette'] {
   return (THEME_PALETTES as readonly string[]).includes(value) ? (value as Me['preferences']['palette']) : DEFAULT_PALETTE;
 }
 
+// Stored as text; anything unknown reads as pounds (the column's default).
+export function toWeightUnit(value: string): Me['preferences']['weight_unit'] {
+  return value === 'kg' ? 'kg' : 'lb';
+}
+
 const RESOLVED = ['completed', 'skipped'];
 
 // The account panel: profile, preferences and a few totals across all of the user's mesocycles.
 export async function loadMe(user: User): Promise<Me> {
   const mine = { week: { mesocycle: { userId: user.id } } };
-  const [completed, skipped, sets, mesocyclesCompleted, mesocyclesTotal, active] = await Promise.all([
-    prisma.workoutSession.count({ where: { ...mine, status: 'completed' } }),
+  const finished = { ...mine, status: 'completed' };
+  const [completed, skipped, loggedSets, unloggedSets, mesocyclesCompleted, mesocyclesTotal, active] = await Promise.all([
+    prisma.workoutSession.count({ where: finished }),
     prisma.workoutSession.count({ where: { ...mine, status: 'skipped' } }),
-    prisma.sessionExercise.aggregate({ where: { session: { ...mine, status: 'completed' } }, _sum: { targetSets: true } }),
+    // Sets done: the logged sets of completed workouts, and the target sets of those finished without logging.
+    prisma.loggedSet.count({ where: { sessionExercise: { session: finished } } }),
+    prisma.sessionExercise.aggregate({
+      where: { session: { ...finished, exercises: { none: { loggedSets: { some: {} } } } } },
+      _sum: { targetSets: true },
+    }),
     prisma.mesocycle.count({ where: { userId: user.id, status: 'completed' } }),
     prisma.mesocycle.count({ where: { userId: user.id } }),
     prisma.mesocycle.findFirst({ where: { userId: user.id, status: 'active' }, orderBy: { lockedAt: 'desc' }, select: { id: true, name: true } }),
@@ -37,11 +48,11 @@ export async function loadMe(user: User): Promise<Me> {
     name: user.name,
     created_at: user.createdAt.toISOString(),
     sign_in: { password: user.passwordHash !== null, google: user.googleId !== null },
-    preferences: { show_rir: user.showRir, palette: toPalette(user.palette), color_mode: user.colorMode === 'light' ? 'light' : 'dark' },
+    preferences: { show_rir: user.showRir, palette: toPalette(user.palette), color_mode: user.colorMode === 'light' ? 'light' : 'dark', weight_unit: toWeightUnit(user.weightUnit) },
     stats: {
       workouts_completed: completed,
       workouts_skipped: skipped,
-      sets_completed: sets._sum.targetSets ?? 0,
+      sets_completed: loggedSets + (unloggedSets._sum.targetSets ?? 0),
       mesocycles_completed: mesocyclesCompleted,
       mesocycles_total: mesocyclesTotal,
       active: activeProgress,

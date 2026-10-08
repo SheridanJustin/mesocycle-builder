@@ -3,10 +3,12 @@ import { ApiRouteError } from './api';
 import { prisma } from './db';
 import { findOwnedMesocycle } from './mesocycles';
 import { requireUuid } from './ids';
+import { hasLoggedSets } from './workouts';
 
 const RESOLVED = ['completed', 'skipped'];
 
-// PATCH /sessions/{id}: marks a workout completed or skipped (or planned again, to undo). When
+// PATCH /sessions/{id}: marks a workout completed or skipped (or planned again, to undo; a workout
+// with logged sets goes back to in_progress). When
 // every workout of the mesocycle is completed or skipped the mesocycle becomes `completed`;
 // undoing one reopens it. Returns the mesocycle id.
 export async function updateSessionStatus(sessionId: string, userId: string, body: UpdateSession): Promise<string> {
@@ -24,8 +26,12 @@ export async function updateSessionStatus(sessionId: string, userId: string, bod
     throw new ApiRouteError('CONFLICT', `Workouts of a ${mesocycle.status} mesocycle cannot be changed`);
   }
 
+  // Undoing a workout that has logged sets keeps it started (SPEC decision 19).
+  const logged = body.status === 'planned' && (await hasLoggedSets(sessionId));
+  const next = logged ? 'in_progress' : body.status;
+
   await prisma.$transaction(async (tx) => {
-    await tx.workoutSession.update({ where: { id: sessionId }, data: { status: body.status } });
+    await tx.workoutSession.update({ where: { id: sessionId }, data: { status: next } });
     const open = await tx.workoutSession.count({
       where: { week: { mesocycleId: mesocycle.id }, status: { notIn: RESOLVED } },
     });

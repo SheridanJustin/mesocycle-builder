@@ -4,7 +4,7 @@ import type { Me } from '@mesocycle/shared';
 import { signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api-client';
-import { usePreferences, type Appearance } from '../preferences/PreferencesContext';
+import { usePreferences, type Appearance, type WeightUnit } from '../preferences/PreferencesContext';
 import { AccountPanel } from './AccountPanel';
 
 type Props = { name: string | null; email: string };
@@ -23,7 +23,7 @@ export function AccountMenu({ name, email }: Props) {
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { showRir, setShowRir, appearance, setAppearance } = usePreferences();
+  const { showRir, setShowRir, weightUnit, setWeightUnit, appearance, setAppearance } = usePreferences();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,6 +54,19 @@ export function AccountMenu({ name, email }: Props) {
       setMe(await api.updateMe({ show_rir: value }));
     } catch (e) {
       setShowRir(!value);
+      setError(e instanceof Error ? `Could not save the setting: ${e.message}` : 'Could not save the setting');
+    }
+  }
+
+  // Only the label changes: logged numbers are kept as typed.
+  async function changeWeightUnit(value: WeightUnit) {
+    const previous = weightUnit;
+    setWeightUnit(value);
+    setError(null);
+    try {
+      setMe(await api.updateMe({ weight_unit: value }));
+    } catch (e) {
+      setWeightUnit(previous);
       setError(e instanceof Error ? `Could not save the setting: ${e.message}` : 'Could not save the setting');
     }
   }
@@ -103,6 +116,8 @@ export function AccountMenu({ name, email }: Props) {
             error={error}
             showRir={showRir}
             onToggleRir={(value) => void toggleRir(value)}
+            weightUnit={weightUnit}
+            onChangeWeightUnit={(value) => void changeWeightUnit(value)}
             appearance={appearance}
             onChangeAppearance={(value) => void changeAppearance(value)}
             onSignOut={() => void signOut({ redirectTo: '/login' })}

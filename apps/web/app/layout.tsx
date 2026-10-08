@@ -5,7 +5,7 @@ import { AccountMenu } from '../components/auth/AccountMenu';
 import { PreferencesProvider } from '../components/preferences/PreferencesContext';
 import { auth } from '../lib/auth';
 import { prisma } from '../lib/db';
-import { toPalette } from '../lib/me';
+import { toPalette, toWeightUnit } from '../lib/me';
 import { DEFAULT_PALETTE } from '@mesocycle/shared';
 import './globals.css';
 
@@ -18,7 +18,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { name: true, email: true, showRir: true, palette: true, colorMode: true },
+        select: { name: true, email: true, showRir: true, weightUnit: true, palette: true, colorMode: true },
       })
     : null;
   // Rendered on the server, so the page never flashes the default colors first.
@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="en" data-palette={appearance.palette} data-mode={appearance.colorMode}>
       <body className="flex h-dvh flex-col overflow-hidden text-graphite-50 antialiased">
         {/* Wraps the header too: the account menu changes the preferences the pages read. */}
-        <PreferencesProvider initialShowRir={user?.showRir ?? true} initialAppearance={appearance}>
+        <PreferencesProvider initialShowRir={user?.showRir ?? true} initialWeightUnit={toWeightUnit(user?.weightUnit ?? 'lb')} initialAppearance={appearance}>
           <header className="relative z-40 shrink-0 border-b border-graphite-800/80 bg-graphite-950/70 backdrop-blur">
             <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-4">
               <Link href="/mesocycles" className="flex items-center gap-2 font-semibold tracking-tight">
@@ -40,15 +40,20 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 >
                   M
                 </span>
-                <span>
+                {/* The name is hidden on phones so the header links fit. */}
+                <span className="hidden sm:inline">
                   Mesocycle <span className="text-aqua-400">Builder</span>
                 </span>
+                <span className="sr-only sm:hidden">Mesocycle Builder</span>
               </Link>
               <div className="flex items-center gap-4">
                 {user ? (
                   <>
                     <Link href="/mesocycles" className="text-sm text-graphite-300 hover:text-graphite-50">
                       My mesocycles
+                    </Link>
+                    <Link href="/records" className="text-sm text-graphite-300 hover:text-graphite-50">
+                      Personal bests
                     </Link>
                     <AccountMenu name={user.name} email={user.email} />
                   </>

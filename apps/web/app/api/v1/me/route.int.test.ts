@@ -9,7 +9,7 @@ import { GET, PATCH } from './route';
 
 beforeEach(async () => {
   await cleanCustomData();
-  await prisma.user.update({ where: { email: 'integration-dev@example.com' }, data: { showRir: true, name: null, palette: 'graphite', colorMode: 'dark' } });
+  await prisma.user.update({ where: { email: 'integration-dev@example.com' }, data: { showRir: true, name: null, palette: 'graphite', colorMode: 'dark', weightUnit: 'lb' } });
 });
 afterAll(async () => {
   await cleanCustomData();
@@ -27,7 +27,7 @@ describe('GET /api/v1/me', () => {
       email: 'integration-dev@example.com',
       name: null,
       sign_in: { password: false, google: false },
-      preferences: { show_rir: true, palette: 'graphite', color_mode: 'dark' },
+      preferences: { show_rir: true, palette: 'graphite', color_mode: 'dark', weight_unit: 'lb' },
       stats: { workouts_completed: 0, workouts_skipped: 0, sets_completed: 0, mesocycles_completed: 0, mesocycles_total: 0, active: null },
     });
   });
@@ -47,6 +47,14 @@ describe('GET /api/v1/me', () => {
       mesocycles_total: 1,
       active: { id: locked.id, name: 'Tracked', done: 2, total: 3 },
     });
+
+    // A completed workout with logged sets counts what was logged, not its target.
+    const w3 = locked.weeks[2]!.sessions[0]!;
+    for (const setNumber of [1, 2, 3]) {
+      await prisma.loggedSet.create({ data: { sessionExerciseId: w3.exercises[0]!.id, setNumber, reps: 8, weight: 100 } });
+    }
+    await setStatus(w3.id, 'completed');
+    expect((await me()).stats.sets_completed).toBe(13);
   });
 
   it('returns 401 without a session', async () => {
@@ -67,11 +75,16 @@ describe('PATCH /api/v1/me', () => {
 
   it('saves the palette and the light or dark mode', async () => {
     const body = MeSchema.parse(await (await patch({ palette: 'frost', color_mode: 'light' })).json());
-    expect(body.preferences).toEqual({ show_rir: true, palette: 'frost', color_mode: 'light' });
+    expect(body.preferences).toEqual({ show_rir: true, palette: 'frost', color_mode: 'light', weight_unit: 'lb' });
     expect((await me()).preferences.palette).toBe('frost');
   });
 
-  it.each([{}, { show_rir: 'no' }, { name: '' }, { palette: 'neon' }, { color_mode: 'sepia' }])('returns 400 for %j', async (body) => {
+  it('saves the weight unit', async () => {
+    expect(MeSchema.parse(await (await patch({ weight_unit: 'kg' })).json()).preferences.weight_unit).toBe('kg');
+    expect((await me()).preferences.weight_unit).toBe('kg');
+  });
+
+  it.each([{}, { show_rir: 'no' }, { weight_unit: 'stone' }, { name: '' }, { palette: 'neon' }, { color_mode: 'sepia' }])('returns 400 for %j', async (body) => {
     expect((await patch(body)).status).toBe(400);
   });
 

@@ -21,7 +21,7 @@ export default async function globalSetup() {
   const prisma = new PrismaClient({ datasources: { db: { url } } });
   try {
     await seedDevUser(prisma, E2E_EMAIL);
-    await prisma.user.update({ where: { email: E2E_EMAIL }, data: { passwordHash: await hashPassword(E2E_PASSWORD), name: 'E2E Tester' } });
+    await prisma.user.update({ where: { email: E2E_EMAIL }, data: { passwordHash: await hashPassword(E2E_PASSWORD), name: 'E2E Tester', weightUnit: 'lb' } });
     await seedCatalog(prisma);
     await prisma.mesocycle.deleteMany({});
     await prisma.exercise.deleteMany({ where: { isCustom: true } });

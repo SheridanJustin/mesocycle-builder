@@ -24,7 +24,15 @@ async function lockedMesocycle(request: APIRequestContext, name: string, weeks =
 const unique = (name: string) => `${name} ${Date.now().toString(36)}`;
 const card = (page: Page, day: string) => page.getByTestId('session-card').filter({ has: page.getByRole('heading', { name: day, exact: true }) });
 
-test('workouts can be completed, skipped and undone; a finished week and mesocycle are marked complete', async ({ page, request }) => {
+// Opens a workout from the plan and finishes it without logging sets, then returns to week `weekNumber`.
+async function finishWorkout(page: Page, day: string, weekNumber: number) {
+  await card(page, day).getByRole('link', { name: /Start workout|Continue workout/ }).click();
+  await page.getByRole('button', { name: 'Finish workout' }).click();
+  await page.waitForURL(/\/mesocycles\/[^/]+$/);
+  await page.getByTestId(`week-tab-${weekNumber}`).click();
+}
+
+test('workouts can be finished, skipped and undone; a finished week and mesocycle are marked complete', async ({ page, request }) => {
   const name = unique('Tracked');
   const id = await lockedMesocycle(request, name);
   await page.goto(`/mesocycles/${id}`);
@@ -37,7 +45,7 @@ test('workouts can be completed, skipped and undone; a finished week and mesocyc
   await expect(page.getByTestId('rest-card').first()).toContainText('Rest day');
   await expect(page.getByTestId('rest-card').first()).toContainText('Oct 6');
 
-  await card(page, 'Mon').getByRole('button', { name: 'Complete' }).click();
+  await finishWorkout(page, 'Mon', 1);
   await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('✓ Completed');
   await expect(page.getByTestId('plan-progress')).toContainText('1 of 6 workouts done');
   await expect(page.getByTestId('week-complete')).toHaveCount(0);
@@ -50,13 +58,13 @@ test('workouts can be completed, skipped and undone; a finished week and mesocyc
   await card(page, 'Thu').getByRole('button', { name: 'Undo' }).click();
   await expect(card(page, 'Thu').getByRole('button', { name: 'Skip' })).toBeVisible();
   await expect(page.getByTestId('week-complete')).toHaveCount(0);
-  await card(page, 'Thu').getByRole('button', { name: 'Complete' }).click();
+  await finishWorkout(page, 'Thu', 1);
   await expect(page.getByTestId('week-complete')).toBeVisible();
 
   for (const n of [2, 3]) {
     await page.getByTestId(`week-tab-${n}`).click();
     for (const day of ['Mon', 'Thu']) {
-      await card(page, day).getByRole('button', { name: 'Complete' }).click();
+      await finishWorkout(page, day, n);
       await expect(card(page, day).getByTestId('session-status')).toHaveText('✓ Completed');
     }
   }
@@ -87,7 +95,7 @@ test('an active mesocycle can be dropped; it goes to the archive and can then be
   await page.getByRole('dialog', { name: 'Drop this mesocycle?' }).getByRole('button', { name: 'Drop mesocycle' }).click();
   await expect(page.getByTestId('status-badge')).toHaveText('dropped');
   await expect(page.getByRole('status').filter({ hasText: 'You dropped this mesocycle' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Complete' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Start workout' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Drop mesocycle' })).toHaveCount(0);
 
   await page.goto('/mesocycles');
@@ -127,14 +135,14 @@ test('quick clicks on several workouts are all saved', async ({ page, request })
   await page.goto(`/mesocycles/${id}`);
   await page.getByTestId('week-tab-1').click();
   // Thu is clicked while Mon is still saving: each workout has its own pending state.
-  await card(page, 'Mon').getByRole('button', { name: 'Complete' }).click();
+  await card(page, 'Mon').getByRole('button', { name: 'Skip' }).click();
   await card(page, 'Thu').getByRole('button', { name: 'Skip' }).click();
-  await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('✓ Completed');
+  await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('Skipped');
   await expect(card(page, 'Thu').getByTestId('session-status')).toHaveText('Skipped');
   await expect(page.getByTestId('week-complete')).toBeVisible();
   await page.reload();
   await page.getByTestId('week-tab-1').click();
-  await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('✓ Completed');
+  await expect(card(page, 'Mon').getByTestId('session-status')).toHaveText('Skipped');
   await expect(card(page, 'Thu').getByTestId('session-status')).toHaveText('Skipped');
 });
 
@@ -156,10 +164,10 @@ test('only one mesocycle runs at a time: locking in pauses the running one, whic
   await page.goto(`/mesocycles/${first}`);
   await expect(page.getByTestId('status-badge')).toHaveText('paused');
   await expect(page.getByRole('status').filter({ hasText: 'Paused' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Complete' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Start workout' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Resume mesocycle' }).click();
   await expect(page.getByTestId('status-badge')).toHaveText('active');
-  await expect(page.getByRole('button', { name: 'Complete' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start workout' }).first()).toBeVisible();
 
   await page.goto('/mesocycles');
   const secondCard = page.getByTestId('mesocycle-card').filter({ hasText: secondName });

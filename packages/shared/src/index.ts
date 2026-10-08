@@ -9,3 +9,4 @@ export * from './volume';
 export * from './templates';
 export * from './progression';
 export * from './auth';
+export * from './workout';
