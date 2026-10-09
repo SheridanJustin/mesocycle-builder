@@ -1,17 +1,95 @@
-# Mesocycle Builder
+# Mesocycle Builder – Hypertrophy Training Planner
 
-Hypertrophy mesocycle and schedule builder. Full spec: [`docs/SPEC.md`](docs/SPEC.md).
+## Preview
 
-Build a 3–10 week hypertrophy mesocycle on a horizontal board of day columns (dark theme), with a sticky weekly-volume bar
-that updates live against MV / MEV / MAV / MRV landmarks, plus a Review screen and lock-in, which freezes the plan and creates every week's workouts.
+<p align="center">
+  <img src="docs/screenshots/04-builder-board.png" width="49%"/>
+  <img src="docs/screenshots/10-workout-logger.png" width="49%"/>
+</p>
 
-## Prerequisites
+<p align="center">
+  <img src="docs/screenshots/09-plan.png" width="49%"/>
+  <img src="docs/screenshots/05-builder-volume-details.png" width="49%"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/13-personal-bests.png" width="49%"/>
+  <img src="docs/screenshots/16-builder-light-frost.png" width="49%"/>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/18-phone-builder.png" width="25%"/>
+  <img src="docs/screenshots/19-phone-workout-logger.png" width="25%"/>
+  <img src="docs/screenshots/20-phone-plan.png" width="25%"/>
+</p>
+
+More screens (login, templates, Review, lock-in, settings…) are in [`docs/screenshots`](docs/screenshots).
+
+---
+
+## What is Mesocycle Builder?
+
+Mesocycle Builder is a web app for planning and running hypertrophy training blocks (mesocycles) of 3–10 weeks.
+You lay out your training week on a board of day columns, and a volume bar shows live how many weekly sets each
+muscle group gets compared with its landmarks (MV, MEV, MAV, MRV), so you can see at a glance whether a muscle is
+under-trained, in its growth zone or past what it can recover from. Once the plan looks right you lock it in: every
+week's workouts are generated with an RIR ramp and an optional deload, and you log your sets as you train.
+
+---
+
+## Features
+
+**Mesocycle Builder**
+  - Drag-and-drop board: one column per day, exercises as cards (touch and keyboard friendly)
+  - Prebuilt templates: Full Body, Upper / Lower, Push / Pull / Legs and more
+  - ~100 exercises with muscle and equipment filters, plus your own custom exercises
+
+**Live Volume Tracking**
+  - Weekly sets per muscle group, colored against MV / MEV / MAV / MRV landmarks
+  - Click a muscle group to see which exercises contribute to it
+  - Review screen with session length estimates and total sets for the whole block
+
+**Lock-in and Progression**
+  - Generates every week's workouts, with RIR dropping each week and an optional deload week
+  - Warns you before locking in a muscle group below maintenance or above its recoverable volume
+  - Extend a running mesocycle by a few weeks; export a week as a PNG
+
+**Workout Logging**
+  - Log weight and reps per set; your previous workout's numbers are the placeholders
+  - Tap ✓ on an empty row to repeat last time's numbers
+  - Add or remove sets on the fly; the change carries over to the following weeks
+  - Warns you before finishing a workout with empty sets
+
+**Progress Tracking**
+  - PR badges when you beat your best set
+  - Personal bests page: estimated 1RM, heaviest set and most bodyweight reps per exercise
+  - Workouts, sets and mesocycles completed, plus an archive of finished blocks
+
+**Accounts and Personalization**
+  - Email and password or Google sign-in
+  - Six color palettes, each with dark and light mode
+  - Avatar icons, kg or lb, and an option to hide RIR
+
+---
+
+## Author
+
+**Justin Kadyrov**  
+Software Developer & Fitness Enthusiast
+
+---
+
+## Running it locally
+
+Full spec: [`docs/SPEC.md`](docs/SPEC.md).
+
+### Prerequisites
 
 - Node.js 22+
 - pnpm 9.15.4+
 - PostgreSQL running locally on port 5432 (no Docker needed)
 
-## Setup (PowerShell)
+### Setup (PowerShell)
 
 ```powershell
 Copy-Item .env.example .env      # then edit the passwords/database names and set AUTH_SECRET (see below)
@@ -32,7 +110,7 @@ pnpm dev                         # http://localhost:3000
 Do not commit `.env`. Your mesocycles from before accounts existed belong to `DEV_USER_EMAIL`: create an account with that
 email (on `/login`, Create account) to keep them.
 
-## Using the app
+### Using the app
 
 Open <http://localhost:3000>. You'll be asked to sign in: **Create account** (email and password) or **Continue with Google**.
 Your avatar in the header opens a small account menu: name, email, the active mesocycle's progress, **Personal bests**,
@@ -75,12 +153,12 @@ On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to r
    current one, and **Resume mesocycle** on a paused one switches back (pausing the other).
 9. Changes **autosave** (Saving… / Saved / Save failed with Retry). Reload any time to resume.
 
-## Color palettes
+### Color palettes
 
 Palettes live in `apps/web/lib/themes/palettes.ts`. After editing one, regenerate the CSS with
 `pnpm --filter @mesocycle/web themes` (a unit test fails if `app/themes.css` is out of date, and another checks contrast).
 
-## Commands
+### Commands
 
 ```powershell
 pnpm lint
@@ -97,7 +175,7 @@ The e2e run starts its own dev server on port 3100 with its own build folder (`.
 First time running e2e, install the browser: `pnpm --filter @mesocycle/web exec playwright install chromium`.
 To use a Chromium you already have, set `PW_CHROMIUM_EXECUTABLE` to its path.
 
-## API
+### API
 
 All under `/api/v1` (see SPEC section 6).
 
@@ -111,7 +189,7 @@ All under `/api/v1` (see SPEC section 6).
 - `POST /mesocycles/{id}/duplicate-day`, `POST /mesocycles/validate-volume`
 - `GET /api/health`
 
-## Layout
+### Layout
 
 - `apps/web`: Next.js app (UI, API routes, Prisma schema and migrations, Playwright tests)
 - `packages/shared`: enums, constants and Zod schemas used by the app and the API
