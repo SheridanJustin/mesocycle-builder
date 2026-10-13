@@ -96,7 +96,7 @@ test('"Start from a template" on the list creates a named, filled-in mesocycle',
   await page.goto('/mesocycles');
   await page.getByRole('button', { name: 'Start from a template' }).click();
   const picker = page.getByRole('dialog', { name: 'Start from a template' });
-  await expect(picker.getByRole('list', { name: 'Templates' }).getByRole('listitem')).toHaveCount(4);
+  await expect(picker.getByRole('list', { name: 'Templates' }).getByRole('listitem')).toHaveCount(5);
   await picker.getByTestId('template-upper-lower-4').click();
 
   await page.waitForURL(/\/mesocycles\/[0-9a-f-]+\/build/);

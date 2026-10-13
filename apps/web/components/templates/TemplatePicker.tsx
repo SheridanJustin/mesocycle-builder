@@ -34,6 +34,8 @@ export function TemplatePicker({ open, onClose, onPick, note, busyId = null, err
           const training = template.days.filter((day) => day.length > 0);
           const exercises = training.reduce((sum, day) => sum + day.length, 0);
           const sets = training.reduce((sum, day) => sum + day.reduce((s, slot) => s + slot.sets, 0), 0);
+          // A cycle that is not a Mon-Sun week counts per cycle, e.g. "6 of 8 days".
+          const weekly = template.days.length === WEEK_DAYS;
           return (
             <li key={template.id}>
               <button
@@ -46,7 +48,7 @@ export function TemplatePicker({ open, onClose, onPick, note, busyId = null, err
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="font-semibold text-graphite-50">{template.name}</span>
                   <span className="shrink-0 text-xs font-medium text-aqua-300">
-                    {busyId === template.id ? 'Applying…' : `${training.length} days / week`}
+                    {busyId === template.id ? 'Applying…' : weekly ? `${training.length} days / week` : `${training.length} of ${template.days.length} days`}
                   </span>
                 </span>
                 <span className="text-xs leading-relaxed text-graphite-400">{template.summary}</span>
@@ -63,7 +65,7 @@ export function TemplatePicker({ open, onClose, onPick, note, busyId = null, err
                   ))}
                 </span>
                 <span className="text-[11px] text-graphite-400">
-                  {exercises} exercises · {sets} sets per week
+                  {exercises} exercises · {sets} sets per {weekly ? 'week' : 'cycle'}
                 </span>
               </button>
             </li>

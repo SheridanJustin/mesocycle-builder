@@ -43,6 +43,19 @@ describe('templateToState', () => {
     }
   });
 
+  it('gives the Min-Max priority template its sets in priority order over an 8-day cycle', () => {
+    const template = MESOCYCLE_TEMPLATES.find((t) => t.id === 'min-max-priority-8')!;
+    const { state } = templateToState(template, catalog, makeId);
+    expect(state.mode).toBe('relative');
+    expect(state.days.map((d) => d.slots.length > 0)).toEqual([true, true, true, false, true, true, true, false]);
+    const volume = computeBuilderVolume(state, landmarks);
+    const sets = (group: (typeof MUSCLE_GROUPS)[number]) => volume.summary[group]?.total_sets ?? 0;
+    const order = ['shoulders', 'chest', 'back', 'quads', 'biceps', 'triceps'] as const;
+    for (let i = 1; i < order.length; i++) expect(sets(order[i - 1]!), order[i]).toBeGreaterThanOrEqual(sets(order[i]!));
+    for (const rest of ['hamstrings', 'glutes', 'calves', 'abs'] as const) expect(sets(rest), rest).toBeLessThan(sets('triceps'));
+    expect(sets('shoulders')).toBe(groups.shoulders.mavHigh);
+  });
+
   it('names calendar days Mon-Sun with weekdays and copies the targets', () => {
     const template = MESOCYCLE_TEMPLATES.find((t) => t.id === 'upper-lower-4')!;
     const { state } = templateToState(template, catalog, makeId);

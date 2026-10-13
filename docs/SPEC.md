@@ -604,7 +604,9 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 | Upper / Lower | Mon, Tue, Thu, Fri |
 | Push / Pull / Legs + Upper / Lower | Mon, Tue, Wed, Fri, Sat |
 | Push / Pull / Legs | Mon–Sat |
+| Min-Max Priority (8-day) | 8-day numbered cycle: Days 1–3 and 5–7 train, Days 4 and 8 rest |
 
+- The 8-day template is after Jeff Nippard's Min-Max program and ranks volume by priority: shoulders at the top of their MAV, then chest, back, quads, biceps and triceps; hamstrings, glutes, calves and abs get about their MEV. Its picker card counts days and sets per cycle instead of per week.
 - Every template gives each of the 10 major groups at least its MEV and at most the top of its MAV with the seeded landmarks (a unit test enforces this), uses the board's rep-range presets and RIR 2.
 - **From the list:** "Start from a template" opens a picker (name, description, a Mon–Sun strip showing training days, exercise and weekly-set counts). Picking one creates a mesocycle named after the template, saves its schedule through `PUT /schedule` and opens the board.
 - **On the board:** the **Templates** button opens the same picker. If the board has exercises, a confirmation dialog warns that every day will be replaced. An untitled mesocycle takes the template's name.

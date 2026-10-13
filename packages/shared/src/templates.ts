@@ -102,6 +102,56 @@ const LEGS_B = [
   ex('Hanging Leg Raise', 2, ARMS),
 ];
 
+// Min-Max-style 8-day cycle: few exercises per muscle, each set taken close to failure. Sets per
+// cycle follow a priority order against each group's MAV: shoulders near the top, then chest, back,
+// quads, biceps and triceps; hamstrings, glutes, calves and abs get about their MEV.
+const PRIORITY_UPPER_A = [
+  ex('Incline Dumbbell Press', 3, HEAVY),
+  ex('Pec Deck', 3, ARMS),
+  ex('Pull-Up', 3, HEAVY),
+  ex('Cable Lateral Raise', 3, LIGHT),
+  ex('Cable Pushdown', 2, ARMS),
+];
+const PRIORITY_LOWER_A = [
+  ex('Barbell Back Squat', 3, HEAVY),
+  ex('Leg Extension', 3, ARMS),
+  ex('Lying Leg Curl', 3, ARMS),
+  ex('Standing Calf Raise', 4, ARMS),
+  ex('Cable Crunch', 2, ARMS),
+];
+const PRIORITY_UPPER_B = [
+  ex('Close-Grip Pulldown', 3, MODERATE),
+  ex('T-Bar Row', 3, MODERATE),
+  ex('Machine Chest Press', 4, MODERATE),
+  ex('Machine Lateral Raise', 3, LIGHT),
+  ex('Reverse Pec Deck', 3, LIGHT),
+  ex('Machine Shrug', 2, MODERATE),
+  ex('EZ-Bar Preacher Curl', 2, ARMS),
+];
+const PRIORITY_DELTS_ARMS = [
+  ex('Dumbbell Lateral Raise', 3, LIGHT),
+  ex('Face Pull', 3, LIGHT),
+  ex('Cable Fly', 3, ARMS),
+  ex('Cable Curl', 3, ARMS),
+  ex('Overhead Cable Triceps Extension', 3, ARMS),
+  ex('Hammer Curl', 3, ARMS),
+];
+const PRIORITY_LOWER_B = [
+  ex('Leg Press', 4, MODERATE),
+  ex('Romanian Deadlift', 3, MODERATE),
+  ex('Bulgarian Split Squat', 2, MODERATE),
+  ex('Leg Extension', 3, ARMS),
+  ex('Seated Calf Raise', 4, ARMS),
+  ex('Hanging Leg Raise', 2, ARMS),
+];
+const PRIORITY_UPPER_C = [
+  ex('Barbell Bench Press', 3, HEAVY),
+  ex('Lat Pulldown', 3, MODERATE),
+  ex('Dumbbell Fly', 3, ARMS),
+  ex('Seated Cable Row', 2, MODERATE),
+  ex('Cable Lateral Raise', 2, LIGHT),
+];
+
 export const MESOCYCLE_TEMPLATES: readonly MesocycleTemplate[] = [
   {
     id: 'full-body-3',
@@ -171,6 +221,14 @@ export const MESOCYCLE_TEMPLATES: readonly MesocycleTemplate[] = [
     summary: '6 days a week (Mon–Sat). Push, pull and legs, twice through. Higher frequency for experienced lifters.',
     mode: 'calendar',
     days: [PUSH_A, PULL_A, LEGS_A, PUSH_B, PULL_B, LEGS_B, REST],
+  },
+  {
+    id: 'min-max-priority-8',
+    name: 'Min-Max Priority (8-day)',
+    summary:
+      '6 training days in an 8-day cycle, after the Min-Max program. Most volume goes to shoulders, then chest, back, quads, biceps and triceps; the rest of the lower body and abs get maintenance-level work.',
+    mode: 'relative',
+    days: [PRIORITY_UPPER_A, PRIORITY_LOWER_A, PRIORITY_UPPER_B, REST, PRIORITY_DELTS_ARMS, PRIORITY_LOWER_B, PRIORITY_UPPER_C, REST],
   },
 ];
 
