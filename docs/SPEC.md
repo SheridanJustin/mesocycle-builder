@@ -596,7 +596,7 @@ From a day's menu: **Duplicate as new day** (numbered cycles, up to 10 days) ins
 
 ### 10.10 Templates
 
-Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) and referencing seeded exercises by name:
+Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) and referencing seeded exercises by name. Most are Mon–Sun weeks; a numbered-days template sets its own cycle length:
 
 | Template | Days (Mon–Sun week) |
 |---|---|
@@ -604,9 +604,10 @@ Prebuilt starting points, defined in `packages/shared` (`MESOCYCLE_TEMPLATES`) a
 | Upper / Lower | Mon, Tue, Thu, Fri |
 | Push / Pull / Legs + Upper / Lower | Mon, Tue, Wed, Fri, Sat |
 | Push / Pull / Legs | Mon–Sat |
+| Upper / Lower / Shoulders & Arms | 8-day cycle (numbered days): Days 1–3 and 5–7, rest on Days 4 and 8 |
 
 - Every template gives each of the 10 major groups at least its MEV and at most the top of its MAV with the seeded landmarks (a unit test enforces this), uses the board's rep-range presets and RIR 2.
-- **From the list:** "Start from a template" opens a picker (name, description, a Mon–Sun strip showing training days, exercise and weekly-set counts). Picking one creates a mesocycle named after the template, saves its schedule through `PUT /schedule` and opens the board.
+- **From the list:** "Start from a template" opens a picker (name, description, a strip of the cycle's days (Mon–Sun, or D1…DN for numbered days) showing training days, exercise and set counts per week or per cycle). Picking one creates a mesocycle named after the template, saves its schedule through `PUT /schedule` and opens the board.
 - **On the board:** the **Templates** button opens the same picker. If the board has exercises, a confirmation dialog warns that every day will be replaced. An untitled mesocycle takes the template's name.
 - Exercises are matched by name against `GET /exercises` (built-in exercises win over custom ones with the same name). A name that is missing from the catalog is skipped and listed in a notice.
 

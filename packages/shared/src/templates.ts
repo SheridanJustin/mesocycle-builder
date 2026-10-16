@@ -102,6 +102,47 @@ const LEGS_B = [
   ex('Hanging Leg Raise', 2, ARMS),
 ];
 
+// 8-day cycle for shoulder, chest and pull-up priority: pull-ups or chin-ups on every upper-body
+// day, shoulders on four days spaced two apart, chest and back four days apart, legs quad-first.
+const UPPER_PULLUP_A = [
+  ex('Pull-Up', 4, HEAVY),
+  ex('Incline Dumbbell Press', 4, MODERATE),
+  ex('Seated Dumbbell Shoulder Press', 3, MODERATE),
+];
+const UPPER_PULLUP_B = [
+  ex('Pull-Up', 4, HEAVY),
+  ex('Barbell Bench Press', 4, HEAVY),
+  ex('Cable Lateral Raise', 3, LIGHT),
+];
+const SHOULDERS_ARMS_A = [
+  ex('Dumbbell Lateral Raise', 3, LIGHT),
+  ex('Reverse Pec Deck', 2, LIGHT),
+  ex('Chin-Up', 3, HEAVY),
+  ex('Cable Fly', 3, ARMS),
+  ex('Incline Dumbbell Curl', 3, ARMS),
+  ex('Cable Pushdown', 2, ARMS),
+];
+const SHOULDERS_ARMS_B = [
+  ex('Machine Lateral Raise', 3, LIGHT),
+  ex('Face Pull', 2, LIGHT),
+  ex('Chin-Up', 3, HEAVY),
+  ex('Pec Deck', 3, ARMS),
+  ex('Cable Curl', 3, ARMS),
+  ex('Overhead Cable Triceps Extension', 2, ARMS),
+];
+const LOWER_QUADS_A = [
+  ex('Barbell Back Squat', 3, HEAVY),
+  ex('Leg Extension', 3, ARMS),
+  ex('Romanian Deadlift', 3, MODERATE),
+  ex('Standing Calf Raise', 4, ARMS),
+];
+const LOWER_QUADS_B = [
+  ex('Hack Squat', 3, MODERATE),
+  ex('Leg Extension', 3, ARMS),
+  ex('Lying Leg Curl', 3, ARMS),
+  ex('Seated Calf Raise', 4, ARMS),
+];
+
 export const MESOCYCLE_TEMPLATES: readonly MesocycleTemplate[] = [
   {
     id: 'full-body-3',
@@ -171,6 +212,14 @@ export const MESOCYCLE_TEMPLATES: readonly MesocycleTemplate[] = [
     summary: '6 days a week (Mon–Sat). Push, pull and legs, twice through. Higher frequency for experienced lifters.',
     mode: 'calendar',
     days: [PUSH_A, PULL_A, LEGS_A, PUSH_B, PULL_B, LEGS_B, REST],
+  },
+  {
+    id: 'upper-lower-arms-8',
+    name: 'Upper / Lower / Shoulders & Arms',
+    summary:
+      '6 of 8 days (8-day cycle). Upper, lower, shoulders & arms, rest, twice through. Shoulders every other day, pull-ups on every upper-body day.',
+    mode: 'relative',
+    days: [UPPER_PULLUP_A, LOWER_QUADS_A, SHOULDERS_ARMS_A, REST, UPPER_PULLUP_B, LOWER_QUADS_B, SHOULDERS_ARMS_B, REST],
   },
 ];
 
