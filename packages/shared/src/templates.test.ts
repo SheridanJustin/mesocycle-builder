@@ -27,4 +27,14 @@ describe('MESOCYCLE_TEMPLATES', () => {
     expect(findTemplate('ppl-6')?.name).toBe('Push / Pull / Legs');
     expect(findTemplate('nope')).toBeUndefined();
   });
+
+  it('runs the 8-day split as numbered days with two rest days', () => {
+    const template = findTemplate('upper-lower-arms-8')!;
+    expect(template.mode).toBe('relative');
+    expect(template.days).toHaveLength(8);
+    expect(template.days.map((day) => day.length === 0)).toEqual([false, false, false, true, false, false, false, true]);
+    // Pull-ups or chin-ups open every upper-body day; shoulders open both shoulders & arms days.
+    expect([0, 4].map((i) => template.days[i]![0]!.exercise)).toEqual(['Pull-Up', 'Pull-Up']);
+    expect([2, 6].map((i) => template.days[i]!.some((slot) => slot.exercise === 'Chin-Up'))).toEqual([true, true]);
+  });
 });

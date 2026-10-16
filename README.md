@@ -123,7 +123,7 @@ On the list (**Current** and **Archive** tabs), drag a card by its ⠿ grip to r
 
 1. **New mesocycle** opens the board right away: an untitled 4-week mesocycle with a Mon–Sun week of rest days.
    **Start from a template** (or **Templates** on the board) fills the week with a prebuilt split: Full Body, Upper / Lower,
-   Push / Pull / Legs + Upper / Lower, or Push / Pull / Legs. Everything stays editable.
+   Push / Pull / Legs + Upper / Lower, Push / Pull / Legs, or the 8-day Upper / Lower / Shoulders & Arms. Everything stays editable.
 2. **+ Add** under a day opens the exercise picker. Filter with the muscle chips (several at once), search or pick equipment,
    tick one or many exercises and press **Add N exercises**. **+ Custom** creates your own exercise.
 3. Edit sets, reps and RIR on each card. Click the mesocycle name at the top to rename it. The sticky volume bar at the top shows weekly sets for each major
